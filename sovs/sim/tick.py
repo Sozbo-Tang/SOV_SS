@@ -1091,6 +1091,30 @@ v1.7 原文行序）+ 地面防空链（sense_air 消费端 / §F4 aa_try_engage
     独立 if（同拍 INBOUND→PATROL→DOGFIGHT 一拍多迁移不漏记）；两条留档：
     first_air_projectile 同拍释放即落地漏记（纯观测语义）、命令类导入面
     完整性意图保留〕。
+  - 空中仿真闭环·块3 跨域整局（2026-10-07；**sim 零行为改动**——只增
+    tests/test_fullgame_acceptance.py 场景与锚）：HeadlessAI 增三 keyword
+    （air_script=呼叫脚本注入〔None=AIR_CALL_SCRIPTS 缺省〕/hold_purchases=
+    部署期不购卡〔块3：deck 份保留给空投——否则贪婪购卡耗尽空降份致 PARATROOP
+    呼叫恒拒〕/air 画像落穿地面默认逻辑〔纯航空世界 mine/foes 恒空=零命令，
+    块2 锚不扰〕）+air 分支增两规则（运输机 PATROL 载荷/伞在身→AirAirdropCmd
+    敌锚点；RECON 每 150t AirPatrolCmd 敌锚点上空盘旋=对地标记圈——纯航空脚本
+    无这两型零触发）+合成 AA 载体（AA_W target_mask=AIR/AA_TPL air_ceiling=
+    HIGH 入 aa_roster——数值两轮调参：首版 acc9000/dmg25/60km 全灭七架零投放、
+    次版 dmg15 全回收零击落，终档 acc5500/dmg25/salvo1/reload80/range25km
+    「互有胜负」）+COMBINED_AIR_SCRIPTS（队1 全航空：t60 空降 Ju 52 抢在部署
+    购卡前扣份/斯图卡俯冲/Il-2M 攻击/Fw 189 侦察/补给 Ju 52；deck INFIL 2 份=
+    首呼+轮转重呼各扣一）+build_combined_world（队0=双防炮连+双步兵排南，
+    队1=航空+空降卡）。跨域三链整局锚（seed 42）：防空链 1013 防炮首发→1101
+    斯图卡击落（×3 冷却；末值 10863=后续回收 10263+600 MAX 合并——B-25 整局
+    活证）；支援链 1162 FAB100×2 投放→1163 弹着 resolve_blast 不分敌我——
+    南集群点叠放同拍全灭（elim{0:1163}，maxsup=0=受压制者同拍全灭观测面注）；
+    空投链伞兵两批+补给箱落地（305×2+template0 箱）——落地伞兵占南点翻 owner
+    改写裁决=队1 占点 1:0 胜（**跨域胜负链整局实证**：空投→落地→占点→D031）；
+    通道={AIR,HIT,SCATTER}（防空+航空双域、无渗透购卡=ECONOMY 零消费）；
+    同 seed 双 world 全局锁步双域指纹（U/E/W+A 段）位级一致+seed7 冒烟。
+    tests/test_fullgame_acceptance.py +2 锚（TestCombinedAirGround），全量
+    936 绿（934+2）。零掷骰面变化（纯验收块——AI 只读确定性状态；AA 链掷
+    HIT/SCATTER、航空掷 AIR 均既有通道纪律）。
   - PB-56 总收口盘点（2026-10-06；§D.7 :256-268 全集 22 类逐支机械核点
     ——python 正则对 _dispatch_command 分派支，line 号为本日快照）：
     **21 类已落真调用**（实现锚=分派支，测试锚=首要文件）：MoveCmd
