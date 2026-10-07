@@ -1114,7 +1114,13 @@ v1.7 原文行序）+ 地面防空链（sense_air 消费端 / §F4 aa_try_engage
     同 seed 双 world 全局锁步双域指纹（U/E/W+A 段）位级一致+seed7 冒烟。
     tests/test_fullgame_acceptance.py +2 锚（TestCombinedAirGround），全量
     936 绿（934+2）。零掷骰面变化（纯验收块——AI 只读确定性状态；AA 链掷
-    HIT/SCATTER、航空掷 AIR 均既有通道纪律）。
+    HIT/SCATTER、航空掷 AIR 均既有通道纪律）。〔独立评审 2026-10-07：通过
+    +4 非阻塞（插桩实跑锚值逐条核实）——修复四条：弹道注释机理改写（释放门=
+    机速临空、散布 ≤~2100cm→1-2 步，非"投放间距 8000cm"）/1301 RTB 归因改准
+    （Il-2M 手动 B-29 非 Ju 52 自动——Ju 52 弹尽自动 RTB 在后 1464）/
+    COMBINED_AIR_SCRIPTS 注释按实际行为改写（hold_purchases=零购卡、deck 两份
+    全由空投链消费）/双跑锁步补 30000 拍上限+末拍断言（PB-48 同款）；另录：
+    整局实投 4 补给箱（3 毁于近锚爆破 1 存活——末态断 1）〕。
   - PB-56 总收口盘点（2026-10-06；§D.7 :256-268 全集 22 类逐支机械核点
     ——python 正则对 _dispatch_command 分派支，line 号为本日快照）：
     **21 类已落真调用**（实现锚=分派支，测试锚=首要文件）：MoveCmd

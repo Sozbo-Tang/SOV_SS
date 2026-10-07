@@ -666,11 +666,10 @@ def build_air_world(seed):
     return _world_with_deck(seed, [[], []], [])
 
 
-# 跨域呼叫脚本（块3）：队1 全航空——空降兵投送（t60：抢在部署期第二拍购卡
-# 〔t100〕耗尽 deck 前扣份——t50 AI 购 1 走地面、本呼叫扣 1）/俯冲轰炸（对地
-# 覆盖轰炸）/攻击机（BOMB 投完手动 RTB）/侦察（敌上空盘旋标记）/补给箱投送；
-# 队0 无航空（地面防空链专属观测面）。PARATROOP=INFIL_TPL（deck 2 份：地面 1+
-# 空投 1——D017 预备队池双出口）
+# 跨域呼叫脚本（块3）：队1 全航空——空降兵投送（hold_purchases=True=部署期
+# 零购卡，deck 2 份全数留给空投链：t61 首呼扣 1、经济轮转重呼再扣 1）/俯冲
+# 轰炸（对地覆盖轰炸）/攻击机（BOMB 投完手动 RTB）/侦察（敌上空盘旋标记）/
+# 补给箱投送；队0 无航空（地面防空链专属观测面）。PARATROOP=INFIL_TPL
 COMBINED_AIR_SCRIPTS = (
     (1, 60, "JU52", {"PARATROOP": INFIL_TPL}),
     (1, 100, "JU87D", {"BOMB": 1}),
@@ -2424,16 +2423,18 @@ class TestCombinedAirGround(unittest.TestCase):
         # 防空链：防炮 1013 首发对空（航空器入 25km 火力圈）→斯图卡 1101 击落
         self.assertEqual(st["first_projectile_tick"], 1013)
         self.assertEqual(st["air_downed"], [(1101, 1, 13)])
-        # 支援链：651 首攻击令（实战首 %50 拍）→1162 空射弹丸（FAB100×2）→
-        # 1163 弹着全灭（ Bombs fly 1 tick at 400cm/tick×~8000cm 投放间距）→
-        # Ju 52 投完空降兵自动 RTB（GAP3-02 运输机支）1301
+        # 支援链：651 首攻击令（实战首 %50 拍）→1162 空射弹丸（FAB100×2，释放门
+        # =越线判据 dist≤机速——临空投放、散布点距投放位 ≤~2100cm→弹道 1-2 步）
+        # →1163 弹着 resolve_blast 不分敌我；1301 首个 RTB=Il-2M 手动弃权
+        # （B-29——AI %100 令、BOMB 耗尽判据；Ju 52 弹尽自动 RTB 在后 1464）
         self.assertEqual(st["first_air_strike_tick"], 651)
         self.assertEqual(st["first_air_projectile_tick"], 1162)
         self.assertEqual(st["first_death_tick"], 1163)
         self.assertEqual(st["elimination"], {0: 1163})
         self.assertEqual(st["first_air_rtb_tick"], 1301)
         self.assertEqual(st["max_suppression"], 0)   # 受压制者同拍全灭（观测面注）
-        # 空投链：伞兵两批+补给箱落地存活（template 305/0）；南点被伞兵翻转
+        # 空投链：伞兵两批+补给箱落地存活（template 305/0；整局实投 4 箱——
+        # 3 箱毁于后续近锚爆破、1 箱存活，末态断 1）；南点被伞兵翻转
         self.assertEqual([(u.team, u.template.template_id, u.alive)
                           for u in w.units],
                          [(1, 305, True), (1, 305, True), (1, 0, True)])
@@ -2465,7 +2466,9 @@ class TestCombinedAirGround(unittest.TestCase):
                            hold_purchases=(i == 1)) for i in (0, 1)]
         ais2 = [HeadlessAI(i, air=(i == 1), air_script=COMBINED_AIR_SCRIPTS,
                            hold_purchases=(i == 1)) for i in (0, 1)]
-        while w1.phase != PHASE_SETTLE:
+        while w1.phase != PHASE_SETTLE:      # PB-48 同款上限保护（评审补）
+            if w1.tick > 30000:
+                raise AssertionError("game did not settle within 30000 ticks")
             for a in ais1:
                 a.step(w1)
             for a in ais2:
@@ -2473,6 +2476,7 @@ class TestCombinedAirGround(unittest.TestCase):
             world_tick(w1)
             world_tick(w2)
             self.assertEqual(full_fingerprint(w1), full_fingerprint(w2))
+        self.assertEqual(w1.tick, 13801)
         for _ in range(25):
             world_tick(w1)
             world_tick(w2)
