@@ -1,0 +1,53 @@
+﻿card_key,field_path,grade,source_ref,pending_id
+SU_PARATROOP,category,拍板,O-05 拟步兵（施工方案§C.3；GDD-02 :326）,P-101
+SU_PARATROOP,per_card_limit,待定,air_data P-13 限份待 D032 细化——随步兵默认3,P-101
+GER_PARATROOP,category,拍板,O-05 拟步兵（施工方案§C.3；GDD-02 :335）,P-101
+GER_PARATROOP,per_card_limit,待定,air_data P-13 限份待 D032 细化——随步兵默认3,P-101
+SU_PARATROOP,elements[E_SU_PARA],待定,编制无GDD锚——拟近卫步枪排形态3班×10人、冲锋枪为主,P-102
+GER_PARATROOP,elements[E_GER_PARA],待定,编制无GDD锚——拟3班×10人、K98＋MP40混编,P-102
+SU_RECON,elements[E_SU_RECON],待定,hp_max口径冲突——GDD-03 §1.1步兵班100 vs IMPL :131 1HP=1人→按8人/班,P-103
+SU_RIFLE,elements[E_SU_RIFLE],待定,同上→按10人/班,P-103
+GER_GRENADIER,elements[E_GER_GREN],待定,同上→按9人/班,P-103
+SU_PARATROOP,elements[E_SU_PARA],待定,同上→按10人/班,P-103
+GER_PARATROOP,elements[E_GER_PARA],待定,同上→按10人/班,P-103
+SU_COMMISSAR,elements[E_SU_COMMISSAR],待定,同上→政委＋卫员2人,P-103
+SU_ZIS3,quota_group,拍板,O-04 拟HOWITZER（直射/曲射双职支援定位）,P-104
+SU_COMMISSAR,aura,待定,bonus_bp=1500〔GDD-02 :388〕；radius_cm=5000无锚,P-105
+SU_T3485,elements[E_SU_T34],待定,armor_he无独立锚——暂同KE（90/45/45/20mm→5;2;2;1）,P-108
+SU_T3485,elements[E_SU_T34].W_T34_D5T,待定,damage/alt_profile/散布/弹速保守值——§2.2仅锚射程1000m/装填8s/穿125/HE压制22,P-106
+SU_T3485,elements[E_SU_T34].W_T34_MG,待定,damage/弹量500保守值——§2.2仅锚400m/穿10/压制12,P-106
+SU_ZIS3,elements[E_SU_ZIS3].W_ZIS3_DIRECT,待定,damage/aim保守值；穿76mm→4按(mm+10)//20首版换算,P-107
+SU_ZIS3,elements[E_SU_ZIS3].W_ZIS3_INDIRECT,待定,damage/min_range保守值——§2.3仅锚帽3000m/压制25/溅射12m/基数6发,P-106
+GER_PAK40,elements[E_GER_PAK40].W_PAK40,待定,射程/装填取KwK40 L/48同弹种锚；穿132→7待换算表（O-02）,P-107
+GER_GRENADIER,elements[E_GER_GREN].W_GER_FAUST,待定,穿160mm→8待换算表（O-02）；damage保守,P-107
+SU_ZIS3,elements[E_SU_ZIS3],待定,炮班人数6（M22口径hp_max=炮班人数）；stealth_base=7无锚,P-112
+GER_PAK40,elements[E_GER_PAK40],待定,同上,P-112
+SU_TRUCK,elements[E_SU_TRUCK],待定,seats口径——载1个步兵班（R-07）按班计=1,P-114
+SU_T3485,stealth_base,待定,中坦隐蔽无锚——保守3,P-115
+SU_TRUCK,stealth_base,待定,卡车隐蔽无锚——保守3,P-115
+GER_GRENADIER,stealth_base,待定,掷弹兵隐蔽无锚——随步兵档6,P-115
+SU_ZIS3,pack_time_ticks,待定,收炮时间无锚——对称取300（展开300有锚：GDD-02 :451 30秒）,P-113
+GER_PAK40,pack_time_ticks,待定,同上,P-113
+SU_RECON,elements[E_SU_RECON].W_RECON_SMOKE,待定,烟罐档——max_range 5000/ammo 2无锚；blast 3000取tables.smoke_radius_cm,P-117
+SU_PARATROOP,flags,拍板,PB-31 2026-10-03 发起人授权：空降兵卡加 CAN_INFILTRATE（渗透计时机制全链可测）,
+GER_PARATROOP,flags,拍板,PB-31 2026-10-03 发起人授权：空降兵卡加 CAN_INFILTRATE（渗透计时机制全链可测）,
+SU_T3485,terrain_speed_override_bp,v1定标(2026-10-06总账),6500 占位——履带类缺省 7000 微降（断箭 N10 逐卡数据为现代装备不直接迁移、量级自类级锚）,P-120
+SU_T3485,reverse_speed_override_bp,v1定标(2026-10-06总账),2500 占位——T-34 慢倒车名例（MV-B-01 拍板预登记表原文）落 N12 履带 29~50% 区间下沿外推,P-120
+SU_T3485,road_bonus_override_cm,v1定标(2026-10-06总账),55 占位——N11 履带路/野 1.1~1.3×（越野 70×6500bp//10000=45、55/45≈1.22）,P-120
+SU_TRUCK,terrain_speed_override_bp,v1定标(2026-10-06总账),5500 占位——轮式类缺省 5000 微升（同上：断箭逐卡数据不直接迁移）,P-120
+GER_GRENADIER,flags,拍板,PB-57 追认 2026-10-06 发起人拍板：步兵/侦察/军官政委类可进驻建筑（加 CAN_GARRISON）,
+GER_PARATROOP,flags,拍板,PB-57 追认 2026-10-06 发起人拍板：步兵/侦察/军官政委类可进驻建筑（加 CAN_GARRISON）,
+SU_COMMISSAR,flags,拍板,PB-57 追认 2026-10-06 发起人拍板：步兵/侦察/军官政委类可进驻建筑（加 CAN_GARRISON）,
+SU_PARATROOP,flags,拍板,PB-57 追认 2026-10-06 发起人拍板：步兵/侦察/军官政委类可进驻建筑（加 CAN_GARRISON）,
+SU_RECON,flags,拍板,PB-57 追认 2026-10-06 发起人拍板：步兵/侦察/军官政委类可进驻建筑（加 CAN_GARRISON）,
+SU_RIFLE,flags,拍板,PB-57 追认 2026-10-06 发起人拍板：步兵/侦察/军官政委类可进驻建筑（加 CAN_GARRISON）,
+SU_TRUCK,flags,拍板,PB-56 批③收口 2026-10-06 发起人指令数据侧承载：补给卡补 HAS_SUPPLY（买补给链现役可达；CAN_GARRISON 先例同款）,
+SU_T3485,elements[E_SU_T34].W_T34_D5T,v1定标(推算占位),85mm 坦克炮攻坚 5000‰——ask 字面口径递进（85/76/75mm≈3000-5000‰ 取 85mm 上限档；10 dmg×5000‰=50/发、hp100 示范楼 2 发实测 140t（原注 160t 勘正——评审实测））,P-122
+SU_ZIS3,elements[E_SU_ZIS3].W_ZIS3_DIRECT,v1定标(推算占位),76mm 直射 4000‰——口径中值档（8 dmg×4000‰=32/发、hp100 楼 4 发实测 100t（直+曲合发；原注 240t 勘正））,P-122
+SU_ZIS3,elements[E_SU_ZIS3].W_ZIS3_INDIRECT,v1定标(推算占位),76mm 曲射 HE 同炮同值 4000‰——GDD-04:30『HE 克软目标/建筑』口径（勘察曾建议 2000 未采：ask 量级字面优先）,P-122
+GER_PAK40,elements[E_GER_PAK40].W_PAK40,v1定标(推算占位),75mm 反坦克炮 3000‰——口径下限档（10 dmg×3000‰=30/发、hp100 楼 4 发实测 275t（原注 260t 勘正））,P-122
+SU_T3485,turn_rate_deg,v1定标(推算占位),100=履带档上限（AMB-5 //10 换算→10°/tick、180°=18拍——ask 字面履带 5-10°/t；arc360 现为死值=窄弧 profile 留位）,P-123
+SU_ZIS3,turn_rate_deg,v1定标(推算占位),50=人力转炮慢于履带档（→5°/tick、180°=36拍=ask 可用量级窗下限；30° 射界内微调 6 拍）,P-123
+GER_PAK40,turn_rate_deg,v1定标(推算占位),50=牵引炮档同 ZiS-3（→5°/tick）,P-123
+SU_TRUCK,elements[E_SU_TRUCK],v1定标(推算占位),self_smoke_charges=2——ask 字面点名（补给车高价值软目标；cfg.self_smoke_default_charges=2 同值）,P-121
+SU_T3485,elements[E_SU_T34],v1定标(推算占位),self_smoke_charges=2——采勘察默认（史实锚 T-34 BDSh 发烟罐、N32 载具自卫字面；ask 字面仅点名 SU_TRUCK——此项可撤销）,P-121

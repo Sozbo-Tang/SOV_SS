@@ -1,0 +1,21 @@
+{
+  "cards": [
+    {
+      "card_key": "GER_GRENADIER",
+      "copies": 2
+    },
+    {
+      "card_key": "GER_PARATROOP",
+      "copies": 1
+    },
+    {
+      "card_key": "GER_PAK40",
+      "copies": 2
+    }
+  ],
+  "deck_key": "ger_min",
+  "faction": 1,
+  "points_main_cap": 4000,
+  "points_reserve_cap": 2000,
+  "schema_version": "1.3"
+}

@@ -1,0 +1,37 @@
+{
+  "cards": [
+    {
+      "card_key": "SU_RECON",
+      "copies": 1
+    },
+    {
+      "card_key": "SU_RIFLE",
+      "copies": 2
+    },
+    {
+      "card_key": "SU_PARATROOP",
+      "copies": 1
+    },
+    {
+      "card_key": "SU_COMMISSAR",
+      "copies": 1
+    },
+    {
+      "card_key": "SU_T3485",
+      "copies": 2
+    },
+    {
+      "card_key": "SU_ZIS3",
+      "copies": 1
+    },
+    {
+      "card_key": "SU_TRUCK",
+      "copies": 1
+    }
+  ],
+  "deck_key": "su_min",
+  "faction": 0,
+  "points_main_cap": 4000,
+  "points_reserve_cap": 2000,
+  "schema_version": "1.3"
+}

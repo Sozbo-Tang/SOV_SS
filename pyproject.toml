@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sov-ss"
+version = "0.1.0"
+description = "SOV_SS 确定性整型战术仿真核心：地面数据卡管线（CSV→pydantic→JSON）＋仿真侧加载（stdlib-only）"
+requires-python = ">=3.13"
+# 运行依赖仅 pydantic——构建期校验层（sovs/sim/card_schema.py、tools/build_cards.py）；
+# 仿真核心运行时（sovs/sim/card_loader.py 及其余 sim 模块）保持 stdlib-only（TECH-00 §3.2/§4）。
+dependencies = ["pydantic>=2.13"]
+
+[project.optional-dependencies]
+# 交换格式拍板为 CSV（DATA-01 §1）——stdlib csv 即读；openpyxl 仅为 xlsx 备用前端留位，
+# pandas 明确不引入（未装，且 dtype 推断会把 int 列静默升 float，与严格 int 纪律冲突）。
+xlsx = ["openpyxl>=3.1"]
+
+[tool.setuptools]
+packages = ["sovs", "sovs.sim"]

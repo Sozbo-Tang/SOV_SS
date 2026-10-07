@@ -1,0 +1,11 @@
+﻿card_key,template_id,name,faction,category,cost,pool,per_card_limit,quota_group,unlock_by,delivery,optics_ground_cm,optics_air_cm,air_ceiling,stealth_base,speed_tier,movement_class,turn_rate_deg,terrain_speed_override_bp,reverse_speed_override_bp,road_bonus_override_cm,morale_sup_th,morale_pin_th,morale_rout_th,deploy_time_ticks,pack_time_ticks,flags,mode_set,supply_radius_cm,sonar_radius_cm,sonar_rate,acoustic_signature,tow_tonnage,own_weight_tons,repair_power_hp_per_tick,close_combat_bonus_permille,size_factor_bp,aura
+SU_RECON,101,步兵侦察排,SOVIET,RECON,30,MAIN,,,,,60000,,,10,1,FOOT,,,,,,,,,,CAN_GARRISON,,,,,,,,,,,
+SU_RIFLE,102,步枪排,SOVIET,INFANTRY,45,MAIN,,,,,35000,,,6,1,FOOT,,,,,,,,,,CAN_GARRISON,,,,,,,,,,,
+SU_PARATROOP,103,空降近卫步枪排,SOVIET,INFANTRY,60,RESERVE,,,,LI2,35000,,,6,1,FOOT,,,,,,,,,,CAN_INFILTRATE;CAN_GARRISON,,,,,,,,,,,
+SU_COMMISSAR,104,政委班组,SOVIET,INFANTRY,25,MAIN,1,,,,35000,,,6,1,FOOT,,,,,,,,,,CAN_GARRISON,,,,,,,,,,,MELEE;1500;5000
+SU_T3485,105,T-34/85坦克排（3车）,SOVIET,ARMOR,100,MAIN,,,,,30000,,,3,3,TRACK,100,6500,2500,55,,,,,,,,,,,,,300,,,,
+SU_ZIS3,106,ZiS-3 76mm加农炮连（4门）,SOVIET,FIRE_SUPPORT,70,MAIN,,HOWITZER,,,30000,,,7,1,FOOT,50,,,,,,,300,300,,DIRECT;INDIRECT,,,,,,13,,,,
+SU_TRUCK,107,卡车队（ZiS-5，3辆）,SOVIET,AA_LOGISTICS,40,MAIN,,,,,30000,,,3,4,WHEEL,,5500,,,,,,,,HAS_SUPPLY,TOW;CARGO;TRANSPORT,,,,,15,,,,,
+GER_GRENADIER,201,掷弹兵排,GERMAN,INFANTRY,50,MAIN,,,,,35000,,,6,1,FOOT,,,,,,,,,,CAN_GARRISON,,,,,,,,,,,
+GER_PARATROOP,202,空降猎兵排,GERMAN,INFANTRY,65,RESERVE,,,,JU52,35000,,,6,1,FOOT,,,,,,,,,,CAN_INFILTRATE;CAN_GARRISON,,,,,,,,,,,
+GER_PAK40,203,PaK 40 75mm反坦克炮连（3门）,GERMAN,FIRE_SUPPORT,65,MAIN,,AT_GUN,,,30000,,,7,1,FOOT,50,,,,,,,300,300,,,,,,,,15,,,,

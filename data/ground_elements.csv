@@ -1,0 +1,11 @@
+﻿card_key,element_key,count,element_type,unit_type,hp_max,armor_ke,armor_he,fire_arc_deg,suppression_vuln_permille,squad_quality_bp,seats,mounted_armament,cargo_rounds_max,cargo_medical_max,cargo_weight_max,self_smoke_charges
+SU_RECON,E_SU_RECON,2,SQUAD,INFANTRY,8,,,,,,,,,,,
+SU_RIFLE,E_SU_RIFLE,3,SQUAD,INFANTRY,10,,,,,,,,,,,
+SU_PARATROOP,E_SU_PARA,3,SQUAD,INFANTRY,10,,,,,11500,,,,,,
+SU_COMMISSAR,E_SU_COMMISSAR,1,SQUAD,INFANTRY,2,,,,,,,,,,,
+SU_T3485,E_SU_T34,3,VEHICLE,MECH,90,5;2;2;1,5;2;2;1,360,,,,,,,,2
+SU_ZIS3,E_SU_ZIS3,4,GUN,INFANTRY,6,,,30,1500,,,,,,,
+SU_TRUCK,E_SU_TRUCK,3,VEHICLE,MECH,30,0;0;0;0,0;0;0;0,360,1500,,1,,600,120,600,2
+GER_GRENADIER,E_GER_GREN,3,SQUAD,INFANTRY,9,,,,,,,,,,,
+GER_PARATROOP,E_GER_PARA,3,SQUAD,INFANTRY,10,,,,,,,,,,,
+GER_PAK40,E_GER_PAK40,3,GUN,INFANTRY,6,,,30,1500,,,,,,,
