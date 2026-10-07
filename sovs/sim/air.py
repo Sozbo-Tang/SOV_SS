@@ -19,18 +19,19 @@ ParatroopCardSpec 对表）），tick.World.spawn_paratroop 桩已替换为
 tick.make_unit(rec.unit_template,…)＋tick.add_unit 真实现（AIR §F6 :610-619——
 本层 resolve_airdrop 回调语义不变：AMB3-06 构造+入 world.units 同构、deck 份
 装机即扣不重扣；施工方案 §E.3 对接点闭合；详见 tick.py 登记表）。
-扫射即时结算用 combat 冻结纯函数组合（armor TOP + damage_mult + apply_damage——
-等价地面 resolve_hit 的 TOP 分支；地面 resolve_hit 完整体落地后可切换）。
+扫射即时结算走 combat.resolve_hit（§F3 字面：Projectile{top_attack=TRUE}→resolve_hit
+——契约⑥ TOP 分支即时结算 B-13；〔2026-10-07 空中闭环·块1切换〕原"combat 冻结纯函数
+组合直扣"实现缺命中面压制注入且恒 TOP——地面 resolve_hit 完整体 2026-10-02 ⑤块落地，
+air.py 头注预留的切换点本块执行）。
 """
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
 
-from .combat import apply_damage, damage_mult_permille, armor_lookup
 from .geom import dist_cm, octant_deg, step_toward
 from .tables import BalanceConfig, CONFIG
-from .types import AltTier, DamageType, Facing, Trajectory, UnitType
+from .types import AltTier, DamageType, Trajectory, UnitType
 
 # §T DIR8/PERP8：全圆 8 向量（octant_deg 45° 制扇区序 0°北→315°），
 # 模长 7 或 √50≈7.071（各向异性 ≈1%，√50/7≈1.015%）；DIR_NORM=7（结构常量，非平衡常数）。
@@ -321,6 +322,9 @@ class AirProjectile:
     hit_target: object
     will_hit: bool
     top_attack: bool = False
+    pen_bonus: int = 0        # 对齐地面 Projectile 档案位（§F4 :790——resolve_hit
+                              # 读 p.pen_bonus；2026-10-07 空中闭环·块1 扫射切
+                              # resolve_hit 随补，空射恒 0）
 
 
 @dataclass(slots=True)
@@ -696,7 +700,6 @@ def resolve_strafe(world, a: AircraftInstance, s: AirTask,
     if w is None:
         return
     rng = world.rng.air()
-    from .combat import penetration_at  # 局部导入避免环
     for u in list(world.units):
         if u.team == a.team or not u.alive or not u.elements:
             continue
@@ -710,10 +713,20 @@ def resolve_strafe(world, a: AircraftInstance, s: AirTask,
                     break
                 acc = min(10000, w.accuracy_base_bp * cfg.strafe_acc_alt_bp[a.alt_tier] // 10000)
                 if rng.chance_bp(acc):
-                    pen = penetration_at(w, dist_cm(a.pos, x.pos))
-                    armor = armor_lookup(x, Facing.TOP, w.damage_type)  # 契约⑥：TOP
-                    mult = damage_mult_permille(x.template.unit_type, w.damage_type, pen, armor)
-                    apply_damage(world, x, w.damage * mult // 1000)
+                    # 〔2026-10-07 空中闭环·块1〕命中支改走 combat.resolve_hit
+                    # （§F3 字面：resolve_hit(world, p)——契约⑥ TOP 分支即时结算
+                    # B-13；air.py 头注预留的"地面完整体落地后可切换"切换点执行）：
+                    # 补齐命中面压制注入（resolve_hit 尾行 inject_suppression_area）
+                    # 与 compute_hit_facing 覆盖序（驻楼 REAR/转向 SIDE/顶攻 TOP——
+                    # 原直扣实现恒 TOP 且零压制，与本仓地面 TOP 分支不等价）。
+                    from .combat import resolve_hit
+                    resolve_hit(world, AirProjectile(
+                        shooter=air_shooter_view(a), weapon=w,
+                        damage_type=w.damage_type, damage=w.damage,
+                        blast_cm=w.blast_radius_cm, pos=a.pos, dest=x.pos,
+                        speed_cm_tick=w.projectile_speed_cm_tick,
+                        trajectory=Trajectory.DIRECT, hit_target=x,
+                        will_hit=True, top_attack=True))
                 else:
                     j = (rng.sym(cfg.strafe_suppress_jitter_cm),
                          rng.sym(cfg.strafe_suppress_jitter_cm))       # AMB-01

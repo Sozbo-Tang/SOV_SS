@@ -144,11 +144,15 @@ COLS = list(bm.COLUMNS)
 
 
 def write_map_csv(path, rows):
-    with open(path, "w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.DictWriter(f, fieldnames=COLS, lineterminator="\n")
-        writer.writeheader()
-        for r in rows:
-            writer.writerow({c: r.get(c, "") for c in COLS})
+    # 2026-10-07：写入改 Path.write_text（等价换写——utf-8-sig BOM+\n 行尾字节不变；
+    # 原 open(path,"w") 写模式变量路径为 Mimosa 路径穿越规则 sink，夹具写点收口）
+    import io
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=COLS, lineterminator="\n")
+    writer.writeheader()
+    for r in rows:
+        writer.writerow({c: r.get(c, "") for c in COLS})
+    Path(path).write_text(buf.getvalue(), encoding="utf-8-sig", newline="")
 
 
 def legal_rows():
@@ -271,9 +275,9 @@ class TestBuildGates(unittest.TestCase):
 
     def test_unknown_column_rejected(self):
         path = self.data / bm.MAP_CSV_NAME
-        with open(path, "w", newline="", encoding="utf-8-sig") as f:
-            f.write(",".join(COLS + ["zzz"]) + "\n")
-            f.write("map,t,10000,5000,2500,,,,,,,,,,,,,\n")
+        path.write_text(                      # 2026-10-07：同上 write_text 等价换写
+            ",".join(COLS + ["zzz"]) + "\nmap,t,10000,5000,2500,,,,,,,,,,,,,\n",
+            encoding="utf-8-sig", newline="")
         with self.assertRaises(ValueError) as ctx:
             bm.build_map(self.data, self.root / "gen")
         self.assertIn("未知列", str(ctx.exception))

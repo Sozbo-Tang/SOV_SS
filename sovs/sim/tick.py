@@ -1027,6 +1027,32 @@ v1.7 原文行序）+ 地面防空链（sense_air 消费端 / §F4 aa_try_engage
     块/感知接线块新增）。零掷骰（数据值/provenance/重建纯确定性——build_cards
     同输入字节相等锚在库；新测试不新增 PCG32 通道断言面，发射段掷骰属 fire_direct
     既有通道纪律、真卡 accuracy 缺省 10000 必中）。
+  - 空中仿真闭环·块1 航空命令层（2026-10-07；AIR_UNITS_PSEUDOCODE_IMPL_v1.4
+    §D.5 九命令——命令驱动契约⑦「AI 虚拟玩家走同一接口」）：九命令类
+    （AirCallCmd/AirMoveCmd/AirPatrolCmd/AirAltCmd/AirStrikeCmd/AirAirdropCmd/
+    AirEngageAirCmd/AirDisengageCmd/AirRTBCmd——tick.py 命令类区 BuySuppliesCmd
+    后新增，地面命令类同位先例）+_dispatch_command 九分派支真调用（处理体
+    air.py cmd_air_* 族 2026-10-01 行为层既有，本块只通命令流——块零新处理体）。
+    payload 键口径={BOMB,SUPPLY,PARATROOP}：§D.5 的 supply_rounds/supply_medical
+    双键已随 2026-10-03「一池按重量计」拍板并轨 SUPPLY 单键（地面 buy_supplies
+    :1225 换写同族先例，air.py cmd_air_call 既有口径照读——留痕可推翻）。
+    **连带规格对齐一处**：air.py resolve_strafe 命中支切 combat.resolve_hit
+    （§F3 字面 resolve_hit(world,p)——契约⑥ TOP 分支即时结算 B-13；air.py 头注
+    预留「地面完整体落地后可切换」切换点执行）：补齐命中面压制注入
+    （resolve_hit 尾行 inject_suppression_area——原直扣实现零压制）+
+    compute_hit_facing 覆盖序（驻楼 REAR/转向 SIDE/顶攻 TOP——原恒 TOP）；
+    AirProjectile 补 pen_bonus=0 档案位（对齐地面 Projectile §F4 :790）；
+    air.py 顶部 combat 三导入（apply_damage/damage_mult_permille/armor_lookup）
+    与 Facing 导入随切换清除（局部导入 resolve_hit/inject_suppression_area——
+    combat 无 air 反向导入边，局部沿用原式）。行为变更=扫射命中新增面压制注入
+    （如 VYa23 命中即 40 压制@falloff(d)——与地面直射命中同构），旧锚
+    test_air_behavior 全绿（kill/弹药锚不敏感于压制面）。测试
+    tests/test_air_commands.py +13 锚（九命令分派链逐支/空降 deck 扣份经命令流/
+    命令层零掷骰〔八命令批量八通道 state 不动〕/disengage 命令流全链〔world_tick
+    含 dogfight_check 不重咬〕/strafe 切换双锚〔命中=hp 20-6+suppression 恰 80
+    手推、未命中=jitter 压制+零伤〕）。全量 932 绿（919+13）。零掷骰（分派纯
+    路由——AirDisengageCmd 的 tail 掷骰属 §F4 处理体既有 AIR 通道纪律，无新
+    用途、未新开通道）。
   - PB-56 总收口盘点（2026-10-06；§D.7 :256-268 全集 22 类逐支机械核点
     ——python 正则对 _dispatch_command 分派支，line 号为本日快照）：
     **21 类已落真调用**（实现锚=分派支，测试锚=首要文件）：MoveCmd
@@ -1284,7 +1310,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .air import (PHASE_COMBAT, PHASE_DEPLOY, PHASE_SETTLE, AircraftInstance,
-                  aircraft_tick, air_recon_step, is_aircraft_alive)
+                  aircraft_tick, air_recon_step, cmd_air_airdrop, cmd_air_alt,
+                  cmd_air_call, cmd_air_disengage, cmd_air_engage_air,
+                  cmd_air_move, cmd_air_patrol, cmd_air_rtb, cmd_air_strike,
+                  is_aircraft_alive)
 from .combat import (COMBAT_STYLE_MELEE, COMBAT_STYLE_SNIPER, aim_factor_bp,
                      aura_bonus_bp, damage_mult_permille, inject_suppression_area,
                      mark_resupply_if_needed, morale_acc_factor_bp, needs_resupply,
@@ -1592,6 +1621,77 @@ class BuySuppliesCmd:
     truck_element: object
     rounds: int
     medical: int
+
+
+# ── AIR_UNITS_PSEUDOCODE_IMPL_v1.4 §D.5 航空命令集（9；命令驱动——AI 虚拟玩家
+#    走同一接口，契约⑦。2026-10-07 空中闭环·块1：命令类+分派支落地——处理体
+#    air.py cmd_air_* 族 2026-10-01 行为层既有，本块只通命令流。payload 键口径
+#    ={BOMB,SUPPLY,PARATROOP}：§D.5 的 supply_rounds/supply_medical 双键已随
+#    2026-10-03「弹药/医疗一池按重量计」拍板并轨为 SUPPLY 重量单键——地面
+#    buy_supplies :1225 换写同族先例，air.py cmd_air_call 既有口径照读）──
+
+@dataclass(frozen=True)
+class AirCallCmd:
+    """呼叫航空器（§F1 cmd_air_call：租借经济五门+弹药初始化+INBOUND 进场）。"""
+    player: object
+    template: object
+    payload: dict
+
+
+@dataclass(frozen=True)
+class AirMoveCmd:
+    """航路改航（§F2 cmd_air_move：非 DOGFIGHT/RTB、RUN/EGRESS 不可转向）。"""
+    aircraft: object
+    path: list
+
+
+@dataclass(frozen=True)
+class AirPatrolCmd:
+    """绕点盘旋（§F2 cmd_air_patrol——GDD-02 v1.9 B-20 CAP 操作入口）。"""
+    aircraft: object
+    center: tuple[int, int]
+    radius: int
+
+
+@dataclass(frozen=True)
+class AirAltCmd:
+    """高度层变更（§F2 cmd_air_alt——B-29：不入任务令门族，RTB 亦允许）。"""
+    aircraft: object
+    tier: int
+
+
+@dataclass(frozen=True)
+class AirStrikeCmd:
+    """对地攻击（§F3 cmd_air_strike：BOMB|STRAFE 两档，attack run 状态机）。"""
+    aircraft: object
+    target: tuple[int, int]
+    weapon: str
+
+
+@dataclass(frozen=True)
+class AirAirdropCmd:
+    """空投（§F3 cmd_air_airdrop：TRANSPORT 补给/空降兵）。"""
+    aircraft: object
+    drop_point: tuple[int, int]
+
+
+@dataclass(frozen=True)
+class AirEngageAirCmd:
+    """转对空开关（§F4 cmd_air_engage_air：开拨实战门+带弹丢弹 D015）。"""
+    aircraft: object
+    engage: bool
+
+
+@dataclass(frozen=True)
+class AirDisengageCmd:
+    """缠斗脱离（§F4 cmd_air_disengage：tail 掷骰，R-20）。"""
+    aircraft: object
+
+
+@dataclass(frozen=True)
+class AirRTBCmd:
+    """返场（§F2 cmd_air_rtb——B-22 不可逆、B-29 弃权特许）。"""
+    aircraft: object
 
 
 @dataclass
@@ -2000,6 +2100,37 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
                                                         # BuySupplies→
                                                         # system_supply 装货
                                                         # 整链首次全通）
+    elif isinstance(cmd, AirCallCmd):
+        cmd_air_call(world, cmd.player, cmd.template, cmd.payload, cfg)   # AIR §F1
+                                                        # （2026-10-07 空中
+                                                        # 闭环·块1——九命令
+                                                        # 分派支：§D.5 契约⑦
+                                                        # 命令驱动，处理体
+                                                        # air.py 行为层既有；
+                                                        # B-18 无 phase 门）
+    elif isinstance(cmd, AirMoveCmd):
+        cmd_air_move(world, cmd.aircraft, cmd.path)    # AIR §F2（同上——RUN/EGRESS
+                                                        # 直线段不可转向 GAP-28）
+    elif isinstance(cmd, AirPatrolCmd):
+        cmd_air_patrol(world, cmd.aircraft, cmd.center, cmd.radius)   # AIR §F2
+                                                        # （B-20 CAP 操作入口）
+    elif isinstance(cmd, AirAltCmd):
+        cmd_air_alt(world, cmd.aircraft, cmd.tier)     # AIR §F2（B-29 微操特许）
+    elif isinstance(cmd, AirStrikeCmd):
+        cmd_air_strike(world, cmd.aircraft, cmd.target, cmd.weapon)   # AIR §F3
+                                                        # （attack run 状态机）
+    elif isinstance(cmd, AirAirdropCmd):
+        cmd_air_airdrop(world, cmd.aircraft, cmd.drop_point)          # AIR §F3
+                                                        # （空投两分支 §F6）
+    elif isinstance(cmd, AirEngageAirCmd):
+        cmd_air_engage_air(world, cmd.aircraft, cmd.engage)           # AIR §F4
+                                                        # （D015 转对空丢弹）
+    elif isinstance(cmd, AirDisengageCmd):
+        cmd_air_disengage(world, cmd.aircraft, cfg)   # AIR §F4（tail 掷骰——
+                                                        # 处理体掷 AIR 通道，
+                                                        # 命令层自身零掷骰）
+    elif isinstance(cmd, AirRTBCmd):
+        cmd_air_rtb(world, cmd.aircraft)              # AIR §F2（B-22 不可逆）
     else:
         raise TypeError("unknown command type: %s" % type(cmd).__name__)
 
