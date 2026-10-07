@@ -1083,7 +1083,14 @@ v1.7 原文行序）+ 地面防空链（sense_air 消费端 / §F4 aa_try_engage
     实现无关不变量+定值双锚）；通道纪律={'AIR'}（纯航空零地面消费）；同 seed
     双 world 13801+25 拍逐 tick 指纹位级一致。tests/test_fullgame_acceptance.py
     +2 锚（TestAirFullGame），全量 934 绿（932+2）。零掷骰面变化（纯验收块——
-    观测/指纹/AI 均只读 world 确定性状态，不触 PCG32 通道）。
+    观测/指纹/AI 均只读 world 确定性状态，不触 PCG32 通道）。〔独立评审
+    2026-10-07：通过+4 非阻塞（AST 级证明 air=False 逐位不变/monkeypatch 真值
+    核验 11 回收 3 击落逐条相符/手推算术 python 实算全符）——修复两条观测
+    鲁棒性：消失分类补 hp 判据（prev=RTB 且 hp>0 才回收——RTB 态被迟到防空弹
+    击落跨域场景可达、实为×3 不退款，纯航空场景不可达故锚不扰）+状态迁移改
+    独立 if（同拍 INBOUND→PATROL→DOGFIGHT 一拍多迁移不漏记）；两条留档：
+    first_air_projectile 同拍释放即落地漏记（纯观测语义）、命令类导入面
+    完整性意图保留〕。
   - PB-56 总收口盘点（2026-10-06；§D.7 :256-268 全集 22 类逐支机械核点
     ——python 正则对 _dispatch_command 分派支，line 号为本日快照）：
     **21 类已落真调用**（实现锚=分派支，测试锚=首要文件）：MoveCmd

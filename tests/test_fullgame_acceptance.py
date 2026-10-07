@@ -730,26 +730,32 @@ def run_full_game(w, settle_extra=25, max_ticks=30000, ai_factory=HeadlessAI):
                 st["elimination"].setdefault(t, w.tick)
         prev_alive = alive
         # 航空生命周期观测（块2）：新机入列/状态迁移/消失分类
+        # 〔块2 评审修复 2026-10-07〕①消失分类补 hp 判据（prev=RTB 且 hp>0 才是
+        # 回收——RTB 态被迟到防空弹打到 hp≤0 跨拍清除者实为击落×3 不退款，
+        # 纯航空场景不可达、跨域场景可达）；②状态迁移检测改独立 if（同拍
+        # INBOUND→PATROL→DOGFIGHT 一拍多迁移不漏记 arrival）
         cur_air = {a.id: (a.state, a.hp_current) for a in w.aircraft}
         for aid, (st_, hp, team, tid) in prev_air.items():
             if aid not in cur_air:                       # 本拍消失
-                if st_ is AirState.RTB:
+                if st_ is AirState.RTB and hp > 0:
                     st["air_recoveries"].append((w.tick, team, tid))
-                else:                                    # DOGFIGHT 阵亡/防空击落同拍清
-                    st["air_downed"].append((w.tick, team, tid))
+                else:                                    # 缠斗阵亡即时清/防空击落
+                    st["air_downed"].append(            # 跨拍清（hp≤0 残留一拍）
+                        (w.tick, team, tid))
         for a in w.aircraft:
             prev = prev_air.get(a.id)
             if prev is None:
                 st["air_calls"].append((w.tick, a.team, a.template.template_id))
-            elif prev[0] is AirState.INBOUND and a.state is AirState.PATROL:
+                continue
+            if prev[0] is AirState.INBOUND and a.state is not AirState.INBOUND:
                 st["air_arrivals"].append((w.tick, a.template.template_id))
-            elif prev[0] is not AirState.STRIKE and a.state is AirState.STRIKE:
+            if prev[0] is not AirState.STRIKE and a.state is AirState.STRIKE:
                 if st["first_air_strike_tick"] is None:
                     st["first_air_strike_tick"] = w.tick
-            elif prev[0] is not AirState.RTB and a.state is AirState.RTB:
+            if prev[0] is not AirState.RTB and a.state is AirState.RTB:
                 if st["first_air_rtb_tick"] is None:
                     st["first_air_rtb_tick"] = w.tick
-            elif prev[0] is not AirState.DOGFIGHT and a.state is AirState.DOGFIGHT:
+            if prev[0] is not AirState.DOGFIGHT and a.state is AirState.DOGFIGHT:
                 if st["first_air_dogfight_tick"] is None:
                     st["first_air_dogfight_tick"] = w.tick
             if a.dogfight is not None:
