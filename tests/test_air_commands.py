@@ -55,7 +55,9 @@ def mk_tpl(role, **kw):
 
 
 def call(w, player, template, payload):
-    """经命令流呼叫（本文件全链惯例：一切写点走 queue_command→consume_commands）。"""
+    """经命令流呼叫（TestAirCommandDispatch 全链惯例：写点走
+    queue_command→consume_commands；TestStrafeResolveHit 直调处理体——
+    其锚定目标是 resolve_strafe 结算面而非命令流）。"""
     queue_command(w, AirCallCmd(player=player, template=template, payload=payload))
     consume_commands(w)
     return w.aircraft[-1] if w.aircraft else None

@@ -84,8 +84,11 @@ def compute_hit_facing(target_elem, approach_deg: int, cfg: BalanceConfig,
                        top_attack: bool = False) -> Facing:
     """v1.7 §F1 :334-338 命中面链（覆盖序：驻楼→转向中→顶攻→按角度——后检
     后覆盖，v1.7 行序为准；本仓 v1.6 时期"顶攻最先"序已被 v1.7 覆盖序取代，
-    top_attack 现无生产者置位、行为差不可达）。驻楼 REAR=尾甲参考（v1.3 补齐）；
-    转向中 SIDE 仅无炮塔（fire_arc<360 模板前置——方案6 双保险，GAP-08）。"""
+    top_attack 现无生产者置位、行为差不可达〔**滞文勘正 2026-10-07 空中闭环·块1**：
+    自该块起扫射命中支走 resolve_hit{top_attack=TRUE}（AIR §F3 契约⑥——air.py
+    resolve_strafe），top_attack 首个生产者已置位、顶攻分支可达〕）。驻楼 REAR=尾甲
+    参考（v1.3 补齐）；转向中 SIDE 仅无炮塔（fire_arc<360 模板前置——方案6 双保险，
+    GAP-08）。"""
     if getattr(target_elem, "garrison_in", None) is not None:
         return Facing.REAR
     if getattr(target_elem, "rotating", False) \

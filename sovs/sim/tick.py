@@ -1052,7 +1052,14 @@ v1.7 原文行序）+ 地面防空链（sense_air 消费端 / §F4 aa_try_engage
     含 dogfight_check 不重咬〕/strafe 切换双锚〔命中=hp 20-6+suppression 恰 80
     手推、未命中=jitter 压制+零伤〕）。全量 932 绿（919+13）。零掷骰（分派纯
     路由——AirDisengageCmd 的 tail 掷骰属 §F4 处理体既有 AIR 通道纪律，无新
-    用途、未新开通道）。
+    用途、未新开通道）。〔独立评审 2026-10-07：通过+6 非阻塞——修复三条：
+    resolve_hit 补 cfg 传参（air.py，一词——§F3 字面无参但作用域 cfg 不应丢）、
+    combat.compute_hit_facing「top_attack 无生产者」滞文日期批注（本块扫射
+    即首个生产者）、test_air_commands helper 注释口径收窄；留档两条：③air.py
+    行为层 cmd_air_alt/strike/airdrop 处理体直读全局 CONFIG（cfg 形参缺失=
+    2026-10-01 既有设计，cfg 覆写测试对这三支静默用全局值——是否统一补 cfg
+    形参**待发起人裁**，登记在案）；⑥AirStrikeCmd 字段名 target 沿处理体/
+    地面 AttackCmd 先例（§D.5 :359 作 target_point——措辞级不改）〕。
   - PB-56 总收口盘点（2026-10-06；§D.7 :256-268 全集 22 类逐支机械核点
     ——python 正则对 _dispatch_command 分派支，line 号为本日快照）：
     **21 类已落真调用**（实现锚=分派支，测试锚=首要文件）：MoveCmd

@@ -726,7 +726,7 @@ def resolve_strafe(world, a: AircraftInstance, s: AirTask,
                         blast_cm=w.blast_radius_cm, pos=a.pos, dest=x.pos,
                         speed_cm_tick=w.projectile_speed_cm_tick,
                         trajectory=Trajectory.DIRECT, hit_target=x,
-                        will_hit=True, top_attack=True))
+                        will_hit=True, top_attack=True), cfg)
                 else:
                     j = (rng.sym(cfg.strafe_suppress_jitter_cm),
                          rng.sym(cfg.strafe_suppress_jitter_cm))       # AMB-01
