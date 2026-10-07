@@ -1144,6 +1144,31 @@ v1.7 原文行序）+ 地面防空链（sense_air 消费端 / §F4 aa_try_engage
     补齐 cfg 形参——air 三处理体+分派支三处+TestCfgThreading 三覆写锚，块1
     留档③ 就此闭账；全量现值 **939 绿**（936+3），终门禁=939 绿+AST 终扫
     CLEAN（独立核验通过，工作流 dwfrun-b5b3fd2a 留档）〕。
+  - 空裁8 空降卡购买门限定（2026-10-07 发起人拍板 A 案；拍板清单空中闭环段空裁8 行
+    同日）：GDD-01 兵种表空降两卡卡面「仅可经Li-2/Ju 52空投（D017）」（:99/:174）由
+    购买门强制——此前 cmd_purchase 三门（盲部署相位/deck 余量/点数）不含投送限定，
+    空降卡可被当普通地面卡购买落地（花 player.points）。落地四件：①数据位 types.py
+    UnitFlag 增 DELIVERY_AIRDROP_ONLY=1<<14（命名自查：既有令牌三族——CAN_* 六能力/
+    HAS_* 三派生槽位/裸名五限定属性；本位是限定非能力，不入前缀族、照 REQUIRES_MARK/
+    SINGLE_SQUAD_CARD 裸名惯例，首词 DELIVERY 与卡记录层 delivery 列（P-13）同词根）；
+    ②CSV 五步管线配属（照 PB-31 CAN_INFILTRATE/PB-57 CAN_GARRISON 先例）：ground_
+    cards.csv 空降两行 flags 增 token（值 10→16394）+card_schema.UnitFlagTok 15 令牌
+    镜像（TOKEN_VALUE["flags"] 自 UnitFlag 派生天然带新位；令牌域扩充非字段演进——
+    39 字段清单与既有卡 JSON int 表示不动，schema 版本门 1.3 不动）+card_loader 加载
+    侧零改动（flags 一律 int 位或直构造 UnitFlag——无令牌白名单，新位天然穿透，回归
+    由新锚实测）+ground_provenance.csv 两行留痕（GDD-01 卡面/D017）+data/gen/
+    cards_ground.v1.json 重建（同输入字节稳定锚 test_card_pipeline/test_card_data_
+    first_batch 在库——重建后实卡加载 flags=CAN_GARRISON|CAN_INFILTRATE|
+    DELIVERY_AIRDROP_ONLY）；③cmd_purchase 增第四门（见该函数 docstring——门序=
+    相位门后第一门、先于两道资源门，理由同彼处；REJECT 不扣点不扣 deck 份不入队，
+    零掷骰）。块3 场景 hold_purchases 自此为冗余保险丝：其设防的「贪婪购卡耗尽空降
+    deck 份致 PARATROOP 呼叫恒拒」险源对真卡已结构性不可达（带位即拒购——deck 份
+    唯一消费路径回到 AirCallCmd 装机扣份 B-06/B-12，本门不触航空链）；块3 载荷为
+    合成 INFIL_TPL（无该位、不过卡数据管线），故该场景保险丝仍承力且既有锚一律
+    不动——全部既有场景 deck 无真空降卡（test_fullgame_acceptance 全场景实查零
+    load_library 购卡路径），行为面零扰动。测试 tests/test_purchase_gate_airdrop.py
+    （真卡购买 REJECT 三态不动/非空降真卡购买不受扰/AirCallCmd PARATROOP 投送链
+    回归/卡数据锚——两卡带 token+provenance 留痕）。
   - PB-56 总收口盘点（2026-10-06；§D.7 :256-268 全集 22 类逐支机械核点
     ——python 正则对 _dispatch_command 分派支，line 号为本日快照）：
     **21 类已落真调用**（实现锚=分派支，测试锚=首要文件）：MoveCmd
@@ -3919,11 +3944,17 @@ def mount_requests_step(world: World) -> None:
 # ── §F7 经济与部署（:1374-1405）+ §F8 ⑧ system_economy（:1476-1479）+ D031 裁决 ──
 
 def cmd_purchase(world: World, player, template, cfg: BalanceConfig = CONFIG) -> bool:
-    """§F7 :1374-1379 出牌命令（仅盲部署 phase；零掷骰）。REJECT 三门：非盲部署相位 /
-    卡组无此卡或余量尽（一命制：卡组余量不回补）/ 点数不足。接受则扣点、扣 DeckSlot
-    份、卡入 spawn_queue（逐个间隔出牌）。deck_slots 查找按 template 身份（air.py
-    装机扣份同口径）。"""
+    """§F7 :1374-1379 出牌命令（仅盲部署 phase；零掷骰）。REJECT 四门：非盲部署相位 /
+    空降投送限定卡（空裁8 2026-10-07——DELIVERY_AIRDROP_ONLY 位即拒，GDD-01 :99/:174
+    卡面「仅可经Li-2/Ju 52空投（D017）」购买门强制；门序=相位门后第一门：静态卡面
+    属性先于 deck 余量/点数两道动态资源门——同一张空降卡的 REJECT 因由不随资源状态
+    漂移，不论带卡与否/点数够否一律在此门拒）/ 卡组无此卡或余量尽（一命制：卡组
+    余量不回补）/ 点数不足。REJECT 一律不扣点不扣 deck 份不入队。接受则扣点、扣
+    DeckSlot 份、卡入 spawn_queue（逐个间隔出牌）。deck_slots 查找按 template 身份
+    （air.py 装机扣份同口径——B-06/B-12 空投链扣份不经本门，不受扰）。"""
     if world.phase != PHASE_DEPLOY:                    # 仅盲部署 phase
+        return False
+    if template.flags & UnitFlag.DELIVERY_AIRDROP_ONLY:  # 空裁8 投送限定门（2026-10-07）
         return False
     slot = next((s for s in player.deck_slots if s.template is template), None)
     if slot is None or slot.copies_left <= 0:          # 一命制

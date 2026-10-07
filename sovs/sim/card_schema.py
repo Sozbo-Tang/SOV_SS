@@ -80,7 +80,9 @@ UnitFlagTok = Literal[
     "NO_MOVE_VISION_PENALTY", "FOREST_WALK_SILENT", "REQUIRES_MARK",
     "SINGLE_SQUAD_CARD", "CAN_SNIPER_COVER", "CAN_AIRDROP_BEACON",
     "HAS_CARGO", "HAS_MOUNT", "HAS_SUPPLY", "SUPP_DECAY_X2",
-]  # types.py UnitFlag 14 令牌（:121-136）全量
+    "DELIVERY_AIRDROP_ONLY",
+]  # types.py UnitFlag 15 令牌（:183-204）全量；空裁8（2026-10-07）增末位——令牌域
+# 扩充非字段演进（39 字段清单与既有卡 JSON int 表示不动，schema 版本门 1.3 不动）
 
 TOKEN_VALUE: dict[str, dict[str, int]] = {
     # faction 无 types 枚举（卡记录层）——0/1 为管线自编（D004 阵营）

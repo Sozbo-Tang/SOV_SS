@@ -51,3 +51,5 @@ SU_ZIS3,turn_rate_deg,v1定标(推算占位),50=人力转炮慢于履带档（�
 GER_PAK40,turn_rate_deg,v1定标(推算占位),50=牵引炮档同 ZiS-3（→5°/tick）,P-123
 SU_TRUCK,elements[E_SU_TRUCK],v1定标(推算占位),self_smoke_charges=2——ask 字面点名（补给车高价值软目标；cfg.self_smoke_default_charges=2 同值）,P-121
 SU_T3485,elements[E_SU_T34],v1定标(推算占位),self_smoke_charges=2——采勘察默认（史实锚 T-34 BDSh 发烟罐、N32 载具自卫字面；ask 字面仅点名 SU_TRUCK——此项可撤销）,P-121
+SU_PARATROOP,flags,拍板,空裁8 2026-10-07 发起人拍板（A 案购买门拦截）：加 DELIVERY_AIRDROP_ONLY——GDD-01 :99 卡面「仅可经Li-2空投（D017）」限定由 cmd_purchase 第四门强制,
+GER_PARATROOP,flags,拍板,空裁8 2026-10-07 发起人拍板（A 案购买门拦截）：加 DELIVERY_AIRDROP_ONLY——GDD-01 :174 卡面「仅可经Ju 52空投」限定（D017 同款）由 cmd_purchase 第四门强制,

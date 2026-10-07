@@ -196,6 +196,12 @@ class UnitFlag(IntFlag):
     HAS_MOUNT = 1 << 11        # 可上车
     HAS_SUPPLY = 1 << 12       # 物资槽分配条件（空投箱必配——GAP-21）
     SUPP_DECAY_X2 = 1 << 13    # 近卫意志近似（方案18）
+    # 空裁8（2026-10-07 发起人拍板 A 案）：空降卡投送限定——「仅可经运输机空投落地」
+    # （GDD-01 :99/:174 卡面字面，D017），cmd_purchase 第四门拒购。命名自查：既有令牌
+    # 三族 CAN_*（能力）/HAS_*（派生槽位）/裸名（限定属性——REQUIRES_MARK/
+    # SINGLE_SQUAD_CARD 等）；本位是限定非能力，不入前缀族、照裸名惯例，首词
+    # DELIVERY 与卡记录层 delivery 列（P-13 空降投送限定）同词根。
+    DELIVERY_AIRDROP_ONLY = 1 << 14
 
 
 @dataclass(frozen=True, slots=True)

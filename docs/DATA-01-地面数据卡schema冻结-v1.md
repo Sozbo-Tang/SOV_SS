@@ -119,7 +119,7 @@ SUPPORTED_CARD_SCHEMA[file_major]`；其余一律拒绝（fail-fast，杜绝静�
 | aura_kind | MELEE / PRECISION | AuraKind 0/1 |
 | target_mask | GROUND / AIR_LOW / AIR_MID / AIR_HIGH | TargetDomain 位 1/2/4/8（位或后落 int） |
 | mode_set | DIRECT / INDIRECT / TOW / CARGO / TRANSPORT | Mode 0/1/2/3/4（位或后落 int） |
-| flags | CAN_SPRINT…SUPP_DECAY_X2 共 14 令牌 | UnitFlag 位 1<<0…1<<13（types.py:121-136，位或后落 int） |
+| flags | CAN_SPRINT…SUPP_DECAY_X2 共 14 令牌＋DELIVERY_AIRDROP_ONLY〔空裁8 2026-10-07 增，共 15 令牌——令牌域扩充非字段演进，版本门不动〕 | UnitFlag 位 1<<0…1<<14（types.py UnitFlag，位或后落 int） |
 
 ### §4.3 卡级 UnitCardModel（39 字段，CSV 一卡一行；36→39＝2026-10-04 PB-55 加可选字段 22~24，minor 1.3）
 
@@ -152,7 +152,7 @@ SUPPORTED_CARD_SCHEMA[file_major]`；其余一律拒绝（fail-fast，杜绝静�
 | 24 | morale_rout_th | int | ≥0（0=回退 cfg.morale_rout_th；>100=压制封顶外永不溃逃差异化位——列间独立回退，可单档覆盖） | 0 | 〔拍板〕PB-55 2026-10-04（同上） | UnitTemplate.morale_rout_th |
 | 25 | deploy_time_ticks | int tick | ≥0（0=免展开） | 0 | 〔GDD〕D027/D031 | UnitTemplate.deploy_time_ticks :235 |
 | 26 | pack_time_ticks | int tick | ≥0 | 0 | 〔GDD〕同上 | UnitTemplate.pack_time_ticks :236 |
-| 27 | flags | list[令牌] | 14 令牌内、无重复（位或→int） | [] | 〔冻结〕D.1#25 | UnitTemplate.flags :237 |
+| 27 | flags | list[令牌] | 15 令牌内（14＋DELIVERY_AIRDROP_ONLY 空裁8 2026-10-07）、无重复（位或→int） | [] | 〔冻结〕D.1#25 | UnitTemplate.flags :237 |
 | 28 | mode_set | list[令牌] | 5 令牌内、无重复（位或→int） | ["DIRECT"] | 〔冻结〕D.1#15 | UnitTemplate.mode_set :242 |
 | 29 | supply_radius_cm | int cm | ≥0 | 8000 | 〔冻结〕D.1#20（R-18） | UnitTemplate.supply_radius_cm :238 |
 | 30 | sonar_radius_cm | int cm | ≥0 | 0 | 〔冻结〕D.1#22（R-03） | UnitTemplate.sonar_radius_cm :239 |
