@@ -1058,7 +1058,15 @@ v1.7 原文行序）+ 地面防空链（sense_air 消费端 / §F4 aa_try_engage
     即首个生产者）、test_air_commands helper 注释口径收窄；留档两条：③air.py
     行为层 cmd_air_alt/strike/airdrop 处理体直读全局 CONFIG（cfg 形参缺失=
     2026-10-01 既有设计，cfg 覆写测试对这三支静默用全局值——是否统一补 cfg
-    形参**待发起人裁**，登记在案）；⑥AirStrikeCmd 字段名 target 沿处理体/
+    形参**待发起人裁**，登记在案）〔**2026-10-07 空裁6 闭账：发起人已裁决
+    采纳补齐并当日落地**——air.py 三处理体签名补 cfg: BalanceConfig = CONFIG
+    缺省形参（cmd_air_alt 体内 alt_transition_ticks、cmd_air_strike/airdrop
+    经 _run_points 消费的 strafe_run_lead_cm 全换 cfg 传递）+本表
+    AirAltCmd/AirStrikeCmd/AirAirdropCmd 三分派支补传 cfg（对齐 AirCallCmd/
+    AirDisengageCmd 既有传法）+tests/test_air_commands.py TestCfgThreading
+    三覆写锚（replace(CONFIG) 异值 77/13000——判别「读 cfg」与「读全局
+    CONFIG」两实现）；缺省 CONFIG=既有行为逐位不变，既有调用点（直调/分派）
+    全不扰〕；⑥AirStrikeCmd 字段名 target 沿处理体/
     地面 AttackCmd 先例（§D.5 :359 作 target_point——措辞级不改）〕。
   - 空中仿真闭环·块2 纯航空无头整局（2026-10-07；**sim 零行为改动**——只增
     tests/test_fullgame_acceptance.py 场景与锚）：HeadlessAI 增 air keyword 画像
@@ -2195,13 +2203,16 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
         cmd_air_patrol(world, cmd.aircraft, cmd.center, cmd.radius)   # AIR §F2
                                                         # （B-20 CAP 操作入口）
     elif isinstance(cmd, AirAltCmd):
-        cmd_air_alt(world, cmd.aircraft, cmd.tier)     # AIR §F2（B-29 微操特许）
+        cmd_air_alt(world, cmd.aircraft, cmd.tier, cfg)   # AIR §F2（B-29 微操特许；
+                                                          # cfg 穿线=空裁6 2026-10-07）
     elif isinstance(cmd, AirStrikeCmd):
-        cmd_air_strike(world, cmd.aircraft, cmd.target, cmd.weapon)   # AIR §F3
-                                                        # （attack run 状态机）
+        cmd_air_strike(world, cmd.aircraft, cmd.target, cmd.weapon, cfg)   # AIR §F3
+                                                        # （attack run 状态机；
+                                                        # cfg 穿线=空裁6 2026-10-07）
     elif isinstance(cmd, AirAirdropCmd):
-        cmd_air_airdrop(world, cmd.aircraft, cmd.drop_point)          # AIR §F3
-                                                        # （空投两分支 §F6）
+        cmd_air_airdrop(world, cmd.aircraft, cmd.drop_point, cfg)          # AIR §F3
+                                                        # （空投两分支 §F6；
+                                                        # cfg 穿线=空裁6 2026-10-07）
     elif isinstance(cmd, AirEngageAirCmd):
         cmd_air_engage_air(world, cmd.aircraft, cmd.engage)           # AIR §F4
                                                         # （D015 转对空丢弹）

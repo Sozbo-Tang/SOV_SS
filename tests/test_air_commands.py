@@ -10,10 +10,12 @@
 原直扣实现恒 TOP 且零压制，与地面 TOP 分支不等价（air.py 头注预留切换点执行）。
 """
 import unittest
+from dataclasses import replace
 
 from sovs.sim.air import (AirRole, AirState, AircraftInstance, AircraftTemplate,
                           TaskKind, cmd_air_call, enter_dogfight, resolve_strafe)
 from sovs.sim.air_data import IL2M, LI2, YAK9
+from sovs.sim.geom import dist_cm
 from sovs.sim.tables import CONFIG
 from sovs.sim.tick import (AirAirdropCmd, AirAltCmd, AirCallCmd, AirDisengageCmd,
                            AirEngageAirCmd, AirMoveCmd, AirPatrolCmd, AirRTBCmd,
@@ -237,6 +239,59 @@ class TestStrafeResolveHit(unittest.TestCase):
         self.assertEqual(x.hp_current, 20)
         self.assertGreater(x.suppression, 0)
         self.assertEqual(a.ammo_left["STRAFE"], 10 - MISS_STRAFE_W.salvo)
+
+
+class TestCfgThreading(unittest.TestCase):
+    """空裁6 cfg 穿线锚（2026-10-07 发起人拍板采纳补齐）：cmd_air_alt/strike/
+    airdrop 三处理体补 cfg 形参（原直读全局 CONFIG——块1 评审留档③）+分派支
+    补传。覆写 cfg 经命令流落地（consume_commands cfg 实参→_dispatch_command→
+    处理体），三支各断言取覆写值。异值 77/13000 ≠ 全局 30/8000：「实现读 cfg」
+    与「实现读全局 CONFIG」两种实现可判别——任一支回退读全局/分派支漏传 cfg，
+    三锚即崩（77≠30、13000≠8000 均可整除无损判读）。"""
+
+    ALT_OV = 77          # 覆写 alt_transition_ticks（全局 30）
+    LEAD_OV = 13000      # 覆写 strafe_run_lead_cm（全局 8000）
+
+    def _ov_cfg(self):
+        # 异值前提自证：覆写值确异于全局现值（判别力成立条件随全局值漂移仍守恒）
+        self.assertNotEqual(self.ALT_OV, CONFIG.alt_transition_ticks)
+        self.assertNotEqual(self.LEAD_OV, CONFIG.strafe_run_lead_cm)
+        return replace(CONFIG, alt_transition_ticks=self.ALT_OV,
+                       strafe_run_lead_cm=self.LEAD_OV)
+
+    def test_alt_pending_ticks_reads_override_cfg(self):
+        # cmd_air_alt：alt_pending=(tier, 覆写 77)——读全局则 30
+        w = make_world(42)
+        a = call(w, w.players[0], YAK9, {})            # alt_ceiling=HIGH、当前 MID
+        queue_command(w, AirAltCmd(aircraft=a, tier=AltTier.HIGH))
+        consume_commands(w, self._ov_cfg())
+        self.assertEqual(a.alt_pending, (AltTier.HIGH, self.ALT_OV))
+
+    def test_strike_run_start_reads_override_cfg(self):
+        # cmd_air_strike：run_start 距 target=覆写 lead 13000——读全局则 8000。
+        # 正北攻击线（dx=0/dy>0→octant 0°→DIR8[0]=(0,7)，scale 无整除损耗：
+        # run_start=target-(0,lead)，距离=lead 原值）
+        w = make_world(42)
+        a = call(w, w.players[0], IL2M, {"BOMB": 2})
+        a.pos = (500000, 500000)
+        target = (500000, 600000)
+        queue_command(w, AirStrikeCmd(aircraft=a, target=target, weapon="BOMB"))
+        consume_commands(w, self._ov_cfg())
+        self.assertIs(a.state, AirState.STRIKE)
+        self.assertEqual(a.task.run_start, (500000, 600000 - self.LEAD_OV))
+        self.assertEqual(dist_cm(a.task.run_start, target), self.LEAD_OV)
+
+    def test_airdrop_run_start_reads_override_cfg(self):
+        # cmd_air_airdrop：run_start 距 drop_point=覆写 lead 13000——读全局则 8000
+        w = make_world(42)
+        a = call(w, w.players[0], LI2, {"SUPPLY": 100})   # TRANSPORT+补给载荷过门
+        a.pos = (500000, 500000)
+        drop = (500000, 600000)
+        queue_command(w, AirAirdropCmd(aircraft=a, drop_point=drop))
+        consume_commands(w, self._ov_cfg())
+        self.assertIs(a.task.kind, TaskKind.AIRDROP)
+        self.assertEqual(a.task.run_start, (500000, 600000 - self.LEAD_OV))
+        self.assertEqual(dist_cm(a.task.run_start, drop), self.LEAD_OV)
 
 
 if __name__ == "__main__":

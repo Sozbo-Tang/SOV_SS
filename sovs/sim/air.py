@@ -515,12 +515,14 @@ def cmd_air_move(world, a: AircraftInstance, path: list) -> bool:
     return True
 
 
-def cmd_air_alt(world, a: AircraftInstance, tier: AltTier) -> bool:
+def cmd_air_alt(world, a: AircraftInstance, tier: AltTier,
+                cfg: BalanceConfig = CONFIG) -> bool:
+    # 空裁6（2026-10-07 发起人拍板采纳）：cfg 形参补齐——原直读全局 CONFIG
     if tier > a.template.alt_ceiling or a.state is AirState.DOGFIGHT:
         return False
     if tier == a.alt_tier and a.alt_pending is None:
         return True
-    a.alt_pending = (tier, CONFIG.alt_transition_ticks)
+    a.alt_pending = (tier, cfg.alt_transition_ticks)
     return True
 
 
@@ -601,7 +603,9 @@ def _weapon_of(a: AircraftInstance, key: str):
     return None
 
 
-def cmd_air_strike(world, a: AircraftInstance, target: tuple[int, int], weapon: str) -> bool:
+def cmd_air_strike(world, a: AircraftInstance, target: tuple[int, int], weapon: str,
+                   cfg: BalanceConfig = CONFIG) -> bool:
+    # 空裁6（2026-10-07 发起人拍板采纳）：cfg 形参补齐——_run_points 原直传全局 CONFIG
     if a.state in (AirState.DOGFIGHT, AirState.RTB):
         return False
     if _strike_busy(a):
@@ -610,7 +614,7 @@ def cmd_air_strike(world, a: AircraftInstance, target: tuple[int, int], weapon: 
         return False
     if world.phase == PHASE_SETTLE:
         return False
-    rs, re = _run_points(target, a.pos, CONFIG)
+    rs, re = _run_points(target, a.pos, cfg)
     a.task = AirTask(kind=TaskKind.STRIKE, weapon=weapon, target=target,
                      phase=StrikePhase.INGRESS, run_start=rs, run_end=re)
     a.state = AirState.STRIKE
@@ -619,7 +623,9 @@ def cmd_air_strike(world, a: AircraftInstance, target: tuple[int, int], weapon: 
     return True
 
 
-def cmd_air_airdrop(world, a: AircraftInstance, drop_point: tuple[int, int]) -> bool:
+def cmd_air_airdrop(world, a: AircraftInstance, drop_point: tuple[int, int],
+                    cfg: BalanceConfig = CONFIG) -> bool:
+    # 空裁6（2026-10-07 发起人拍板采纳）：cfg 形参补齐——_run_points 原直传全局 CONFIG
     if a.state in (AirState.DOGFIGHT, AirState.RTB):
         return False
     if _strike_busy(a):
@@ -631,7 +637,7 @@ def cmd_air_airdrop(world, a: AircraftInstance, drop_point: tuple[int, int]) -> 
         return False
     if world.phase == PHASE_SETTLE:
         return False
-    rs, re = _run_points(drop_point, a.pos, CONFIG)
+    rs, re = _run_points(drop_point, a.pos, cfg)
     a.task = AirTask(kind=TaskKind.AIRDROP, drop=drop_point,
                      phase=StrikePhase.INGRESS, run_start=rs, run_end=re)
     a.state = AirState.STRIKE
