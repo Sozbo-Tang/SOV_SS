@@ -48,20 +48,25 @@ import math
 import time
 import unittest
 
-from sovs.sim.air import (PHASE_COMBAT, PHASE_DEPLOY, PHASE_SETTLE)
+from sovs.sim.air import (PHASE_COMBAT, PHASE_DEPLOY, PHASE_SETTLE,
+                          AirRole, AirState)
+from sovs.sim.air_data import CARD_OBJECTS
 from sovs.sim.map_loader import apply_map, load_demo_map
 from sovs.sim.pathfind import tile_cost
 from sovs.sim.sensing import effective_stealth_x10
 from sovs.sim.tables import CONFIG, BalanceConfig
-from sovs.sim.tick import (AttackCmd, CancelFireMissionCmd, DeckSlot,
-                           DeployCmd, DismountCmd, FireMissionCmd,
+from sovs.sim.tick import (AirAirdropCmd, AirAltCmd, AirCallCmd, AirDisengageCmd,
+                           AirEngageAirCmd, AirMoveCmd, AirPatrolCmd,
+                           AirRTBCmd, AirStrikeCmd, AttackCmd,
+                           CancelFireMissionCmd, DeckSlot, DeployCmd,
+                           DismountCmd, FireMissionCmd,
                            FireMissionForm, FormationCmd, GarrisonCmd,
                            issue_group_move, MountCmd, MoveCmd, Objective,
                            PackCmd, PurchaseCmd, SalvoMode, SetModeCmd,
                            SetStanceCmd, ToggleAmbushCmd, TowCmd, UntowCmd,
                            add_unit, begin_aim, fire_permitted, make_unit,
                            make_world, queue_command, world_tick)
-from sovs.sim.types import (Armor, Building, DamageType, DeployState,
+from sovs.sim.types import (AltTier, Armor, Building, DamageType, DeployState,
                             ElementTemplate, ElementType, FormationShape,
                             Mode, MoraleState, MoveMode, MovementClass,
                             Stance, TargetDomain, TowState, Trajectory,
@@ -297,6 +302,16 @@ FM_ESC_TPL = UnitTemplate(                 # 护卫车（同 WHEEL 类=类缺省
 
 # ── AI 驱动器（tests 侧；决策只读 world 确定性状态，零掷骰零渲染）──
 
+# 纯航空画像呼叫脚本（空中闭环·块2；(team, tick, air_data 卡键, payload)——
+# 队0=Il-2M 攻击机（BOMB 2 载荷+扫射档随机体）/Yak-9 战斗机；队1=Pe-2 轰炸机
+# （BOMB 4——salvo 2×两次出击=弹尽自动 RTB 链 GAP3-02）/Fw 190A 战斗机（CAP 对位）
+AIR_CALL_SCRIPTS = (
+    (0, 100, "IL2M", {"BOMB": 2}),
+    (0, 120, "YAK9", {}),
+    (1, 100, "PE2", {"BOMB": 4}),
+    (1, 120, "FW190A", {}),
+)
+
 class HeadlessAI:
     """最小确定性虚拟玩家：每 tick 决策→queue_command（只经 consume_commands 落地）。
 
@@ -347,11 +362,20 @@ class HeadlessAI:
       外部新令（脱离编组：cap=0、35cm/拍与护卫 12cm/拍分离）——FormationCmd/
       issue_group_move/§2.3 增量① 消费者三件整局面载体（TestFormationMarch
       FullGame）。
+
+    空中闭环·块2（2026-10-07）增 keyword 参数（缺省=既有行为逐位不变——同先例）：
+    - air=False：**纯航空画像**——固定拍呼叫脚本（AIR_CALL_SCRIPTS，双方
+      攻击机/轰炸机+战斗机）+ 实战期节拍令：攻击/轰炸机 PATROL 且带弹 →
+      AirStrikeCmd 敌锚点（BOMB 档）；t650 战斗机 AirAltCmd(HIGH)（高度层
+      过渡入指纹面）；每 150t 战斗机 AirPatrolCmd 图中心（B-20 CAP——同空域
+      自动缠斗 R-20）；全弹尽 PATROL 机 → AirRTBCmd（B-29 手动弃权——IL2M
+      扫射弹未耗尽的离场路径）；每 100t 经济轮转（回收冷却到期且点数够 →
+      重呼同型——D015 租借闭环）。运载 TestAirFullGame。
     """
 
     def __init__(self, player_index: int, *, anchors=None,
                  move_mode=MoveMode.NORMAL, artillery=False, send_attack=True,
-                 motorized=False, tractor=False, formation=False):
+                 motorized=False, tractor=False, formation=False, air=False):
         self.player_index = player_index
         self.anchors = anchors if anchors is not None else (SOUTH, NORTH)
         self.move_mode = move_mode
@@ -360,10 +384,17 @@ class HeadlessAI:
         self.motorized = motorized
         self.tractor = tractor
         self.formation = formation
+        self.air = air
         self._artillery_issued = set()   # 已发炮击任务令的 unit.id（一次性画像）
 
     def step(self, w) -> None:
         p = w.players[self.player_index]
+        if self.air:                     # 固定拍呼叫（B-18 无 phase 门——部署期即呼）
+            for team, t_call, key, payload in AIR_CALL_SCRIPTS:
+                if p.team == team and w.tick == t_call:
+                    queue_command(w, AirCallCmd(player=p,
+                                                template=CARD_OBJECTS[key],
+                                                payload=dict(payload)))
         enemy_anchor = self.anchors[0] if p.team == 1 else self.anchors[1]
         if w.phase == PHASE_DEPLOY:
             if w.tick % 50 == 0:
@@ -373,6 +404,49 @@ class HeadlessAI:
                                                      template=slot.template))
                         break                                   # 每节拍一卡（FIFO 出牌）
         elif w.phase == PHASE_COMBAT:
+            if self.air:                     # 纯航空画像（空中闭环·块2）：
+                mine = [a for a in w.aircraft if a.team == p.team]
+                if w.tick % 50 == 0:
+                    for a in mine:           # 带 BOMB 的攻击/轰炸机出击
+                        if (a.state is AirState.PATROL
+                                and a.ammo_left.get("BOMB", 0) > 0
+                                and a.template.role in (AirRole.ATTACK,
+                                                        AirRole.BOMBER)):
+                            queue_command(w, AirStrikeCmd(
+                                aircraft=a, target=enemy_anchor, weapon="BOMB"))
+                if w.tick == 650:            # 战斗机爬升（alt_pending 入指纹面）
+                    for a in mine:
+                        if (a.template.role is AirRole.FIGHTER
+                                and a.state is AirState.PATROL):
+                            queue_command(w, AirAltCmd(aircraft=a,
+                                                       tier=AltTier.HIGH))
+                if w.tick % 150 == 0:        # CAP 盘旋（B-20——同空域自动缠斗）
+                    for a in mine:
+                        if (a.template.role is AirRole.FIGHTER
+                                and a.state is AirState.PATROL):
+                            queue_command(w, AirPatrolCmd(
+                                aircraft=a, center=(100000, 50000), radius=3000))
+                if w.tick % 100 == 0:
+                    for a in mine:           # 攻击/轰炸机投完弹→手动弃权（B-29——
+                        if (a.state is AirState.PATROL  # 纯航空场景无地面目标、
+                                and a.template.role in (  # STRAFE 弹无从消耗，
+                                    AirRole.ATTACK, AirRole.BOMBER)  # 以 BOMB 耗尽
+                                and a.ammo_left.get("BOMB", 0) <= 0):  # 为弃权判据
+                            queue_command(w, AirRTBCmd(aircraft=a))
+                    for team, _t, key, payload in AIR_CALL_SCRIPTS:
+                        if p.team != team or w.tick <= 500:
+                            continue         # 经济轮转：冷却到期+不在空+点数够→重呼
+                        tpl = CARD_OBJECTS[key]
+                        cost = tpl.cost_body + sum(
+                            tpl.payload_price.get(k, 0) * v
+                            for k, v in payload.items())
+                        in_air = any(x.template is tpl for x in w.aircraft
+                                     if x.team == p.team)
+                        cd = p.air_cooldowns.get(tpl.template_id, 0)
+                        if not in_air and w.tick >= cd and p.air_points >= cost:
+                            queue_command(w, AirCallCmd(
+                                player=p, template=tpl, payload=dict(payload)))
+                return
             mine = [u for u in w.units if u.alive and u.team == p.team]
             foes = [u for u in w.units if u.alive and u.team != p.team]
             if self.artillery:                     # 火支画像：只发炮击任务令（一次）
@@ -546,6 +620,14 @@ def build_map_world(seed):
     return w
 
 
+def build_air_world(seed):
+    """纯航空整局场景（2026-10-07 空中闭环·块2）：双方无地面单位/无占点——
+    经济闭环（呼叫→出击→回收/击落→冷却→重呼）+制空（CAP→自动缠斗）全程；
+    D031 结算走第四链（占点 0:0/分值 0:0/血量 0:0 → 队0 胜——纯航空场景约定）。
+    AI=HeadlessAI(air=True)（AIR_CALL_SCRIPTS 呼叫+实战期节拍令）。"""
+    return _world_with_deck(seed, [[], []], [])
+
+
 def run_full_game(w, settle_extra=25, max_ticks=30000, ai_factory=HeadlessAI):
     """驱动整局至结算+settle_extra 拍；逐拍收集确定性观测统计（AI=每玩家一个实例）。
     ai_factory（PB-58 块③增参，缺省=HeadlessAI 逐位不变）：地图场景注入
@@ -574,11 +656,23 @@ def run_full_game(w, settle_extra=25, max_ticks=30000, ai_factory=HeadlessAI):
         "first_morale_routed_tick": None,       # 首个单位进溃逃态的拍
         "morale_rallies": [],                   # [(tick, unit_id)] 重整拍（ROUTED→SUPPRESSED）
         "first_morale_stable_return_tick": None,  # 曾受压+ 的单位回落稳定态的首拍
+        # 航空生命周期观测（2026-10-07 空中闭环·块2——逐拍比对 prev_air 快照捕获
+        # 事件拍；消失分类：prev RTB=回收、prev DOGFIGHT/hp<=0=击落）
+        "air_calls": [],          # [(tick, team, template_id)] 新机入列（INBOUND）
+        "air_arrivals": [],       # [(tick, template_id)] INBOUND→PATROL（进场完成）
+        "air_recoveries": [],     # [(tick, team, template_id)] RTB 到达回收（退本体价）
+        "air_downed": [],         # [(tick, team, template_id)] 击落（冷却×3 不退款）
+        "first_air_strike_tick": None,   # 首机转 STRIKE（攻击令受理）
+        "first_air_rtb_tick": None,      # 首机转 RTB（自动 GAP3-02 或手动 B-29）
+        "first_air_dogfight_tick": None,  # 首机转 DOGFIGHT（R-20 自动缠斗）
+        "first_air_projectile_tick": None,  # 首枚空射弹丸（AirShooterView shooter）
+        "dogfight_ticks": 0,      # 任一机缠斗在身的拍数
     }
     prev_alive = {0: 0, 1: 0}
     prev_smoke = 0
     prev_morale = {}                            # unit_id -> 上拍末 MoraleState
     seen_suppressed = set()                     # 曾达受压+ 的单位（回落锚资格）
+    prev_air = {}                               # aircraft.id -> (state, hp_current, team, template_id)
     while w.phase != PHASE_SETTLE:
         if w.tick > max_ticks:
             raise AssertionError("game did not settle within %d ticks" % max_ticks)
@@ -635,6 +729,37 @@ def run_full_game(w, settle_extra=25, max_ticks=30000, ai_factory=HeadlessAI):
             if prev_alive[t] > 0 and alive[t] == 0:
                 st["elimination"].setdefault(t, w.tick)
         prev_alive = alive
+        # 航空生命周期观测（块2）：新机入列/状态迁移/消失分类
+        cur_air = {a.id: (a.state, a.hp_current) for a in w.aircraft}
+        for aid, (st_, hp, team, tid) in prev_air.items():
+            if aid not in cur_air:                       # 本拍消失
+                if st_ is AirState.RTB:
+                    st["air_recoveries"].append((w.tick, team, tid))
+                else:                                    # DOGFIGHT 阵亡/防空击落同拍清
+                    st["air_downed"].append((w.tick, team, tid))
+        for a in w.aircraft:
+            prev = prev_air.get(a.id)
+            if prev is None:
+                st["air_calls"].append((w.tick, a.team, a.template.template_id))
+            elif prev[0] is AirState.INBOUND and a.state is AirState.PATROL:
+                st["air_arrivals"].append((w.tick, a.template.template_id))
+            elif prev[0] is not AirState.STRIKE and a.state is AirState.STRIKE:
+                if st["first_air_strike_tick"] is None:
+                    st["first_air_strike_tick"] = w.tick
+            elif prev[0] is not AirState.RTB and a.state is AirState.RTB:
+                if st["first_air_rtb_tick"] is None:
+                    st["first_air_rtb_tick"] = w.tick
+            elif prev[0] is not AirState.DOGFIGHT and a.state is AirState.DOGFIGHT:
+                if st["first_air_dogfight_tick"] is None:
+                    st["first_air_dogfight_tick"] = w.tick
+            if a.dogfight is not None:
+                st["dogfight_ticks"] += 1
+        prev_air = {a.id: (a.state, a.hp_current, a.team, a.template.template_id)
+                    for a in w.aircraft}
+        for p in w.projectiles:
+            if (st["first_air_projectile_tick"] is None
+                    and p.shooter.__class__.__name__ == "AirShooterView"):
+                st["first_air_projectile_tick"] = w.tick
         if len(w.smoke_zones) > prev_smoke:
             st["smoke_created"] += len(w.smoke_zones) - prev_smoke
         prev_smoke = len(w.smoke_zones)
@@ -720,9 +845,30 @@ def full_fingerprint(w):
                     ws.restricted_left, tgt_ref(ws.target),
                     int(ws.use_self_defense)))
     for a in w.aircraft:
-        parts.append("A%d,%d,%s,%d,%d,%d" % (a.id, a.team, a.pos,
-                                             int(a.alt_tier), a.hp_current,
-                                             int(a.state)))
+        # A 段全字段入面（2026-10-07 空中闭环·块2——工作流验收标准"航空字段全入
+        # 指纹面"：spotted_mask/facing/flight_plan/patrol_loop/task/ammo/alt_pending/
+        # dogfight/engage_air/paratroop_cargo/no_engage_until。前 6 字段序=原 A 段
+        # 保持；无航空器场景本段零贡献=既有指纹位级不变，扩面仅加严双跑锚）
+        t = a.task
+        ts = "-"
+        if t is not None:
+            ts = "tk%d,%s,%s,%s,%s,%s,%s,%d,%s" % (
+                int(t.kind), t.weapon or "-", t.target or "-",
+                ("%d" % int(t.phase)) if t.phase is not None else "-",
+                t.run_start or "-", t.run_end or "-", t.center or "-",
+                t.radius, t.drop or "-")
+        ap = "-" if a.alt_pending is None else "%d,%d" % (
+            int(a.alt_pending[0]), a.alt_pending[1])
+        df = "-" if a.dogfight is None else "op%d,%d,%d" % (
+            a.dogfight.opponent.id, a.dogfight.round_timer, a.dogfight.rounds)
+        ea = "-" if a.engage_air is None else "%d" % int(a.engage_air)
+        pc = "-" if a.paratroop_cargo is None \
+            else "T%d" % getattr(a.paratroop_cargo, "template_id", 0)
+        parts.append("A%d,%d,%s,%d,%d,%d,%d,%d,%d,%s,%s,%s,%s,%s,%d,%s,%s" % (
+            a.id, a.team, a.pos, int(a.alt_tier), a.hp_current, int(a.state),
+            a.spotted_mask, a.facing, int(a.patrol_loop), a.flight_plan, ts,
+            sorted((k, v) for k, v in a.ammo_left.items()), ap, df,
+            a.no_engage_until, ea, pc))
     for p in w.projectiles:
         parts.append("P%s,%s,%d,%d,%d,%d,%d,%d,%s,%s" % (
             p.pos, p.dest, int(p.will_hit), p.speed_cm_tick, p.damage,
@@ -2059,6 +2205,118 @@ class TestFormationMarchFullGame(unittest.TestCase):
             self.assertEqual(w1.tick, w2.tick)
             self.assertEqual(full_fingerprint(w1), full_fingerprint(w2))
         self.assertEqual((p1.pos, e1.pos), (p2.pos, e2.pos))
+
+
+# ── 空中闭环·块2（2026-10-07）：纯航空无头整局——经济闭环/制空/击落/弹尽 RTB
+#    全程 + 同 seed 双 world 逐 tick 指纹位级相等（A 段全字段指纹面）──
+
+class TestAirFullGame(unittest.TestCase):
+    """纯航空整局（build_air_world + HeadlessAI(air=True)，seed 42 定锚——
+    全程确定性、手推成分逐条注明）：
+    - 呼叫→进场（飞入时间=air_entry_offset 60000÷速——GAP-04 位置化锚）→
+      攻击令（首拍=650 实战首 %50 拍）→投放（AIR 通道）→RTB（PE2 弹尽自动
+      GAP3-02 在先/IL2M 投完手动弃权 B-29 在后）→回收退款（本体价 D015）→
+      冷却 600 →重呼（经济轮转多周期）；
+    - 制空：双方战斗机 CAP（B-20）→同空域自动缠斗（R-20）→击落 3 架
+      （冷却=(600+hp_max×30)×3 精确公式锚）；
+    - 通道纪律：纯航空整局只消费 AIR（无地面单位→HIT/SCATTER/SPOT 等零消费）。"""
+
+    def test_air_fullgame_lifecycle_economy_and_settlement(self):
+        w = build_air_world(42)
+        rng0 = [r.state for r in w.rng._rngs]
+        st = run_full_game(w, settle_extra=25,
+                           ai_factory=lambda i: HeadlessAI(i, air=True))
+        # 三相位全程+无异常+有输出（D031 第四链：纯航空 0:0:0:0 → 队0 胜）
+        self.assertEqual(st["transitions"],
+                         [(601, PHASE_DEPLOY, PHASE_COMBAT),
+                          (13801, PHASE_COMBAT, PHASE_SETTLE)])
+        self.assertEqual((w.result.winner, w.result.obj_counts,
+                          w.result.unit_scores, w.result.hp_totals),
+                         (0, (0, 0), (0, 0), (0, 0)))
+        # 呼叫拍：AI t100/120 入队→world_tick 101/121 落地（命令驱动首拍）
+        self.assertEqual(st["air_calls"][:4],
+                         [(101, 0, 3), (101, 1, 2), (121, 0, 4), (121, 1, 14)])
+        # 进场完成拍（手推：spawn+⌈60000÷speed⌉−1）：FW190A 121+239−1=359、
+        # Yak-9 121+252−1=372、Pe-2 101+278−1=378、Il-2M 101+375−1=475
+        # （160×375=60000 恰整除）
+        self.assertEqual(st["air_arrivals"][:4],
+                         [(359, 14), (372, 4), (378, 2), (475, 3)])
+        # 首攻击令拍：实战首 %50 拍=650 入队→651 观测 STRIKE；首 RTB=Pe-2
+        # 两轮出击 BOMB 耗尽自动 RTB（GAP3-02——salvo 2×2 轮）；缠斗/空射弹丸
+        # 观测在案
+        self.assertEqual(st["first_air_strike_tick"], 651)
+        self.assertEqual(st["first_air_rtb_tick"], 1188)
+        self.assertEqual(st["first_air_dogfight_tick"], 851)
+        self.assertEqual(st["first_air_projectile_tick"], 1030)
+        self.assertGreater(st["dogfight_ticks"], 0)
+        # 击落 3 架（seed 42 定锚：Yak-9 咬落 Fw 190A#1@910；重呼 Fw 190A#2
+        # 咬落 Yak-9@10644 与 Il-2M#5@11311）
+        self.assertEqual(st["air_downed"],
+                         [(910, 1, 14), (10644, 0, 4), (11311, 0, 3)])
+        # 冷却公式精确锚：击落=(600+hp_max×30)×3（FW190A(600+2400)×3=9000→
+        # 910+9000=9910；Yak-9(600+2100)×3=8100→10644+8100=18744；Il-2M
+        # (600+3900)×3=13500→11311+13500=24811）；回收=600+损血×0（满血 Pe-2
+        # 末次回收 13788+600=14388）
+        self.assertEqual(dict(w.players[0].air_cooldowns), {3: 24811, 4: 18744})
+        self.assertEqual(dict(w.players[1].air_cooldowns), {14: 9910, 2: 14388})
+        # 经济恒等式（D015 租借闭环——实现无关不变量）：
+        #   750 − Σ呼叫(本体+载荷) + Σ回收(本体) = 终值
+        #   队0: 750−(96×5+70)+90×4=560；队1: 750−(109×7+80×2)+85×7=422
+        for pi in (0, 1):
+            spent = refunded = 0
+            for _tick, team, tid in st["air_calls"]:
+                if team != pi:
+                    continue
+                tpl = CARD_OBJECTS["IL2M"] if tid == 3 else (
+                    CARD_OBJECTS["PE2"] if tid == 2 else (
+                        CARD_OBJECTS["YAK9"] if tid == 4
+                        else CARD_OBJECTS["FW190A"]))
+                payload = {"BOMB": 2} if tid == 3 else (
+                    {"BOMB": 4} if tid == 2 else {})
+                spent += tpl.cost_body + sum(
+                    tpl.payload_price.get(k, 0) * v for k, v in payload.items())
+            for _tick, team, tid in st["air_recoveries"]:
+                if team == pi:
+                    refunded += (CARD_OBJECTS["IL2M"] if tid == 3 else
+                                 CARD_OBJECTS["PE2"]).cost_body
+            self.assertEqual(w.players[pi].air_points, 750 - spent + refunded)
+        self.assertEqual([p.air_points for p in w.players], [560, 422])
+        self.assertEqual(st["air_recoveries"],
+                         [(1800, 1, 2), (2117, 0, 3), (3788, 1, 2), (4713, 0, 3),
+                          (5788, 1, 2), (7313, 0, 3), (7788, 1, 2),
+                          (9788, 1, 2), (9913, 0, 3), (11788, 1, 2),
+                          (13788, 1, 2)])
+        # 通道纪律：纯航空只消费 AIR（轰炸散布/缠斗掷骰；无地面单位——
+        # HIT/SCATTER/SPOT/SONAR/ECONOMY/SNIPER 全零）
+        self.assertEqual(channels_used(w, rng0), {"AIR"})
+        self.assertEqual(st["command_residue_ticks"], 0)
+
+    def test_air_dual_run_fingerprint_bit_identical(self):
+        # 同 seed 双 world 全局锁步（含结算尾段 25 拍）：A 段全字段指纹
+        # （spotted_mask/facing/flight_plan/task/ammo/alt_pending/dogfight/
+        # engage_air/paratroop_cargo/no_engage_until）位级相等——航空侧任何
+        # 非确定写/迭代序漂移在此暴露
+        w1, w2 = build_air_world(42), build_air_world(42)
+        ais1 = [HeadlessAI(i, air=True) for i in range(len(w1.players))]
+        ais2 = [HeadlessAI(i, air=True) for i in range(len(w2.players))]
+        ticks = 0
+        while w1.phase != PHASE_SETTLE:
+            for a in ais1:
+                a.step(w1)
+            for a in ais2:
+                a.step(w2)
+            world_tick(w1)
+            world_tick(w2)
+            ticks += 1
+            self.assertEqual(full_fingerprint(w1), full_fingerprint(w2))
+        self.assertEqual(ticks, 13801)
+        for _ in range(25):
+            world_tick(w1)
+            world_tick(w2)
+            self.assertEqual(full_fingerprint(w1), full_fingerprint(w2))
+        # 末态与单跑一致（队0 终值 560/422——双跑同构自证）
+        self.assertEqual([p.air_points for p in w1.players], [560, 422])
+        self.assertEqual([p.air_points for p in w2.players], [560, 422])
 
 
 if __name__ == "__main__":

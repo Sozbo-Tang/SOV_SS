@@ -1060,6 +1060,30 @@ v1.7 原文行序）+ 地面防空链（sense_air 消费端 / §F4 aa_try_engage
     2026-10-01 既有设计，cfg 覆写测试对这三支静默用全局值——是否统一补 cfg
     形参**待发起人裁**，登记在案）；⑥AirStrikeCmd 字段名 target 沿处理体/
     地面 AttackCmd 先例（§D.5 :359 作 target_point——措辞级不改）〕。
+  - 空中仿真闭环·块2 纯航空无头整局（2026-10-07；**sim 零行为改动**——只增
+    tests/test_fullgame_acceptance.py 场景与锚）：HeadlessAI 增 air keyword 画像
+    （缺省=既有行为逐位不变——anchors/move_mode/formation 先例；固定拍呼叫脚本
+    AIR_CALL_SCRIPTS 队0 Il-2M(BOMB2)+Yak-9/队1 Pe-2(BOMB4)+Fw 190A+实战期
+    节拍令：带弹攻击令/战斗机爬升 AirAltCmd(HIGH)/每 150t CAP AirPatrolCmd 图
+    中心（B-20——同空域自动缠斗 R-20）/攻击机投完弹手动 RTB（B-29——纯航空
+    场景 STRAFE 弹无从消耗，弃权判据=BOMB 耗尽）/每 100t 经济轮转（冷却到期+
+    不在空+点数够→重呼——D015 闭环））+build_air_world 场景工厂（无地面单位/
+    无占点——D031 第四链队0 胜）+run_full_game 航空生命周期逐拍观测（air_calls/
+    arrivals/recoveries/downed/first_{strike,rtb,dogfight,projectile}/
+    dogfight_ticks——消失分类 prev RTB=回收、DOGFIGHT/hp<=0=击落）+
+    **full_fingerprint A 段全字段扩面**（spotted_mask/facing/flight_plan/
+    patrol_loop/task 判别联合/ammo/alt_pending/dogfight/engage_air/
+    paratroop_cargo/no_engage_until——前 6 字段序保持、无航空器场景零贡献=
+    既有指纹位级不变，扩面仅加严双跑锚）。锚（seed 42 定值+手推成分逐条注明）：
+    呼叫拍 101/121（命令驱动首拍）；进场完成 359/372/378/475（GAP-04 位置化
+    手推 spawn+⌈60000÷speed⌉−1——Il-2M 160×375=60000 恰整除）；首攻击令 651
+    （实战首 %50 拍）；首 RTB 1188=Pe-2 两轮出击 BOMB 耗尽自动 RTB（GAP3-02）；
+    缠斗 851/击落 3 架/冷却公式精确锚（击落=(600+hp_max×30)×3 三架逐架核算、
+    回收=600+损血×0）；经济恒等式 750−Σ呼叫+Σ回收=终值（队0 560/队1 422，
+    实现无关不变量+定值双锚）；通道纪律={'AIR'}（纯航空零地面消费）；同 seed
+    双 world 13801+25 拍逐 tick 指纹位级一致。tests/test_fullgame_acceptance.py
+    +2 锚（TestAirFullGame），全量 934 绿（932+2）。零掷骰面变化（纯验收块——
+    观测/指纹/AI 均只读 world 确定性状态，不触 PCG32 通道）。
   - PB-56 总收口盘点（2026-10-06；§D.7 :256-268 全集 22 类逐支机械核点
     ——python 正则对 _dispatch_command 分派支，line 号为本日快照）：
     **21 类已落真调用**（实现锚=分派支，测试锚=首要文件）：MoveCmd
