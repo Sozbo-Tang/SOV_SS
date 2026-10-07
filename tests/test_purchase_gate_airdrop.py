@@ -38,7 +38,9 @@ ALL_CARDS = (
     "SU_ZIS3", "SU_TRUCK", "GER_GRENADIER", "GER_PARATROOP", "GER_PAK40",
 )
 PARATROOP_KEYS = ("SU_PARATROOP", "GER_PARATROOP")
-#: 空降两卡 flags 期望值：CAN_INFILTRATE(1<<1)|CAN_GARRISON(1<<3)|新位(1<<14)
+#: 空降两卡 flags 期望值：CAN_GARRISON(1<<1)|CAN_INFILTRATE(1<<3)|新位(1<<14)
+#: 〔评审勘正 2026-10-07：原注释两令牌名写反——实值 CAN_GARRISON=1<<1、
+#:  CAN_INFILTRATE=1<<3（types.py UnitFlag）；数值式与枚举断言原本即正确〕
 PARA_FLAGS_INT = (1 << 1) | (1 << 3) | (1 << 14)
 
 _LIB = None
