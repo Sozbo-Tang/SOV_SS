@@ -1,0 +1,44 @@
+# P-xx 待定登记（data/ground_pending.csv 全量迁移＋GP-01 §1.4 P-201/202/203＋新卡插值 P-301~P-314）。
+# 前段（P-1xx）＝CSV 时代原行逐行平移（迁移锚：pending 数组逐字节相等）；后段＝GP-01 M1 新登记。
+schema_version: "1.4"
+entries:
+  - {pending_id: "P-101", scope: "空降两卡（苏⑥/德⑥）", field: "category/per_card_limit", filled_value: "INFANTRY／随步兵默认3", resolve_plan: "air_data P-13 拍板后回填；限份待 D032 细化数值章节（O-05）"}
+  - {pending_id: "P-102", scope: "空降两卡", field: "编制（班数/班人数/武器配比）", filled_value: "3班×10人；苏=冲锋枪为主、德=K98＋MP40混编", resolve_plan: "GDD-01 逐卡评审补空降编制锚（O-12）"}
+  - {pending_id: "P-103", scope: "首批全部 SQUAD 元素", field: "hp_max（口径冲突）", filled_value: "按编制人数：侦察班8/步枪班10/掷弹兵班9/空降班10/政委班组2", resolve_plan: "GDD-03 §1.1『步兵班100』与 IMPL :131『1HP=1人』冲突——数值章节定标后统一"}
+  - {pending_id: "P-104", scope: "SU_ZIS3", field: "quota_group", filled_value: "HOWITZER", resolve_plan: "O-04 归桶拍板（直射/曲射双职 vs 反坦克定位）"}
+  - {pending_id: "P-105", scope: "SU_COMMISSAR", field: "aura.radius_cm", filled_value: "5000", resolve_plan: "光环半径无锚——数值章节与 melee_range_cm=5000 对表定标"}
+  - {pending_id: "P-106", scope: "首批全部武器行", field: "damage（HP/发，含 alt_profile.damage）", filled_value: "保守值：步枪3/冲锋枪2/MG3/主炮与反坦克炮10/直射加农8/铁拳10/HE档6", resolve_plan: "数值章节伤害曲线（GDD-00 §2 待定清单：距离衰减/伤害曲线）"}
+  - {pending_id: "P-107", scope: "首批全部 pen/armor", field: "mm→0-20 换算（O-02）", filled_value: "首版 (mm+10)//20：90→5/45→2/20→1/125→6/132→7/76→4/160→8/10→1", resolve_plan: "数值章节统一定表并覆盖全部卡面（GDD-02 清单⑤拍板约定）"}
+  - {pending_id: "P-108", scope: "SU_T3485", field: "armor_he", filled_value: "暂同 KE（5;2;2;1）", resolve_plan: "GDD-03 §3.3 仅给单一装甲行——HE 甲独立锚待数值章节"}
+  - {pending_id: "P-109", scope: "首批全部武器行", field: "projectile_speed_cm_tick", filled_value: "史实弹速 m/s×10：步枪8000/DP8000/MG7600/PPSh3500/MP40 2900/D-5T 7900/ZiS-3 6800/PaK40 7900/铁拳1000/烟罐500", resolve_plan: "GDD-03 无弹速列——史实口径近似填入，数值章节定标（避免 speed=0 弹丸永驻）"}
+  - {pending_id: "P-110", scope: "首批全部武器行", field: "aim_time/reload_time/salvo（射速换算）", filled_value: "reload=rpm 换算（600//rpm）或装填秒×10；连发武器 salvo=4~8；aim 3~30 tick", resolve_plan: "Enlisted 锚（D067 :350）→ tick 换算细则未定表——数值章节定标"}
+  - {pending_id: "P-111", scope: "首批全部 SQUAD 武器", field: "班内武器聚合口径", filled_value: "每类武器一行（弹药/射速按班内该类武器合计近似）", resolve_plan: "建模拍板：行=武器类型而非单件；首版保守，待评审"}
+  - {pending_id: "P-112", scope: "ZiS-3/PaK40 炮班", field: "hp_max/stealth_base", filled_value: "6／7", resolve_plan: "炮班人数与火炮隐蔽无锚——GDD-01 评审补锚"}
+  - {pending_id: "P-113", scope: "ZiS-3/PaK40", field: "pack_time_ticks", filled_value: "300", resolve_plan: "收炮时间无锚（展开 300 有锚：GDD-02 :451 30秒 D031）——对称保守"}
+  - {pending_id: "P-114", scope: "SU_TRUCK", field: "seats（口径）", filled_value: "1（以班为单位）", resolve_plan: "D065『载1个步兵班』——seats 计班还是计人待 R-07 mount 落地拍板"}
+  - {pending_id: "P-115", scope: "空降/掷弹兵/坦克/卡车", field: "stealth_base", filled_value: "空降6/掷弹兵6/T-34-85 3/卡车3", resolve_plan: "仅侦察10、步兵6、狙击10、侦察车4 有卡面锚——余者保守填"}
+  - {pending_id: "P-116", scope: "首批全部武器行", field: "dispersion_cm/aim_time_ticks", filled_value: "散布200~500/瞄准3~30（近战武器短、火炮长）", resolve_plan: "无锚保守值——数值章节散布/瞄准定标"}
+  - {pending_id: "P-117", scope: "SU_RECON 烟罐", field: "max_range/ammo", filled_value: "5000cm／2发", resolve_plan: "R-06 定量烟雾（GDD-02 :357 烟罐×2/排）——投掷射程无锚"}
+  - {pending_id: "P-118", scope: "首批全部武器行", field: "ammo_base 聚合与 ammo_weight", filled_value: "莫辛200（班携弹锚）／DP 141／MG42 150／MP40 96／PPSh 71~213／主炮24（锚）／加农基数6（锚）／坦克机枪500；ammo_weight 暂留默认0", resolve_plan: "后勤数值章节（GDD-00 §2 弹药槽容量/补给重量待定）＋tables.supply_round_weight 定标"}
+  - {pending_id: "P-119", scope: "SU_T3485", field: "own_weight_tons", filled_value: "300（0.1t 刻度）", resolve_plan: "锚=GDD-02 R-19『中坦~30吨级』——精确吨位待数值章节（IS-2 45t 级同批定标）"}
+  - {pending_id: "P-120", scope: "PB-52 示例两卡（SU_T3485/SU_TRUCK）", field: "单位级地形覆盖三列（野/倒/路）", filled_value: "T-34：6500/2500/55；卡车：5500（余列空=回退类级）", resolve_plan: "PB-52 机制验证示例值——全量定标归数值章节（现役 10 卡其余留空回退）"}
+  - {pending_id: "P-121", scope: "PB-53 全部元素行（自卫烟幕）", field: "self_smoke_charges", filled_value: "SU_TRUCK=2/SU_T34=2（v1定标 2026-10-07；余 8 卡 0）", resolve_plan: "PB-53 机制验证缺省态——2026-10-07 数据定标块：ask 字面点名 SU_TRUCK＋勘察默认 T34（史实 BDSh 锚）各配 2（cfg.self_smoke_default_charges=2 同值）；每车发数断箭 N32 无证据，数值章节复核窗口仍开"}
+  - {pending_id: "P-122", scope: "现役攻坚武器（D-5T/ZiS-3 直+曲/PaK40）", field: "vs_fort_mult_permille", filled_value: "85mm=5000/76mm=4000/75mm=3000（口径递进占位）", resolve_plan: "ask 字面 85/76/75mm≈3000-5000‰ 量级推算占位（2026-10-07 数据定标块）；步兵武器含铁拳维持缺省 1000=无攻坚资格——总账 v1 §二已入行、数值章节复核窗口仍开"}
+  - {pending_id: "P-123", scope: "现役炮/坦克三卡（SU_ZIS3/GER_PAK40/SU_T3485）", field: "turn_rate_deg", filled_value: "牵引炮 50/坦克 100（deg/s）", resolve_plan: "ask 字面履带 5-10°/t 可用量级（AMB-5 //10 换算→5/10°/tick、180°=36/18拍=2-4s 窗内）；步兵 6 卡+SU_TRUCK 留空=死槽（arc360 豁免+无车体语义）不冒充——总账 v1 §二已入行"}
+  - {pending_id: "P-201", scope: "苏军火力支援表", field: "第 6 卡卡位", filled_value: "行数按 GDD-01 §1 火力支援表实录 5 卡（节表头写「6」而行 5）", resolve_plan: "策划补齐第 6 卡后仅改 su_fire_support.yaml 再编译；备选池 SU-100/B-4 203mm 可供消化（GDD-01 §4 评审点 5）"}
+  - {pending_id: "P-202", scope: "德军兵种表", field: "第 40 卡卡位", filled_value: "逐类行数 6/9/7/6/5＝34 卡（含表外空降）——与「合计 40 卡」公式差 1，类别未知", resolve_plan: "策划指认类别后补 ger_*.yaml 对应文件；不代拟卡面数值（GP-01 §1.4）"}
+  - {pending_id: "P-203", scope: "苏军防空与后勤表", field: "第 6 卡卡位", filled_value: "行数按节表头/行数实录 5 卡——合计公式行「防空后勤6」（GDD-01:101）与行 5 矛盾（医疗班取消后滞文）", resolve_plan: "策划补齐后仅改 su_aa_logistics.yaml 再编译；P-201+P-203 补齐后苏=40 与合计恰合"}
+  - {pending_id: "P-301", scope: "新 57 卡全量", field: "optics_ground_cm/stealth_base/speed_tier/movement_class", filled_value: "类档插值：侦察步 60000/车 50000/摩 45000、步兵 35000、余 30000；隐蔽按 P-115 档（步侦 10/车 4/步 6/炮 7/坦 3/歼击 4-5/火箭 2）；speed_tier FOOT1/HORSE2/TRACK3/WHEEL4", resolve_plan: "数值章节逐卡复核（GDD-01 仅给卡名/编制/造价/特征语）"}
+  - {pending_id: "P-302", scope: "新 57 卡全量", field: "编制（元素数/count/hp_max）", filled_value: "按 GDD-01 编制列实录＋1HP=1 人（P-103 同口径）：班人数 2-10、车 hp 25-110、炮班 4-6", resolve_plan: "GDD-01 逐卡评审补编制锚（O-12）"}
+  - {pending_id: "P-303", scope: "新 57 卡武器行", field: "damage/pen/dispersion/aim/reload/salvo/ammo_base/projectile_speed/suppression/flags 特殊位", filled_value: "同类现役卡插值（P-106/P-107/P-110/P-116/P-118 同款保守值）；坦克炮/反坦克炮按同口径弹种锚外推", resolve_plan: "数值章节伤害/精度/射速定标＋机制位（SNIPER/AMBUSH/INFILTRATE 等 flags 配属）评审"}
+  - {pending_id: "P-304", scope: "新卡装甲与穿深", field: "armor_ke/armor_he/pen_min/pen_max", filled_value: "(mm+10)//20 首版换算外推（P-107 表未覆盖 88/122/152mm）：T-34/76 45mm→2、IS-2 120→6、虎 100→5、黑豹首上倾斜等效 7、D-25T 穿 5-7、PaK43 穿 8-9", resolve_plan: "数值章节统一定表并覆盖全部卡面（GDD-02 清单⑤拍板约定）"}
+  - {pending_id: "P-305", scope: "反炮兵声测班两卡", field: "sonar_radius_cm/sonar_rate", filled_value: "120000cm/50 占位", resolve_plan: "M2 sonar_step 落地联调（IntelCircle 概率定位节奏——GP-01 §3 行13）；GDD-01:41/:115 仅给「静止侦听→按时长概率定位」定性"}
+  - {pending_id: "P-306", scope: "迫击炮四卡（82/81/120×2）", field: "烟幕弹第二武器行", filled_value: "damage_type=SMOKE/blast=3000（=tables.smoke_radius_cm）/弹药 4 发/与 HE 同 needs_deployed——GP-01 §3 行5 武器烟弹路径的数据面", resolve_plan: "M2 武器烟弹路径落地联调（落 SmokeZone 而非 Projectile——PB-53 自卫烟幕同链）"}
+  - {pending_id: "P-307", scope: "坦克维修班/豹式救援车", field: "repair_power_hp_per_tick/tow_tonnage", filled_value: "维修 2 hp/tick；救援车拖曳 450（0.1t 刻度=45t——GDD-01:163 字面）", resolve_plan: "D016 维修链/D065 拖曳联调（重伤永久/轻伤可修的分界定标）"}
+  - {pending_id: "P-308", scope: "新卡 turn_rate_deg", field: "turn_rate_deg", filled_value: "P-123 类档外推：履带/炮塔车 100、牵引炮 50、卡车/摩托/火箭车留 1=死槽不冒充", resolve_plan: "AMB-5 换算（deg//10）逐卡体感复核；窄弧（arc30）歼击车为活槽优先"}
+  - {pending_id: "P-309", scope: "镜像卡配属", field: "GER_TRUCK 三模式/自卫烟幕；T-34/76、OT-34 自卫烟幕", filled_value: "德卡车镜像 SU_TRUCK（P-120/P-121 同款：5500 越野/HAS_SUPPLY/烟幕 2）；T-34 底盘 BDSh 史实锚随 P-121 扩展", resolve_plan: "数值章节与断箭 N32 载具自卫面对照复核（P-121 同批）"}
+  - {pending_id: "P-310", scope: "新卡弹药重量", field: "ammo_weight", filled_value: "D-5T 9000 锚外推：50-88mm 弹 5000-10000、122mm 25000、150-152mm 30000-40000、迫弹 3000-16000、火箭弹 30000-40000（g）", resolve_plan: "D012 重量体系定标（supply_round_weight/med_weight_per_unit 联动）"}
+  - {pending_id: "P-311", scope: "侦察卡全类", field: "CAN_AIRDROP_BEACON 配属", filled_value: "未配属——GP-01 §6 空投信标行要求「落库时侦察卡配位」，与「现存 10 卡迁移逐字节相等锚」（SU_RECON 在内）互斥，须一次性全侦察卡配属", resolve_plan: "M2 §6 单位功能对齐落地时拍板（SetAirdropBeaconCmd 机制已有，tick.py:1020-1022 登记）"}
+  - {pending_id: "P-312", scope: "新坦克主炮", field: "alt_profile（R-11 HE 档）", filled_value: "新卡坦克炮未配 HE 档（现役 D-5T {6,1200} 先例未外推）——直射 KE 单档", resolve_plan: "数值章节按 D-5T 先例逐炮定标"}
+  - {pending_id: "P-313", scope: "装甲掷弹兵排", field: "251 车队运输配属", filled_value: "mode TRANSPORT＋seats 1（按班计——P-114 同口径）占位；步兵班与 251 同卡双元素", resolve_plan: "R-07 mount 落地联调（车载 MG 可射击=AMB-07、下车作战切换）"}
+  - {pending_id: "P-314", scope: "近卫/国民掷弹兵", field: "squad_quality_bp/morale 三列", filled_value: "近卫 quality 12000/国民 8000（质量卡位）；morale_sup/pin/rout 留 0 回退 cfg（GDD-01 仅定性「士气阈值+/低」，不冒充数值）", resolve_plan: "数值章节士气定标（PB-55 三列显式化）"}

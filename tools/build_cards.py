@@ -1,6 +1,14 @@
 r"""地面数据卡管线 CLI（out/card-schema-plan.md §E；消解 DATA-01 §12 偏离 D-2/D-3）。
 
-数据流（TECH-00 §8 :148）：CSV（utf-8-sig，stdlib csv——拍板 DATA-01 §1）→ 类型转换
+⚠️ **已退役留档（2026-10-12）**：本 CLI 被 tools/build_yaml.py 取代（GP-01 §1.2 /
+DATA-03 §1——配置面交换格式由 CSV 改 YAML，源＝data/yaml/，CSV 已归档
+data/legacy_csv/）。保留不删行：①序列化纯函数（dump_stable_json/_mask/
+library_to_json_dict/deck_to_json_dict/reconcile_provenance）被 build_yaml 复用
+（int 表示单点无双轨）；②归档 CSV 的审计重建入口（python3 tools/build_cards.py
+--data-dir data/legacy_csv --out-dir <tmp>）。同输入行为不变，schema 版本随
+card_schema.py 单点（现 1.4）。
+
+数据流（TECH-00 §8 :148）：CSV（utf-8-sig，stdlib csv——拍板 DATA-01 §1，DATA-03 废止）→ 类型转换
 （数值列显式 int()，白名单正则 `-?\d+`——拦 "7.5"/"1_000"/公式注入）→ pydantic 校验
 （sovs/sim/card_schema.py，DATA-01 冻结）→ JSON（键排序、枚举一律落 int 表示
 ——DATA-01 §2.4；同输入两次构建字节相等——方案 §E.2-4）。

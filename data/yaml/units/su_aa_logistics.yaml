@@ -1,0 +1,222 @@
+# 苏军防空与后勤表（GDD-01 §1 行数 5——合计公式行『防空后勤6』与节表头/行数 5 矛盾，差额登记 P-203）
+# 数值口径：卡名/编制/造价＝GDD-01 兵种表现值；其余字段按同类现役卡插值，
+# 逐块登记 sidecar/pending.yaml（P-301~P-314）待数值章节拍板——不阻塞（GP-01 §1.4）。
+# 字段集＝card_schema.UnitCardModel 39 字段（缺省字段省略＝pydantic 默认）。
+schema_version: "1.4"
+cards:
+  - card_key: SU_DSHK
+    template_id: 130
+    name: "DShK高射机枪排"
+    faction: "SOVIET"
+    category: "AA_LOGISTICS"
+    cost: 25
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    air_ceiling: "LOW"
+    stealth_base: 7
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 100
+    pack_time_ticks: 100
+    own_weight_tons: 2
+    elements:
+      - element_key: E_SU_DSHK
+        count: 4
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 4
+        fire_arc_deg: 360
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_SU_DSHK"
+            element_key: "E_SU_DSHK"
+            name: "DShK 12.7mm高射机枪"
+            target_mask: ["GROUND", "AIR_LOW"]
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 2
+            damage: 2
+            max_range_cm: 60000
+            dispersion_cm: 300
+            aim_time_ticks: 5
+            reload_time_ticks: 40
+            salvo: 6
+            ammo_base: 200
+            ammo_weight: 60
+            projectile_speed_cm_tick: 8000
+            suppression_power: 10
+  - card_key: SU_61K
+    template_id: 131
+    name: "61-K 37mm高炮排"
+    faction: "SOVIET"
+    category: "AA_LOGISTICS"
+    cost: 45
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    air_ceiling: "MID"
+    stealth_base: 7
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 200
+    pack_time_ticks: 200
+    own_weight_tons: 21
+    elements:
+      - element_key: E_SU_61K
+        count: 2
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 6
+        fire_arc_deg: 360
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_SU_61K"
+            element_key: "E_SU_61K"
+            name: "61-K 37mm高射炮"
+            target_mask: ["GROUND", "AIR_LOW", "AIR_MID"]
+            damage_type: "KE"
+            pen_min: 3
+            pen_max: 4
+            damage: 5
+            max_range_cm: 80000
+            dispersion_cm: 200
+            aim_time_ticks: 8
+            reload_time_ticks: 40
+            salvo: 4
+            ammo_base: 120
+            ammo_weight: 1500
+            projectile_speed_cm_tick: 8000
+            suppression_power: 12
+            needs_deployed: true
+  - card_key: SU_52K
+    template_id: 132
+    name: "52-K 85mm重型高炮连"
+    faction: "SOVIET"
+    category: "AA_LOGISTICS"
+    cost: 80
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    air_ceiling: "HIGH"
+    stealth_base: 7
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 300
+    pack_time_ticks: 300
+    mode_set: ["DIRECT", "INDIRECT"]
+    own_weight_tons: 50
+    elements:
+      - element_key: E_SU_52K
+        count: 2
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 6
+        fire_arc_deg: 360
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_SU_52K_DIRECT"
+            element_key: "E_SU_52K"
+            name: "52-K 85mm高射炮（平射）"
+            target_mask: ["GROUND", "AIR_LOW", "AIR_MID", "AIR_HIGH"]
+            damage_type: "KE"
+            pen_min: 5
+            pen_max: 5
+            damage: 8
+            max_range_cm: 110000
+            dispersion_cm: 150
+            aim_time_ticks: 15
+            reload_time_ticks: 70
+            salvo: 2
+            ammo_base: 60
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 8000
+            suppression_power: 20
+            needs_deployed: true
+          - weapon_key: "W_SU_52K_INDIRECT"
+            element_key: "E_SU_52K"
+            name: "52-K 85mm高射炮（曲射）"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 6
+            blast_radius_cm: 2000
+            max_range_cm: 400000
+            min_range_cm: 30000
+            dispersion_cm: 2000
+            aim_time_ticks: 20
+            reload_time_ticks: 80
+            salvo: 1
+            ammo_base: 20
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 5000
+            trajectory: "BALLISTIC"
+            suppression_power: 35
+            needs_deployed: true
+  - card_key: SU_TRUCK
+    template_id: 107
+    name: "卡车队（ZiS-5，3辆）"
+    faction: "SOVIET"
+    category: "AA_LOGISTICS"
+    cost: 40
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 3
+    speed_tier: 4
+    movement_class: "WHEEL"
+    terrain_speed_override_bp: 5500
+    flags: ["HAS_SUPPLY"]
+    mode_set: ["TOW", "CARGO", "TRANSPORT"]
+    tow_tonnage: 15
+    elements:
+      - element_key: E_SU_TRUCK
+        count: 3
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 30
+        armor_ke:
+          front: 0
+          side: 0
+          rear: 0
+          top: 0
+        armor_he:
+          front: 0
+          side: 0
+          rear: 0
+          top: 0
+        suppression_vuln_permille: 1500
+        seats: 1
+        cargo_rounds_max: 600
+        cargo_medical_max: 120
+        cargo_weight_max: 600
+        self_smoke_charges: 2
+        weapons: []
+  - card_key: SU_REPAIR
+    template_id: 133
+    name: "坦克维修班"
+    faction: "SOVIET"
+    category: "AA_LOGISTICS"
+    cost: 45
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 3
+    speed_tier: 4
+    movement_class: "WHEEL"
+    repair_power_hp_per_tick: 2
+    elements:
+      - element_key: E_SU_REPAIR
+        count: 2
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 30
+        armor_ke:
+          front: 0
+          side: 0
+          rear: 0
+          top: 0
+        armor_he:
+          front: 0
+          side: 0
+          rear: 0
+          top: 0
+        weapons: []

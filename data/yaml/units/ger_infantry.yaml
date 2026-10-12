@@ -1,0 +1,611 @@
+# 德军步兵表（GDD-01 §2 步兵 9 卡含军官班组＋表外空降 1 卡＝本文件 10 卡；空降=航空节『+1』GDD-01:174）
+# 数值口径：卡名/编制/造价＝GDD-01 兵种表现值；其余字段按同类现役卡插值，
+# 逐块登记 sidecar/pending.yaml（P-301~P-314）待数值章节拍板——不阻塞（GP-01 §1.4）。
+# 字段集＝card_schema.UnitCardModel 39 字段（缺省字段省略＝pydantic 默认）。
+schema_version: "1.4"
+cards:
+  - card_key: GER_GRENADIER
+    template_id: 201
+    name: "掷弹兵排"
+    faction: "GERMAN"
+    category: "INFANTRY"
+    cost: 50
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON"]
+    elements:
+      - element_key: E_GER_GREN
+        count: 3
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 9
+        weapons:
+          - weapon_key: "W_GER_K98"
+            element_key: "E_GER_GREN"
+            name: "Kar98k步枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 32000
+            dispersion_cm: 200
+            aim_time_ticks: 5
+            reload_time_ticks: 12
+            ammo_base: 200
+            ammo_weight: 10
+            projectile_speed_cm_tick: 7600
+            suppression_power: 8
+          - weapon_key: "W_GER_MG42"
+            element_key: "E_GER_GREN"
+            name: "MG42通用机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 45000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 50
+            salvo: 8
+            ammo_base: 150
+            ammo_weight: 20
+            projectile_speed_cm_tick: 7600
+            suppression_power: 15
+          - weapon_key: "W_GER_MP40"
+            element_key: "E_GER_GREN"
+            name: "MP40冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 11
+            salvo: 4
+            ammo_base: 96
+            ammo_weight: 10
+            projectile_speed_cm_tick: 2900
+            suppression_power: 12
+          - weapon_key: "W_GER_FAUST"
+            element_key: "E_GER_GREN"
+            name: "铁拳"
+            damage_type: "KE"
+            pen_min: 8
+            pen_max: 8
+            damage: 10
+            max_range_cm: 3000
+            dispersion_cm: 500
+            aim_time_ticks: 10
+            reload_time_ticks: 100
+            ammo_base: 6
+            ammo_weight: 3000
+            projectile_speed_cm_tick: 1000
+            suppression_power: 10
+  - card_key: GER_VG
+    template_id: 210
+    name: "国民掷弹兵排"
+    faction: "GERMAN"
+    category: "INFANTRY"
+    cost: 35
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON"]
+    elements:
+      - element_key: E_GER_VG
+        count: 3
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 8
+        squad_quality_bp: 8000
+        weapons:
+          - weapon_key: "W_GER_VG_K98"
+            element_key: "E_GER_VG"
+            name: "Kar98k步枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 32000
+            dispersion_cm: 200
+            aim_time_ticks: 5
+            reload_time_ticks: 12
+            salvo: 1
+            ammo_base: 150
+            ammo_weight: 10
+            projectile_speed_cm_tick: 7600
+            suppression_power: 8
+          - weapon_key: "W_GER_VG_MG42"
+            element_key: "E_GER_VG"
+            name: "MG42通用机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 45000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 50
+            salvo: 8
+            ammo_base: 100
+            ammo_weight: 20
+            projectile_speed_cm_tick: 7600
+            suppression_power: 15
+          - weapon_key: "W_GER_VG_FAUST"
+            element_key: "E_GER_VG"
+            name: "铁拳"
+            damage_type: "KE"
+            pen_min: 8
+            pen_max: 8
+            damage: 10
+            max_range_cm: 3000
+            dispersion_cm: 500
+            aim_time_ticks: 10
+            reload_time_ticks: 100
+            salvo: 1
+            ammo_base: 12
+            ammo_weight: 3000
+            projectile_speed_cm_tick: 1000
+            suppression_power: 10
+  - card_key: GER_PGREN
+    template_id: 211
+    name: "装甲掷弹兵排"
+    faction: "GERMAN"
+    category: "INFANTRY"
+    cost: 110
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 4
+    speed_tier: 3
+    movement_class: "TRACK"
+    mode_set: ["DIRECT", "TRANSPORT"]
+    elements:
+      - element_key: E_GER_PGREN_SQ
+        count: 3
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 10
+        weapons:
+          - weapon_key: "W_GER_PGREN_MP40"
+            element_key: "E_GER_PGREN_SQ"
+            name: "MP40冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 11
+            salvo: 4
+            ammo_base: 96
+            ammo_weight: 10
+            projectile_speed_cm_tick: 2900
+            suppression_power: 12
+          - weapon_key: "W_GER_PGREN_MG42"
+            element_key: "E_GER_PGREN_SQ"
+            name: "MG42通用机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 45000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 50
+            salvo: 8
+            ammo_base: 150
+            ammo_weight: 20
+            projectile_speed_cm_tick: 7600
+            suppression_power: 15
+      - element_key: E_GER_PGREN_251
+        count: 4
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 25
+        armor_ke:
+          front: 1
+          side: 1
+          rear: 0
+          top: 0
+        armor_he:
+          front: 1
+          side: 1
+          rear: 0
+          top: 0
+        seats: 1
+        weapons:
+          - weapon_key: "W_GER_PGREN_251_MG34"
+            element_key: "E_GER_PGREN_251"
+            name: "MG34车载机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 40000
+            dispersion_cm: 200
+            aim_time_ticks: 3
+            reload_time_ticks: 50
+            salvo: 6
+            ammo_base: 500
+            ammo_weight: 20
+            projectile_speed_cm_tick: 8000
+            suppression_power: 12
+  - card_key: GER_JAGER
+    template_id: 212
+    name: "猎兵排"
+    faction: "GERMAN"
+    category: "INFANTRY"
+    cost: 55
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 8
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON", "FOREST_WALK_SILENT", "CAN_AMBUSH"]
+    elements:
+      - element_key: E_GER_JAGER
+        count: 2
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 9
+        weapons:
+          - weapon_key: "W_GER_JAGER_K98"
+            element_key: "E_GER_JAGER"
+            name: "Kar98k步枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 32000
+            dispersion_cm: 200
+            aim_time_ticks: 5
+            reload_time_ticks: 12
+            salvo: 1
+            ammo_base: 200
+            ammo_weight: 10
+            projectile_speed_cm_tick: 7600
+            suppression_power: 8
+          - weapon_key: "W_GER_JAGER_MG42"
+            element_key: "E_GER_JAGER"
+            name: "MG42通用机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 45000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 50
+            salvo: 8
+            ammo_base: 100
+            ammo_weight: 20
+            projectile_speed_cm_tick: 7600
+            suppression_power: 15
+  - card_key: GER_HMG
+    template_id: 213
+    name: "机枪排"
+    faction: "GERMAN"
+    category: "INFANTRY"
+    cost: 35
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON"]
+    elements:
+      - element_key: E_GER_HMG
+        count: 2
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 4
+        weapons:
+          - weapon_key: "W_GER_HMG_MG42"
+            element_key: "E_GER_HMG"
+            name: "MG42重机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 48000
+            dispersion_cm: 300
+            aim_time_ticks: 4
+            reload_time_ticks: 80
+            salvo: 10
+            ammo_base: 400
+            ammo_weight: 20
+            projectile_speed_cm_tick: 7600
+            suppression_power: 20
+  - card_key: GER_MORTAR81
+    template_id: 214
+    name: "81mm迫击炮排"
+    faction: "GERMAN"
+    category: "INFANTRY"
+    cost: 40
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    deploy_time_ticks: 150
+    pack_time_ticks: 150
+    mode_set: ["INDIRECT"]
+    elements:
+      - element_key: E_GER_M81
+        count: 2
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 4
+        fire_arc_deg: 360
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_GER_M81_HE"
+            element_key: "E_GER_M81"
+            name: "GrW 34 81mm迫击炮（HE）"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 6
+            blast_radius_cm: 2000
+            max_range_cm: 32000
+            min_range_cm: 4000
+            dispersion_cm: 800
+            aim_time_ticks: 10
+            reload_time_ticks: 30
+            salvo: 2
+            ammo_base: 30
+            ammo_weight: 3000
+            projectile_speed_cm_tick: 1500
+            trajectory: "BALLISTIC"
+            suppression_power: 25
+            needs_deployed: true
+          - weapon_key: "W_GER_M81_SMOKE"
+            element_key: "E_GER_M81"
+            name: "GrW 34 81mm迫击炮（烟幕）"
+            damage_type: "SMOKE"
+            pen_min: 0
+            pen_max: 0
+            damage: 0
+            blast_radius_cm: 3000
+            max_range_cm: 32000
+            min_range_cm: 4000
+            dispersion_cm: 1000
+            aim_time_ticks: 10
+            reload_time_ticks: 60
+            salvo: 1
+            ammo_base: 4
+            ammo_weight: 3000
+            projectile_speed_cm_tick: 1500
+            suppression_power: 0
+            needs_deployed: true
+  - card_key: GER_MORTAR120
+    template_id: 215
+    name: "120mm重迫击炮排"
+    faction: "GERMAN"
+    category: "INFANTRY"
+    cost: 60
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    deploy_time_ticks: 200
+    pack_time_ticks: 200
+    mode_set: ["INDIRECT"]
+    elements:
+      - element_key: E_GER_M120
+        count: 2
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 4
+        fire_arc_deg: 360
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_GER_M120_HE"
+            element_key: "E_GER_M120"
+            name: "GrW 42 120mm重迫击炮（HE）"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 8
+            blast_radius_cm: 2500
+            max_range_cm: 40000
+            min_range_cm: 5000
+            dispersion_cm: 900
+            aim_time_ticks: 12
+            reload_time_ticks: 40
+            salvo: 2
+            ammo_base: 24
+            ammo_weight: 16000
+            projectile_speed_cm_tick: 1500
+            trajectory: "BALLISTIC"
+            suppression_power: 35
+            needs_deployed: true
+          - weapon_key: "W_GER_M120_SMOKE"
+            element_key: "E_GER_M120"
+            name: "GrW 42 120mm重迫击炮（烟幕）"
+            damage_type: "SMOKE"
+            pen_min: 0
+            pen_max: 0
+            damage: 0
+            blast_radius_cm: 3000
+            max_range_cm: 40000
+            min_range_cm: 5000
+            dispersion_cm: 1000
+            aim_time_ticks: 10
+            reload_time_ticks: 60
+            salvo: 1
+            ammo_base: 4
+            ammo_weight: 16000
+            projectile_speed_cm_tick: 1500
+            suppression_power: 0
+            needs_deployed: true
+  - card_key: GER_ENGINEER
+    template_id: 216
+    name: "工兵排"
+    faction: "GERMAN"
+    category: "INFANTRY"
+    cost: 50
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON"]
+    elements:
+      - element_key: E_GER_ENG
+        count: 3
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 8
+        weapons:
+          - weapon_key: "W_GER_ENG_MP40"
+            element_key: "E_GER_ENG"
+            name: "MP40冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 11
+            salvo: 4
+            ammo_base: 96
+            ammo_weight: 10
+            projectile_speed_cm_tick: 2900
+            suppression_power: 12
+          - weapon_key: "W_GER_ENG_DEMO"
+            element_key: "E_GER_ENG"
+            name: "爆破包"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 15
+            blast_radius_cm: 800
+            max_range_cm: 800
+            dispersion_cm: 0
+            aim_time_ticks: 5
+            reload_time_ticks: 200
+            salvo: 1
+            ammo_base: 3
+            ammo_weight: 500
+            projectile_speed_cm_tick: 300
+            suppression_power: 10
+            vs_fort_mult_permille: 3000
+          - weapon_key: "W_GER_ENG_FLAME"
+            element_key: "E_GER_ENG"
+            name: "喷火器"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 10
+            blast_radius_cm: 1500
+            max_range_cm: 3500
+            dispersion_cm: 0
+            aim_time_ticks: 3
+            reload_time_ticks: 30
+            salvo: 4
+            ammo_base: 30
+            ammo_weight: 50
+            projectile_speed_cm_tick: 800
+            suppression_power: 30
+            vs_fort_mult_permille: 3000
+  - card_key: GER_OFFICER
+    template_id: 217
+    name: "军官班组"
+    faction: "GERMAN"
+    category: "INFANTRY"
+    cost: 25
+    pool: "MAIN"
+    per_card_limit: 1
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON"]
+    aura:
+      kind: "PRECISION"
+      bonus_bp: 1500
+      radius_cm: 5000
+    elements:
+      - element_key: E_GER_OFFICER
+        count: 1
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 2
+        weapons:
+          - weapon_key: "W_GER_OFFICER_MP40"
+            element_key: "E_GER_OFFICER"
+            name: "MP40冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 11
+            salvo: 4
+            ammo_base: 96
+            ammo_weight: 10
+            projectile_speed_cm_tick: 2900
+            suppression_power: 12
+  - card_key: GER_PARATROOP
+    template_id: 202
+    name: "空降猎兵排"
+    faction: "GERMAN"
+    category: "INFANTRY"
+    cost: 65
+    pool: "RESERVE"
+    delivery: "JU52"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON", "CAN_INFILTRATE", "DELIVERY_AIRDROP_ONLY"]
+    elements:
+      - element_key: E_GER_PARA
+        count: 3
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 10
+        weapons:
+          - weapon_key: "W_PARA_K98"
+            element_key: "E_GER_PARA"
+            name: "Kar98k步枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 32000
+            dispersion_cm: 200
+            aim_time_ticks: 5
+            reload_time_ticks: 12
+            ammo_base: 200
+            ammo_weight: 10
+            projectile_speed_cm_tick: 7600
+            suppression_power: 8
+          - weapon_key: "W_PARA_MP40"
+            element_key: "E_GER_PARA"
+            name: "MP40冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 11
+            salvo: 4
+            ammo_base: 96
+            ammo_weight: 10
+            projectile_speed_cm_tick: 2900
+            suppression_power: 12

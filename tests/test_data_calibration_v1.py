@@ -35,11 +35,32 @@ from sovs.sim.types import Building, DeployState, WState
 REPO_ROOT = Path(__file__).resolve().parents[1]
 GEN_LIBRARY = REPO_ROOT / "data" / "gen" / "cards_ground.v1.json"
 
-#: v1 定标（2026-10-07 数据定标块，P-122/P-123/P-121——数值总账 v1 §二）
+#: v1 定标（2026-10-07 数据定标块，P-122/P-123/P-121——数值总账 v1 §二）＋
+#: GP-01 M1 新 57 卡类档插值扩展（2026-10-12；P-303/P-304/P-308/P-309 登记：
+#: 炮塔车/坦克 turn=100、牵引炮=50、卡车/摩托留 1=死槽；攻坚值仅 GDD 卡面字面三类
+#: 承载——75mm 步兵炮拆建筑/工兵爆破/喷火器对建筑毁伤；德卡车与 T-34 底盘烟幕镜像 P-121）
 VS_FORT_V1 = {"D-5T 85mm坦克炮": 5000, "ZiS-3 76mm加农炮（直射）": 4000,
-              "ZiS-3 76mm加农炮（曲射）": 4000, "PaK 40 75mm反坦克炮": 3000}
-TURN_RATE_V1 = {"SU_T3485": 100, "SU_ZIS3": 50, "GER_PAK40": 50}
-SELF_SMOKE_V1 = {"SU_TRUCK": 2, "SU_T3485": 2}
+              "ZiS-3 76mm加农炮（曲射）": 4000, "PaK 40 75mm反坦克炮": 3000,
+              "le.IG 18 75mm步兵炮（直射）": 3000,
+              "炸药包": 3000, "爆破包": 3000,
+              "ATO-41喷火器": 3000, "喷火器": 3000}
+TURN_RATE_V1 = {
+    "SU_T3485": 100, "SU_ZIS3": 50, "GER_PAK40": 50,
+    # 坦克/炮塔车 100（履带档——P-123 外推 P-308）
+    "SU_T3476": 100, "SU_IS2": 100, "SU_SU76": 100, "SU_SU85": 100,
+    "SU_ISU152": 100, "SU_OT34": 100, "SU_BA64": 100,
+    "GER_PUMA": 100, "GER_PZIV": 100, "GER_PANTHER": 100, "GER_TIGER": 100,
+    "GER_STUG": 100, "GER_JGDPZ4": 100, "GER_HETZER": 100,
+    "GER_NASHORN": 100, "GER_BERGE": 100,
+    # 牵引炮/高炮 50（牵引炮档——P-123 外推 P-308）
+    "SU_ZIS2": 50, "SU_M30": 50, "SU_ML20": 50,
+    "SU_DSHK": 50, "SU_61K": 50, "SU_52K": 50,
+    "GER_IG18": 50, "GER_PAK38": 50, "GER_FH18": 50, "GER_SFH18": 50,
+    "GER_NEBEL": 50, "GER_FLAK38": 50, "GER_FLAK43": 50, "GER_FLAK36": 50,
+}
+SELF_SMOKE_V1 = {"SU_TRUCK": 2, "SU_T3485": 2,
+                 "GER_TRUCK": 2,      # 德卡车镜像（P-309）
+                 "SU_T3476": 2, "SU_OT34": 2}  # T-34 底盘 BDSh 史实锚随 P-121 扩展
 
 
 def _lib():
@@ -54,7 +75,9 @@ class TestVsFortCalibration(unittest.TestCase):
         cls.lib = _lib()
 
     def test_data_pin_exactly_four_siege_weapons(self):
-        # 18 武器恰 4 攻坚配值、其余 14（含铁拳/全部步兵武器）缺省 1000=无攻坚资格
+        # 攻坚配值恰＝VS_FORT_V1 清单（首批 4 攻坚＋GP-01 M1 新增 5 类——75mm 步兵炮
+        # 拆建筑/工兵爆破×2/喷火×2，均 GDD-01 卡面字面承载）；其余武器（含铁拳/全部
+        # 步枪机枪/新卡坦克炮——P-312 未配 HE 档同批）缺省 1000=无攻坚资格
         filled = {}
         for key in self.lib:
             for et in self.lib[key].unit_template.element_templates:
@@ -179,7 +202,7 @@ class TestTurnRateCalibration(unittest.TestCase):
 
     def test_data_pin_three_cards_rest_default_one(self):
         for key, rec in self.lib.items():
-            expect = TURN_RATE_V1.get(key, 1)                # 其余 7 卡缺省 1
+            expect = TURN_RATE_V1.get(key, 1)                # 清单外卡缺省 1（含 P-308 死槽）
             self.assertEqual(rec.unit_template.turn_rate_deg, expect, key)
 
     def test_pak40_rotate_step_five_deg_per_tick(self):
@@ -220,7 +243,8 @@ class TestTurnRateCalibration(unittest.TestCase):
 
 
 class TestSelfSmokeRealCards(unittest.TestCase):
-    """③ 自卫烟幕真卡配属链（P-121 更新：SU_TRUCK/SU_T34=2、余 8 卡 0）。"""
+    """③ 自卫烟幕真卡配属链（P-121 更新：SU_TRUCK/SU_T34=2；GP-01 M1 扩展德卡车与
+    T-34 底盘三卡镜像=2、余卡 0——P-309）。"""
 
     @classmethod
     def setUpClass(cls):

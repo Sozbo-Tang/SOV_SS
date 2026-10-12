@@ -1,0 +1,145 @@
+# 值级偏离留痕（data/ground_provenance.csv 全量迁移＋新卡插值行——DATA-01 §6.2/DATA-03 §2.7）。
+# 前段（P-1xx）＝CSV 时代原行逐行平移（迁移锚：10 卡 _provenance 旁键逐字节相等）；
+# 后段＝GP-01 M1 新 57 卡插值留痕（grade=插值，pending_id→pending.yaml P-3xx）。
+schema_version: "1.4"
+entries:
+  - {card_key: "SU_PARATROOP", field_path: "category", grade: "拍板", source_ref: "O-05 拟步兵（施工方案§C.3；GDD-02 :326）", pending_id: "P-101"}
+  - {card_key: "SU_PARATROOP", field_path: "per_card_limit", grade: "待定", source_ref: "air_data P-13 限份待 D032 细化——随步兵默认3", pending_id: "P-101"}
+  - {card_key: "GER_PARATROOP", field_path: "category", grade: "拍板", source_ref: "O-05 拟步兵（施工方案§C.3；GDD-02 :335）", pending_id: "P-101"}
+  - {card_key: "GER_PARATROOP", field_path: "per_card_limit", grade: "待定", source_ref: "air_data P-13 限份待 D032 细化——随步兵默认3", pending_id: "P-101"}
+  - {card_key: "SU_PARATROOP", field_path: "elements[E_SU_PARA]", grade: "待定", source_ref: "编制无GDD锚——拟近卫步枪排形态3班×10人、冲锋枪为主", pending_id: "P-102"}
+  - {card_key: "GER_PARATROOP", field_path: "elements[E_GER_PARA]", grade: "待定", source_ref: "编制无GDD锚——拟3班×10人、K98＋MP40混编", pending_id: "P-102"}
+  - {card_key: "SU_RECON", field_path: "elements[E_SU_RECON]", grade: "待定", source_ref: "hp_max口径冲突——GDD-03 §1.1步兵班100 vs IMPL :131 1HP=1人→按8人/班", pending_id: "P-103"}
+  - {card_key: "SU_RIFLE", field_path: "elements[E_SU_RIFLE]", grade: "待定", source_ref: "同上→按10人/班", pending_id: "P-103"}
+  - {card_key: "GER_GRENADIER", field_path: "elements[E_GER_GREN]", grade: "待定", source_ref: "同上→按9人/班", pending_id: "P-103"}
+  - {card_key: "SU_PARATROOP", field_path: "elements[E_SU_PARA]", grade: "待定", source_ref: "同上→按10人/班", pending_id: "P-103"}
+  - {card_key: "GER_PARATROOP", field_path: "elements[E_GER_PARA]", grade: "待定", source_ref: "同上→按10人/班", pending_id: "P-103"}
+  - {card_key: "SU_COMMISSAR", field_path: "elements[E_SU_COMMISSAR]", grade: "待定", source_ref: "同上→政委＋卫员2人", pending_id: "P-103"}
+  - {card_key: "SU_ZIS3", field_path: "quota_group", grade: "拍板", source_ref: "O-04 拟HOWITZER（直射/曲射双职支援定位）", pending_id: "P-104"}
+  - {card_key: "SU_COMMISSAR", field_path: "aura", grade: "待定", source_ref: "bonus_bp=1500〔GDD-02 :388〕；radius_cm=5000无锚", pending_id: "P-105"}
+  - {card_key: "SU_T3485", field_path: "elements[E_SU_T34]", grade: "待定", source_ref: "armor_he无独立锚——暂同KE（90/45/45/20mm→5;2;2;1）", pending_id: "P-108"}
+  - {card_key: "SU_T3485", field_path: "elements[E_SU_T34].W_T34_D5T", grade: "待定", source_ref: "damage/alt_profile/散布/弹速保守值——§2.2仅锚射程1000m/装填8s/穿125/HE压制22", pending_id: "P-106"}
+  - {card_key: "SU_T3485", field_path: "elements[E_SU_T34].W_T34_MG", grade: "待定", source_ref: "damage/弹量500保守值——§2.2仅锚400m/穿10/压制12", pending_id: "P-106"}
+  - {card_key: "SU_ZIS3", field_path: "elements[E_SU_ZIS3].W_ZIS3_DIRECT", grade: "待定", source_ref: "damage/aim保守值；穿76mm→4按(mm+10)//20首版换算", pending_id: "P-107"}
+  - {card_key: "SU_ZIS3", field_path: "elements[E_SU_ZIS3].W_ZIS3_INDIRECT", grade: "待定", source_ref: "damage/min_range保守值——§2.3仅锚帽3000m/压制25/溅射12m/基数6发", pending_id: "P-106"}
+  - {card_key: "GER_PAK40", field_path: "elements[E_GER_PAK40].W_PAK40", grade: "待定", source_ref: "射程/装填取KwK40 L/48同弹种锚；穿132→7待换算表（O-02）", pending_id: "P-107"}
+  - {card_key: "GER_GRENADIER", field_path: "elements[E_GER_GREN].W_GER_FAUST", grade: "待定", source_ref: "穿160mm→8待换算表（O-02）；damage保守", pending_id: "P-107"}
+  - {card_key: "SU_ZIS3", field_path: "elements[E_SU_ZIS3]", grade: "待定", source_ref: "炮班人数6（M22口径hp_max=炮班人数）；stealth_base=7无锚", pending_id: "P-112"}
+  - {card_key: "GER_PAK40", field_path: "elements[E_GER_PAK40]", grade: "待定", source_ref: "同上", pending_id: "P-112"}
+  - {card_key: "SU_TRUCK", field_path: "elements[E_SU_TRUCK]", grade: "待定", source_ref: "seats口径——载1个步兵班（R-07）按班计=1", pending_id: "P-114"}
+  - {card_key: "SU_T3485", field_path: "stealth_base", grade: "待定", source_ref: "中坦隐蔽无锚——保守3", pending_id: "P-115"}
+  - {card_key: "SU_TRUCK", field_path: "stealth_base", grade: "待定", source_ref: "卡车隐蔽无锚——保守3", pending_id: "P-115"}
+  - {card_key: "GER_GRENADIER", field_path: "stealth_base", grade: "待定", source_ref: "掷弹兵隐蔽无锚——随步兵档6", pending_id: "P-115"}
+  - {card_key: "SU_ZIS3", field_path: "pack_time_ticks", grade: "待定", source_ref: "收炮时间无锚——对称取300（展开300有锚：GDD-02 :451 30秒）", pending_id: "P-113"}
+  - {card_key: "GER_PAK40", field_path: "pack_time_ticks", grade: "待定", source_ref: "同上", pending_id: "P-113"}
+  - {card_key: "SU_RECON", field_path: "elements[E_SU_RECON].W_RECON_SMOKE", grade: "待定", source_ref: "烟罐档——max_range 5000/ammo 2无锚；blast 3000取tables.smoke_radius_cm", pending_id: "P-117"}
+  - {card_key: "SU_PARATROOP", field_path: "flags", grade: "拍板", source_ref: "PB-31 2026-10-03 发起人授权：空降兵卡加 CAN_INFILTRATE（渗透计时机制全链可测）", pending_id: ""}
+  - {card_key: "GER_PARATROOP", field_path: "flags", grade: "拍板", source_ref: "PB-31 2026-10-03 发起人授权：空降兵卡加 CAN_INFILTRATE（渗透计时机制全链可测）", pending_id: ""}
+  - {card_key: "SU_T3485", field_path: "terrain_speed_override_bp", grade: "v1定标(2026-10-06总账)", source_ref: "6500 占位——履带类缺省 7000 微降（断箭 N10 逐卡数据为现代装备不直接迁移、量级自类级锚）", pending_id: "P-120"}
+  - {card_key: "SU_T3485", field_path: "reverse_speed_override_bp", grade: "v1定标(2026-10-06总账)", source_ref: "2500 占位——T-34 慢倒车名例（MV-B-01 拍板预登记表原文）落 N12 履带 29~50% 区间下沿外推", pending_id: "P-120"}
+  - {card_key: "SU_T3485", field_path: "road_bonus_override_cm", grade: "v1定标(2026-10-06总账)", source_ref: "55 占位——N11 履带路/野 1.1~1.3×（越野 70×6500bp//10000=45、55/45≈1.22）", pending_id: "P-120"}
+  - {card_key: "SU_TRUCK", field_path: "terrain_speed_override_bp", grade: "v1定标(2026-10-06总账)", source_ref: "5500 占位——轮式类缺省 5000 微升（同上：断箭逐卡数据不直接迁移）", pending_id: "P-120"}
+  - {card_key: "GER_GRENADIER", field_path: "flags", grade: "拍板", source_ref: "PB-57 追认 2026-10-06 发起人拍板：步兵/侦察/军官政委类可进驻建筑（加 CAN_GARRISON）", pending_id: ""}
+  - {card_key: "GER_PARATROOP", field_path: "flags", grade: "拍板", source_ref: "PB-57 追认 2026-10-06 发起人拍板：步兵/侦察/军官政委类可进驻建筑（加 CAN_GARRISON）", pending_id: ""}
+  - {card_key: "SU_COMMISSAR", field_path: "flags", grade: "拍板", source_ref: "PB-57 追认 2026-10-06 发起人拍板：步兵/侦察/军官政委类可进驻建筑（加 CAN_GARRISON）", pending_id: ""}
+  - {card_key: "SU_PARATROOP", field_path: "flags", grade: "拍板", source_ref: "PB-57 追认 2026-10-06 发起人拍板：步兵/侦察/军官政委类可进驻建筑（加 CAN_GARRISON）", pending_id: ""}
+  - {card_key: "SU_RECON", field_path: "flags", grade: "拍板", source_ref: "PB-57 追认 2026-10-06 发起人拍板：步兵/侦察/军官政委类可进驻建筑（加 CAN_GARRISON）", pending_id: ""}
+  - {card_key: "SU_RIFLE", field_path: "flags", grade: "拍板", source_ref: "PB-57 追认 2026-10-06 发起人拍板：步兵/侦察/军官政委类可进驻建筑（加 CAN_GARRISON）", pending_id: ""}
+  - {card_key: "SU_TRUCK", field_path: "flags", grade: "拍板", source_ref: "PB-56 批③收口 2026-10-06 发起人指令数据侧承载：补给卡补 HAS_SUPPLY（买补给链现役可达；CAN_GARRISON 先例同款）", pending_id: ""}
+  - {card_key: "SU_T3485", field_path: "elements[E_SU_T34].W_T34_D5T", grade: "v1定标(推算占位)", source_ref: "85mm 坦克炮攻坚 5000‰——ask 字面口径递进（85/76/75mm≈3000-5000‰ 取 85mm 上限档；10 dmg×5000‰=50/发、hp100 示范楼 2 发实测 140t（原注 160t 勘正——评审实测））", pending_id: "P-122"}
+  - {card_key: "SU_ZIS3", field_path: "elements[E_SU_ZIS3].W_ZIS3_DIRECT", grade: "v1定标(推算占位)", source_ref: "76mm 直射 4000‰——口径中值档（8 dmg×4000‰=32/发、hp100 楼 4 发实测 100t（直+曲合发；原注 240t 勘正））", pending_id: "P-122"}
+  - {card_key: "SU_ZIS3", field_path: "elements[E_SU_ZIS3].W_ZIS3_INDIRECT", grade: "v1定标(推算占位)", source_ref: "76mm 曲射 HE 同炮同值 4000‰——GDD-04:30『HE 克软目标/建筑』口径（勘察曾建议 2000 未采：ask 量级字面优先）", pending_id: "P-122"}
+  - {card_key: "GER_PAK40", field_path: "elements[E_GER_PAK40].W_PAK40", grade: "v1定标(推算占位)", source_ref: "75mm 反坦克炮 3000‰——口径下限档（10 dmg×3000‰=30/发、hp100 楼 4 发实测 275t（原注 260t 勘正））", pending_id: "P-122"}
+  - {card_key: "SU_T3485", field_path: "turn_rate_deg", grade: "v1定标(推算占位)", source_ref: "100=履带档上限（AMB-5 //10 换算→10°/tick、180°=18拍——ask 字面履带 5-10°/t；arc360 现为死值=窄弧 profile 留位）", pending_id: "P-123"}
+  - {card_key: "SU_ZIS3", field_path: "turn_rate_deg", grade: "v1定标(推算占位)", source_ref: "50=人力转炮慢于履带档（→5°/tick、180°=36拍=ask 可用量级窗下限；30° 射界内微调 6 拍）", pending_id: "P-123"}
+  - {card_key: "GER_PAK40", field_path: "turn_rate_deg", grade: "v1定标(推算占位)", source_ref: "50=牵引炮档同 ZiS-3（→5°/tick）", pending_id: "P-123"}
+  - {card_key: "SU_TRUCK", field_path: "elements[E_SU_TRUCK]", grade: "v1定标(推算占位)", source_ref: "self_smoke_charges=2——ask 字面点名（补给车高价值软目标；cfg.self_smoke_default_charges=2 同值）", pending_id: "P-121"}
+  - {card_key: "SU_T3485", field_path: "elements[E_SU_T34]", grade: "v1定标(推算占位)", source_ref: "self_smoke_charges=2——采勘察默认（史实锚 T-34 BDSh 发烟罐、N32 载具自卫字面；ask 字面仅点名 SU_TRUCK——此项可撤销）", pending_id: "P-121"}
+  - {card_key: "SU_PARATROOP", field_path: "flags", grade: "拍板", source_ref: "空裁8 2026-10-07 发起人拍板（A 案购买门拦截）：加 DELIVERY_AIRDROP_ONLY——GDD-01 :99 卡面「仅可经Li-2空投（D017）」限定由 cmd_purchase 第四门强制", pending_id: ""}
+  - {card_key: "GER_PARATROOP", field_path: "flags", grade: "拍板", source_ref: "空裁8 2026-10-07 发起人拍板（A 案购买门拦截）：加 DELIVERY_AIRDROP_ONLY——GDD-01 :174 卡面「仅可经Ju 52空投」限定（D017 同款）由 cmd_purchase 第四门强制", pending_id: ""}
+  - {card_key: "SU_SNIPER", field_path: "flags", grade: "\u63d2\u503c", source_ref: "CAN_SNIPER_COVER 位配属——狙击掩体机制（R-02/GDD-01:40 狙击组）", pending_id: "P-303"}
+  - {card_key: "GER_SNIPER", field_path: "flags", grade: "\u63d2\u503c", source_ref: "CAN_SNIPER_COVER 位配属（GDD-01:114 狙击组）", pending_id: "P-303"}
+  - {card_key: "SU_SABOT", field_path: "unlock_by", grade: "\u62cd\u677f", source_ref: "特化解锁键=GDD-01:42 骑兵机械化集群专属", pending_id: "P-303"}
+  - {card_key: "GER_BRANDEN", field_path: "unlock_by", grade: "\u62cd\u677f", source_ref: "特化解锁键=GDD-01:116 猎兵/特种特化专属", pending_id: "P-303"}
+  - {card_key: "SU_SONAR", field_path: "sonar_radius_cm", grade: "\u63d2\u503c", source_ref: "声测占位 120000/50——D021（GDD-01:41），M2 sonar_step 联调", pending_id: "P-305"}
+  - {card_key: "GER_SONAR", field_path: "sonar_radius_cm", grade: "\u63d2\u503c", source_ref: "声测占位 120000/50——D021（GDD-01:115），M2 sonar_step 联调", pending_id: "P-305"}
+  - {card_key: "SU_MORTAR82", field_path: "mode_set", grade: "\u63d2\u503c", source_ref: "迫击炮烟幕弹第二武器行（GDD-01:53 82mm 可打烟雾弹；GP-01 §3 行5）", pending_id: "P-306"}
+  - {card_key: "GER_MORTAR81", field_path: "mode_set", grade: "\u63d2\u503c", source_ref: "烟弹行同苏 82 迫（GDD-01:127 烟雾弹）", pending_id: "P-306"}
+  - {card_key: "SU_MORTAR120", field_path: "mode_set", grade: "\u63d2\u503c", source_ref: "120 重迫烟弹行（GP-01 §3 行5；GDD 未单列，同 82 迫镜像）", pending_id: "P-306"}
+  - {card_key: "GER_MORTAR120", field_path: "mode_set", grade: "\u63d2\u503c", source_ref: "120 重迫烟弹行（同上）", pending_id: "P-306"}
+  - {card_key: "SU_REPAIR", field_path: "repair_power_hp_per_tick", grade: "\u63d2\u503c", source_ref: "维修 2 hp/tick 占位（GDD-01:88 接近修轻伤/重伤永久）", pending_id: "P-307"}
+  - {card_key: "GER_BERGE", field_path: "repair_power_hp_per_tick", grade: "\u63d2\u503c", source_ref: "维修+拖曳 45t（GDD-01:163 可拖曳重坦 45 吨）——tow_tonnage=450", pending_id: "P-307"}
+  - {card_key: "GER_TRUCK", field_path: "flags", grade: "\u63d2\u503c", source_ref: "德卡车镜像 SU_TRUCK（P-120/P-121 同款：HAS_SUPPLY+三模式+自卫烟幕 2）", pending_id: "P-309"}
+  - {card_key: "SU_T3476", field_path: "elements[E_SU_T3476]", grade: "\u63d2\u503c", source_ref: "T-34 底盘自卫烟幕镜像 P-121（史实 BDSh 发烟罐）", pending_id: "P-309"}
+  - {card_key: "SU_OT34", field_path: "elements[E_SU_OT34_TANK]", grade: "\u63d2\u503c", source_ref: "T-34 底盘自卫烟幕镜像 P-121", pending_id: "P-309"}
+  - {card_key: "SU_IS2", field_path: "elements[E_SU_IS2]", grade: "\u63d2\u503c", source_ref: "装甲/穿深 (mm+10)//20 外推（P-107 换算表未覆盖 122/152mm）", pending_id: "P-304"}
+  - {card_key: "GER_PANTHER", field_path: "elements[E_GER_PANTHER]", grade: "\u63d2\u503c", source_ref: "首上倾斜等效取 7（80mm@55°——换算表外推）", pending_id: "P-304"}
+  - {card_key: "GER_OFFICER", field_path: "aura", grade: "\u63d2\u503c", source_ref: "PRECISION 光环——镜像政委 MELEE 行（GDD-01:130；bonus_bp 1500 随政委员 P-105）", pending_id: "P-303"}
+  - {card_key: "GER_PGREN", field_path: "mode_set", grade: "\u63d2\u503c", source_ref: "251 车队 TRANSPORT/seats 1 配属（GDD-01:124 乘车进场/下车作战）", pending_id: "P-313"}
+  - {card_key: "GER_IG18", field_path: "elements[E_GER_IG18].W_GER_IG18_DIRECT", grade: "\u63d2\u503c", source_ref: "攻坚 3000‰——GDD-01:148『拆建筑』字面（P-122 75mm 口径档）", pending_id: "P-303"}
+  - {card_key: "SU_ENGINEER", field_path: "elements[E_SU_ENG].W_SU_ENG_DEMO", grade: "\u63d2\u503c", source_ref: "爆破包攻坚 3000‰——GDD-01:55『对工事/建筑伤害↑』", pending_id: "P-303"}
+  - {card_key: "GER_ENGINEER", field_path: "elements[E_GER_ENG].W_GER_ENG_DEMO", grade: "\u63d2\u503c", source_ref: "同苏工兵（GDD-01:129 攻坚/雷区）", pending_id: "P-303"}
+  - {card_key: "SU_OT34", field_path: "elements[E_SU_OT34_FLAME].W_SU_OT34_ATO", grade: "\u63d2\u503c", source_ref: "喷火器攻坚 3000‰——GDD-01:68『对步兵排/建筑毁伤极大』", pending_id: "P-303"}
+  - {card_key: "GER_JAGER", field_path: "flags", grade: "\u63d2\u503c", source_ref: "FOREST_WALK_SILENT/CAN_AMBUSH 位配属——GDD-01:125 林地荫蔽加成", pending_id: "P-303"}
+  - {card_key: "SU_SU85", field_path: "flags", grade: "\u63d2\u503c", source_ref: "CAN_AMBUSH 位配属——GDD-01:66 伏击型反坦克", pending_id: "P-303"}
+  - {card_key: "SU_ISU152", field_path: "flags", grade: "\u63d2\u503c", source_ref: "CAN_AMBUSH 位配属（突击炮伏击定位——同 SU85 拍）", pending_id: "P-303"}
+  - {card_key: "GER_STUG", field_path: "flags", grade: "\u63d2\u503c", source_ref: "CAN_AMBUSH 位配属——GDD-01:139 廉价突击炮；伏击/支援", pending_id: "P-303"}
+  - {card_key: "GER_JGDPZ4", field_path: "flags", grade: "\u63d2\u503c", source_ref: "CAN_AMBUSH 位配属——歼击车伏击定位（GDD-01:140）", pending_id: "P-303"}
+  - {card_key: "GER_HETZER", field_path: "flags", grade: "\u63d2\u503c", source_ref: "CAN_AMBUSH 位配属——GDD-01:141 小、隐蔽好", pending_id: "P-303"}
+  - {card_key: "SU_BA64", field_path: "elements[E_SU_BA64]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_CAVALRY", field_path: "elements[E_SU_CAVALRY]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_SNIPER", field_path: "elements[E_SU_SNIPER]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_SONAR", field_path: "elements[E_SU_SONAR]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_SABOT", field_path: "elements[E_SU_SABOT]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_SMG", field_path: "elements[E_SU_SMG]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_GUARD", field_path: "elements[E_SU_GUARD]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_MAXIM", field_path: "elements[E_SU_MAXIM]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_ATR", field_path: "elements[E_SU_ATR]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_MORTAR82", field_path: "elements[E_SU_M82]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_MORTAR120", field_path: "elements[E_SU_M120]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_ENGINEER", field_path: "elements[E_SU_ENG]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_T3476", field_path: "elements[E_SU_T3476]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_IS2", field_path: "elements[E_SU_IS2]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_SU76", field_path: "elements[E_SU_SU76]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_SU85", field_path: "elements[E_SU_SU85]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_ISU152", field_path: "elements[E_SU_ISU152]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_OT34", field_path: "elements[E_SU_OT34_TANK]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_ZIS2", field_path: "elements[E_SU_ZIS2]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_M30", field_path: "elements[E_SU_M30]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_ML20", field_path: "elements[E_SU_ML20]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_BM13", field_path: "elements[E_SU_BM13]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_DSHK", field_path: "elements[E_SU_DSHK]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_61K", field_path: "elements[E_SU_61K]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_52K", field_path: "elements[E_SU_52K]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "SU_REPAIR", field_path: "elements[E_SU_REPAIR]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_SCOUT", field_path: "elements[E_GER_SCOUT]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_PUMA", field_path: "elements[E_GER_PUMA]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_MOTO", field_path: "elements[E_GER_MOTO]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_SNIPER", field_path: "elements[E_GER_SNIPER]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_SONAR", field_path: "elements[E_GER_SONAR]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_BRANDEN", field_path: "elements[E_GER_BRANDEN]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_VG", field_path: "elements[E_GER_VG]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_PGREN", field_path: "elements[E_GER_PGREN_SQ]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_JAGER", field_path: "elements[E_GER_JAGER]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_HMG", field_path: "elements[E_GER_HMG]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_MORTAR81", field_path: "elements[E_GER_M81]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_MORTAR120", field_path: "elements[E_GER_M120]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_ENGINEER", field_path: "elements[E_GER_ENG]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_OFFICER", field_path: "elements[E_GER_OFFICER]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_PZIV", field_path: "elements[E_GER_PZIV]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_PANTHER", field_path: "elements[E_GER_PANTHER]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_TIGER", field_path: "elements[E_GER_TIGER]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_STUG", field_path: "elements[E_GER_STUG]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_JGDPZ4", field_path: "elements[E_GER_JGDPZ4]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_HETZER", field_path: "elements[E_GER_HETZER]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_NASHORN", field_path: "elements[E_GER_NASHORN]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_IG18", field_path: "elements[E_GER_IG18]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_PAK38", field_path: "elements[E_GER_PAK38]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_FH18", field_path: "elements[E_GER_FH18]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_SFH18", field_path: "elements[E_GER_SFH18]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_NEBEL", field_path: "elements[E_GER_NEBEL]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_FLAK38", field_path: "elements[E_GER_FLAK38]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_FLAK43", field_path: "elements[E_GER_FLAK43]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_FLAK36", field_path: "elements[E_GER_FLAK36]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_TRUCK", field_path: "elements[E_GER_TRUCK]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}
+  - {card_key: "GER_BERGE", field_path: "elements[E_GER_BERGE]", grade: "\u63d2\u503c", source_ref: "GDD-01 卡面＋同类现役卡插值（编制/数值总纲）", pending_id: "P-303"}

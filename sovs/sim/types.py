@@ -456,12 +456,16 @@ class UnitInstance:
 class FireMission:
     """§D.6 :233-236 R-13 炮击任务体（校射两槽下沉——方案10：连内共享=同任务参与者共享
     同一 fm；任务体销毁（耗尽/取消/拖曳/切模清任务）进度随之失效）。
-    target_point=(cm,cm)（POINT）；target_line=[(cm,cm),(cm,cm)]（LINE/CREEP）。"""
+    target_point=(cm,cm)（POINT）；target_line=[(cm,cm),(cm,cm)]（LINE/CREEP）。
+    〔GP-01 §3 表行5（2026-10-12 炮击模式块）：+ammo 弹药位 "HE"|"SMOKE"（断箭
+    弹药三分类的 SOV_SS 承载——精确档=校射收束映射无新位；SMOKE=武器烟弹路径，
+    fire_at 查 SMOKE 武器档落 SmokeZone）。缺省 "HE"=原行为逐位不变。〕"""
     form: FireMissionForm
     target_point: tuple[int, int] | None = None
     target_line: tuple = None               # ((cm,cm),(cm,cm)) | None
     creep_speed_cm_tick: int = 0
     ammo_mult: int = 1                      # 1..3（R-13 弹量基数）
+    ammo: str = "HE"                        # "HE"|"SMOKE"（GP-01 §3——曲射弹药位）
     salvo_mode: SalvoMode = SalvoMode.FULL
     shots_left: int = 0
     shots_fired: int = 0                    # v1.4：LINE 取样序号承载（M8：按批推进）

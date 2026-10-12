@@ -604,8 +604,16 @@ def _weapon_of(a: AircraftInstance, key: str):
 
 
 def cmd_air_strike(world, a: AircraftInstance, target: tuple[int, int], weapon: str,
-                   cfg: BalanceConfig = CONFIG) -> bool:
-    # 空裁6（2026-10-07 发起人拍板采纳）：cfg 形参补齐——_run_points 原直传全局 CONFIG
+                   axis=None, cfg: BalanceConfig = CONFIG) -> bool:
+    """§F3 cmd_air_strike（attack run 状态机；空裁6 cfg 形参补齐——_run_points 原
+    直传全局 CONFIG）。
+    〔GP-01 §4 ③段（2026-10-12 空中可控块·评审②补）：+axis 可选攻击轴
+    ((cm,cm),(cm,cm))|None——K+拖拽画线形态（对齐断箭「按住左键拖拽，一次性确定
+    打击位置与航线走向」/仓库落档 GDD-06 A1:157-159、FE-01:54）。有 axis 时
+    run_start/run_end 按玩家线向（axis[0]→axis[1]＝攻击方向）推导——替代
+    _run_points 的 from_pos 机位向（「先调好进场角再下攻击令」的航点纪律由玩家
+    显式承载）；缺省 None=现行为逐位不变。目标点仍取 target（UI 画线时取线段
+    瞄准点，命令层不猜）。〕"""
     if a.state in (AirState.DOGFIGHT, AirState.RTB):
         return False
     if _strike_busy(a):
@@ -614,7 +622,13 @@ def cmd_air_strike(world, a: AircraftInstance, target: tuple[int, int], weapon: 
         return False
     if world.phase == PHASE_SETTLE:
         return False
-    rs, re = _run_points(target, a.pos, cfg)
+    if axis is not None:                                     # GP-01 §4：画线攻击轴
+        k = dir_index(axis[1][0] - axis[0][0], axis[1][1] - axis[0][1])
+        s = scale(DIR8[k], cfg.strafe_run_lead_cm)
+        rs = tuple(target[i] - s[i] for i in (0, 1))
+        re = tuple(target[i] + s[i] for i in (0, 1))
+    else:
+        rs, re = _run_points(target, a.pos, cfg)
     a.task = AirTask(kind=TaskKind.STRIKE, weapon=weapon, target=target,
                      phase=StrikePhase.INGRESS, run_start=rs, run_end=re)
     a.state = AirState.STRIKE

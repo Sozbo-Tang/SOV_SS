@@ -1,0 +1,279 @@
+# 德军侦察表（GDD-01 §2 侦察 6 卡）
+# 数值口径：卡名/编制/造价＝GDD-01 兵种表现值；其余字段按同类现役卡插值，
+# 逐块登记 sidecar/pending.yaml（P-301~P-314）待数值章节拍板——不阻塞（GP-01 §1.4）。
+# 字段集＝card_schema.UnitCardModel 39 字段（缺省字段省略＝pydantic 默认）。
+schema_version: "1.4"
+cards:
+  - card_key: GER_SCOUT
+    template_id: 204
+    name: "斥候步兵排"
+    faction: "GERMAN"
+    category: "RECON"
+    cost: 30
+    pool: "MAIN"
+    optics_ground_cm: 60000
+    stealth_base: 10
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON"]
+    elements:
+      - element_key: E_GER_SCOUT
+        count: 2
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 8
+        weapons:
+          - weapon_key: "W_GER_SCOUT_MP40"
+            element_key: "E_GER_SCOUT"
+            name: "MP40冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 11
+            salvo: 4
+            ammo_base: 96
+            ammo_weight: 10
+            projectile_speed_cm_tick: 2900
+            suppression_power: 12
+          - weapon_key: "W_GER_SCOUT_K98"
+            element_key: "E_GER_SCOUT"
+            name: "Kar98k步枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 32000
+            dispersion_cm: 200
+            aim_time_ticks: 5
+            reload_time_ticks: 12
+            salvo: 1
+            ammo_base: 200
+            ammo_weight: 10
+            projectile_speed_cm_tick: 7600
+            suppression_power: 8
+  - card_key: GER_PUMA
+    template_id: 205
+    name: "Sd.Kfz 234/2美洲狮侦察排"
+    faction: "GERMAN"
+    category: "RECON"
+    cost: 90
+    pool: "MAIN"
+    optics_ground_cm: 50000
+    stealth_base: 4
+    speed_tier: 4
+    movement_class: "WHEEL"
+    turn_rate_deg: 100
+    elements:
+      - element_key: E_GER_PUMA
+        count: 2
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 35
+        armor_ke:
+          front: 2
+          side: 1
+          rear: 1
+          top: 1
+        armor_he:
+          front: 2
+          side: 1
+          rear: 1
+          top: 1
+        weapons:
+          - weapon_key: "W_GER_PUMA_KWK39"
+            element_key: "E_GER_PUMA"
+            name: "KwK 39 50mm坦克炮"
+            damage_type: "KE"
+            pen_min: 4
+            pen_max: 5
+            damage: 7
+            max_range_cm: 80000
+            dispersion_cm: 130
+            aim_time_ticks: 20
+            reload_time_ticks: 60
+            salvo: 2
+            ammo_base: 60
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 8300
+            suppression_power: 15
+          - weapon_key: "W_GER_PUMA_MG34"
+            element_key: "E_GER_PUMA"
+            name: "MG34车载机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 40000
+            dispersion_cm: 200
+            aim_time_ticks: 3
+            reload_time_ticks: 50
+            salvo: 6
+            ammo_base: 500
+            ammo_weight: 20
+            projectile_speed_cm_tick: 8000
+            suppression_power: 12
+  - card_key: GER_MOTO
+    template_id: 206
+    name: "摩托化侦察排"
+    faction: "GERMAN"
+    category: "RECON"
+    cost: 35
+    pool: "MAIN"
+    optics_ground_cm: 45000
+    stealth_base: 4
+    speed_tier: 4
+    movement_class: "WHEEL"
+    elements:
+      - element_key: E_GER_MOTO
+        count: 3
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 6
+        weapons:
+          - weapon_key: "W_GER_MOTO_MP40"
+            element_key: "E_GER_MOTO"
+            name: "MP40冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 11
+            salvo: 4
+            ammo_base: 96
+            ammo_weight: 10
+            projectile_speed_cm_tick: 2900
+            suppression_power: 12
+          - weapon_key: "W_GER_MOTO_K98"
+            element_key: "E_GER_MOTO"
+            name: "Kar98k步枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 32000
+            dispersion_cm: 200
+            aim_time_ticks: 5
+            reload_time_ticks: 12
+            salvo: 1
+            ammo_base: 150
+            ammo_weight: 10
+            projectile_speed_cm_tick: 7600
+            suppression_power: 8
+  - card_key: GER_SNIPER
+    template_id: 207
+    name: "狙击组"
+    faction: "GERMAN"
+    category: "RECON"
+    cost: 15
+    pool: "MAIN"
+    optics_ground_cm: 50000
+    stealth_base: 10
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_SNIPER_COVER"]
+    elements:
+      - element_key: E_GER_SNIPER
+        count: 2
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 2
+        weapons:
+          - weapon_key: "W_GER_SNIPER_K98"
+            element_key: "E_GER_SNIPER"
+            name: "Kar98k狙击枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 5
+            max_range_cm: 42000
+            dispersion_cm: 100
+            accuracy_base_bp: 9000
+            aim_time_ticks: 20
+            reload_time_ticks: 25
+            salvo: 1
+            ammo_base: 40
+            ammo_weight: 10
+            projectile_speed_cm_tick: 7600
+            suppression_power: 10
+            combat_style: "SNIPER"
+  - card_key: GER_SONAR
+    template_id: 208
+    name: "反炮兵声测班"
+    faction: "GERMAN"
+    category: "RECON"
+    cost: 15
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 8
+    speed_tier: 1
+    movement_class: "FOOT"
+    sonar_radius_cm: 120000
+    sonar_rate: 50
+    elements:
+      - element_key: E_GER_SONAR
+        count: 1
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 4
+        weapons: []
+  - card_key: GER_BRANDEN
+    template_id: 209
+    name: "勃兰登堡特遣队"
+    faction: "GERMAN"
+    category: "RECON"
+    cost: 40
+    pool: "MAIN"
+    unlock_by: "猎兵/特种"
+    optics_ground_cm: 60000
+    stealth_base: 8
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_INFILTRATE"]
+    elements:
+      - element_key: E_GER_BRANDEN
+        count: 1
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 6
+        weapons:
+          - weapon_key: "W_GER_BRANDEN_MP40"
+            element_key: "E_GER_BRANDEN"
+            name: "MP40冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 11
+            salvo: 4
+            ammo_base: 192
+            ammo_weight: 10
+            projectile_speed_cm_tick: 2900
+            suppression_power: 12
+          - weapon_key: "W_GER_BRANDEN_DEMO"
+            element_key: "E_GER_BRANDEN"
+            name: "炸药包"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 15
+            blast_radius_cm: 800
+            max_range_cm: 800
+            dispersion_cm: 0
+            aim_time_ticks: 5
+            reload_time_ticks: 200
+            salvo: 1
+            ammo_base: 3
+            ammo_weight: 500
+            projectile_speed_cm_tick: 300
+            suppression_power: 10
+            vs_fort_mult_permille: 3000

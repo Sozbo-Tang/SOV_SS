@@ -1,0 +1,259 @@
+# 苏军侦察表（GDD-01 §1 侦察 6 卡——步兵侦察排/BA-64B/骑兵排/狙击组/反炮兵声测班/破坏班组）
+# 数值口径：卡名/编制/造价＝GDD-01 兵种表现值；其余字段按同类现役卡插值，
+# 逐块登记 sidecar/pending.yaml（P-301~P-314）待数值章节拍板——不阻塞（GP-01 §1.4）。
+# 字段集＝card_schema.UnitCardModel 39 字段（缺省字段省略＝pydantic 默认）。
+schema_version: "1.4"
+cards:
+  - card_key: SU_RECON
+    template_id: 101
+    name: "步兵侦察排"
+    faction: "SOVIET"
+    category: "RECON"
+    cost: 30
+    pool: "MAIN"
+    optics_ground_cm: 60000
+    stealth_base: 10
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON"]
+    elements:
+      - element_key: E_SU_RECON
+        count: 2
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 8
+        weapons:
+          - weapon_key: "W_RECON_PPSH"
+            element_key: "E_SU_RECON"
+            name: "PPSh-41冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 10
+            salvo: 4
+            ammo_base: 71
+            ammo_weight: 10
+            projectile_speed_cm_tick: 3500
+            suppression_power: 14
+          - weapon_key: "W_RECON_SMOKE"
+            element_key: "E_SU_RECON"
+            name: "烟罐"
+            damage_type: "SMOKE"
+            blast_radius_cm: 3000
+            max_range_cm: 5000
+            dispersion_cm: 300
+            aim_time_ticks: 5
+            reload_time_ticks: 60
+            ammo_base: 2
+            ammo_weight: 2000
+            projectile_speed_cm_tick: 500
+  - card_key: SU_BA64
+    template_id: 108
+    name: "BA-64B装甲侦察排"
+    faction: "SOVIET"
+    category: "RECON"
+    cost: 45
+    pool: "MAIN"
+    optics_ground_cm: 50000
+    stealth_base: 4
+    speed_tier: 4
+    movement_class: "WHEEL"
+    turn_rate_deg: 100
+    elements:
+      - element_key: E_SU_BA64
+        count: 3
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 25
+        armor_ke:
+          front: 1
+          side: 0
+          rear: 0
+          top: 0
+        armor_he:
+          front: 1
+          side: 0
+          rear: 0
+          top: 0
+        weapons:
+          - weapon_key: "W_SU_BA64_DT"
+            element_key: "E_SU_BA64"
+            name: "DT车载机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 40000
+            dispersion_cm: 200
+            aim_time_ticks: 3
+            reload_time_ticks: 50
+            salvo: 6
+            ammo_base: 500
+            ammo_weight: 20
+            projectile_speed_cm_tick: 8000
+            suppression_power: 12
+  - card_key: SU_CAVALRY
+    template_id: 109
+    name: "骑兵排"
+    faction: "SOVIET"
+    category: "RECON"
+    cost: 40
+    pool: "MAIN"
+    optics_ground_cm: 60000
+    stealth_base: 6
+    speed_tier: 2
+    movement_class: "HORSE"
+    elements:
+      - element_key: E_SU_CAVALRY
+        count: 3
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 8
+        weapons:
+          - weapon_key: "W_SU_CAV_CARBINE"
+            element_key: "E_SU_CAVALRY"
+            name: "莫辛纳甘卡宾枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 25000
+            dispersion_cm: 200
+            aim_time_ticks: 4
+            reload_time_ticks: 10
+            salvo: 1
+            ammo_base: 60
+            ammo_weight: 10
+            projectile_speed_cm_tick: 8000
+            suppression_power: 8
+          - weapon_key: "W_SU_CAV_PPSH"
+            element_key: "E_SU_CAVALRY"
+            name: "PPSh-41冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 10
+            salvo: 4
+            ammo_base: 71
+            ammo_weight: 10
+            projectile_speed_cm_tick: 3500
+            suppression_power: 14
+  - card_key: SU_SNIPER
+    template_id: 110
+    name: "狙击组"
+    faction: "SOVIET"
+    category: "RECON"
+    cost: 15
+    pool: "MAIN"
+    optics_ground_cm: 50000
+    stealth_base: 10
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_SNIPER_COVER"]
+    elements:
+      - element_key: E_SU_SNIPER
+        count: 2
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 2
+        weapons:
+          - weapon_key: "W_SU_SNIPER_MOSIN"
+            element_key: "E_SU_SNIPER"
+            name: "莫辛纳甘狙击枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 5
+            max_range_cm: 40000
+            dispersion_cm: 100
+            accuracy_base_bp: 9000
+            aim_time_ticks: 20
+            reload_time_ticks: 25
+            salvo: 1
+            ammo_base: 40
+            ammo_weight: 10
+            projectile_speed_cm_tick: 8000
+            suppression_power: 10
+            combat_style: "SNIPER"
+  - card_key: SU_SONAR
+    template_id: 111
+    name: "反炮兵声测班"
+    faction: "SOVIET"
+    category: "RECON"
+    cost: 15
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 8
+    speed_tier: 1
+    movement_class: "FOOT"
+    sonar_radius_cm: 120000
+    sonar_rate: 50
+    elements:
+      - element_key: E_SU_SONAR
+        count: 1
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 4
+        weapons: []
+  - card_key: SU_SABOT
+    template_id: 112
+    name: "破坏班组"
+    faction: "SOVIET"
+    category: "RECON"
+    cost: 35
+    pool: "MAIN"
+    unlock_by: "骑兵机械化集群"
+    optics_ground_cm: 60000
+    stealth_base: 8
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_INFILTRATE"]
+    elements:
+      - element_key: E_SU_SABOT
+        count: 1
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 6
+        weapons:
+          - weapon_key: "W_SU_SABOT_PPSH"
+            element_key: "E_SU_SABOT"
+            name: "PPSh-41冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 10
+            salvo: 4
+            ammo_base: 213
+            ammo_weight: 10
+            projectile_speed_cm_tick: 3500
+            suppression_power: 14
+          - weapon_key: "W_SU_SABOT_DEMO"
+            element_key: "E_SU_SABOT"
+            name: "炸药包"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 15
+            blast_radius_cm: 800
+            max_range_cm: 800
+            dispersion_cm: 0
+            aim_time_ticks: 5
+            reload_time_ticks: 200
+            salvo: 1
+            ammo_base: 3
+            ammo_weight: 500
+            projectile_speed_cm_tick: 300
+            suppression_power: 10
+            vs_fort_mult_permille: 3000

@@ -1,0 +1,111 @@
+# 德军航空 5 机型（GDD-01 §2 航空表 :168-174 / GDD-02 v1.9 §6.2 :330-335——air_data.py
+# CARD_KWARGS 冻结现值逐字平移，〔待定 P-01~P-12〕随 air_data.PENDING_NUMERIC_ITEMS）。
+# 苏德镜像对（air_data.MIRROR_PAIRS）：PO2↔FW189/PE2↔JU88/IL2M↔JU87D/YAK9↔FW190A/LI2↔JU52
+# ——镜像=同型结构一致，数值按阵营差分（苏皮厚消耗/德精准精密，v1.9 :339）。
+schema_version: "1.4"
+cards:
+  - card_key: FW189
+    template_id: 11
+    name: Fw 189侦察机
+    faction: GERMAN
+    role: RECON
+    cost_body: 30                  # 〔GDD〕v1.9 :330
+    hp_max: 70                     # 〔待定 P-02〕
+    armor_aa: 2                    # 〔待定 P-03〕
+    speed_cm_tick: 142             # 355km/h×2//5〔待定 P-01〕
+    dogfight_power: 1              # 〔数锚〕GDD-03 :136「1/4」照抄
+    maneuver: 4
+    alt_ceiling: HIGH              # 〔冻结〕§A :689——稳定中高空观察
+    optics_air_cm: 14000           # 高空×1.4（recon_optics_alt_bp）〔待定 P-05〕
+    recon_mark_base_bp: 4000       # 〔待定 P-06〕
+    weapons: []                    # 同 Po-2（无武器机型）
+    payload_max_bombs: 0
+    payload_max_supply: 0
+    paratroop_seats: 0
+    turret_damage: 0
+    can_engage_air: false
+    has_dive: false
+    payload_price: {}
+  - card_key: JU88
+    template_id: 12
+    name: Ju 88战术轰炸机
+    faction: GERMAN
+    role: BOMBER
+    cost_body: 95                  # 〔GDD〕v1.9 :331
+    hp_max: 80                     # 〔数锚〕带内上限〔待定 P-02〕
+    armor_aa: 4                    # 〔待定 P-03〕
+    speed_cm_tick: 188             # ~470km/h×2//5——慢于 Pe-2〔待定 P-01〕
+    dogfight_power: 3              # 〔数锚〕GDD-03 :138「3/5」照抄
+    maneuver: 5
+    alt_ceiling: MID               # 〔冻结〕§D.1 注 :102
+    weapons:
+      - {ref: W_BOMB_SC250, ammo: 6}    # 〔冻结〕硬要求③；载弹多（GDD-01:171）
+    payload_max_bombs: 6           # ~1400kg=6×250kg 全场最多〔数锚〕GDD-03 :214〔待定 P-09〕
+    payload_max_supply: 0
+    paratroop_seats: 0
+    turret_damage: 4               # 〔待定 P-12〕双 MG 座
+    can_engage_air: false
+    has_dive: false
+    payload_price: {BOMB: 6}       # 〔待定 P-10〕
+  - card_key: JU87D
+    template_id: 13
+    name: Ju 87D斯图卡
+    faction: GERMAN
+    role: ATTACK
+    cost_body: 75                  # 〔GDD〕v1.9 :332
+    hp_max: 60                     # 〔数锚〕带内下限——机体脆〔待定 P-02〕
+    armor_aa: 2                    # 〔待定 P-03〕
+    speed_cm_tick: 160             # ~400km/h×2//5〔待定 P-01〕
+    dogfight_power: 4              # 〔数锚〕GDD-03 :137「4/5」照抄
+    maneuver: 5
+    alt_ceiling: MID               # 〔待定 P-04〕俯冲投弹一律按低空系数（B-09）
+    weapons:
+      - {ref: W_BOMB_SC1000, ammo: 1}   # 〔冻结〕硬要求④ 最小配置
+    payload_max_bombs: 1           # 〔数锚〕GDD-03 :212「游戏炸弹1×1000kg级」
+    payload_max_supply: 0
+    paratroop_seats: 0
+    turret_damage: 0
+    can_engage_air: false          # 〔拍板〕B-21「Ju 87D 不置位」
+    has_dive: true                 # 〔冻结〕硬要求④；俯冲×0.6×0.5=×0.3 全场最低散布
+    payload_price: {BOMB: 12}      # 〔待定 P-10〕
+  - card_key: FW190A
+    template_id: 14
+    name: Fw 190A战斗机
+    faction: GERMAN
+    role: FIGHTER
+    cost_body: 80                  # 〔GDD〕v1.9 :333（贵于 Yak-9 的 10 分在对空/扫射双强）
+    hp_max: 80                     # 〔待定 P-02〕
+    armor_aa: 5                    # 德精准精密型（:339）→高于 Yak-9〔待定 P-03〕
+    speed_cm_tick: 252             # ~630km/h×2//5——全场最快〔待定 P-01〕
+    dogfight_power: 9              # 〔数锚〕GDD-03 :139「9/8」照抄——全场最高
+    maneuver: 8
+    alt_ceiling: HIGH              # 〔冻结〕§D.1 注 :102
+    weapons:
+      - {ref: W_STRAFE_MG151, ammo: 20}  # 〔冻结〕硬要求②
+    payload_max_bombs: 0
+    payload_max_supply: 0
+    paratroop_seats: 0
+    turret_damage: 0
+    can_engage_air: true           # 〔冻结〕硬要求⑦
+    has_dive: false
+    payload_price: {}
+  - card_key: JU52
+    template_id: 15
+    name: Ju 52运输机
+    faction: GERMAN
+    role: TRANSPORT
+    cost_body: 40                  # 〔GDD〕v1.9 :334「同Li-2」
+    hp_max: 80                     # 同 Li-2〔待定 P-02〕
+    armor_aa: 2                    # 〔数锚〕GDD-03 :140 装甲无〔待定 P-03〕
+    speed_cm_tick: 106             # 265km/h×2//5——慢于 Li-2〔待定 P-01〕
+    dogfight_power: 1              # 〔数锚〕GDD-03 :140「1/4」照抄
+    maneuver: 4
+    alt_ceiling: MID               # 同 Li-2〔待定 P-04〕
+    weapons: []                    # 同 Li-2（硬要求⑤ 空）
+    payload_max_bombs: 0
+    payload_max_supply: 150        # 同 Li-2〔待定 P-11〕
+    paratroop_seats: 1             # 〔冻结〕§D.1 #16
+    turret_damage: 2               # 〔待定 P-12〕
+    can_engage_air: false
+    has_dive: false
+    payload_price: {SUPPLY: 1}     # 同 Li-2〔待定 P-10〕

@@ -1,0 +1,190 @@
+{
+  "generator": "tools/icon_gen/gen_unit_icons.py",
+  "style": "soul-knight-like pixel art, 16x16 grid, dark outline, limited palette",
+  "sources": {
+    "air": "sovs/sim/air_data.py (AIR_CARDS, 机型十卡)",
+    "ground": "data/ground_cards.csv (首批 10 卡)"
+  },
+  "units": [
+    {
+      "key": "PO2",
+      "label": "PO-2",
+      "cn_name": "Po-2侦察机",
+      "faction": "SU",
+      "domain": "air",
+      "view": "side",
+      "icon": "icons/PO2.png"
+    },
+    {
+      "key": "PE2",
+      "label": "PE-2",
+      "cn_name": "Pe-2战术轰炸机",
+      "faction": "SU",
+      "domain": "air",
+      "view": "top",
+      "icon": "icons/PE2.png"
+    },
+    {
+      "key": "IL2M",
+      "label": "IL-2M",
+      "cn_name": "Il-2M攻击机",
+      "faction": "SU",
+      "domain": "air",
+      "view": "side",
+      "icon": "icons/IL2M.png"
+    },
+    {
+      "key": "YAK9",
+      "label": "YAK-9",
+      "cn_name": "Yak-9战斗机",
+      "faction": "SU",
+      "domain": "air",
+      "view": "side",
+      "icon": "icons/YAK9.png"
+    },
+    {
+      "key": "LI2",
+      "label": "LI-2",
+      "cn_name": "Li-2运输机",
+      "faction": "SU",
+      "domain": "air",
+      "view": "side",
+      "icon": "icons/LI2.png"
+    },
+    {
+      "key": "FW189",
+      "label": "FW-189",
+      "cn_name": "Fw 189侦察机",
+      "faction": "GER",
+      "domain": "air",
+      "view": "top",
+      "icon": "icons/FW189.png"
+    },
+    {
+      "key": "JU88",
+      "label": "JU-88",
+      "cn_name": "Ju 88战术轰炸机",
+      "faction": "GER",
+      "domain": "air",
+      "view": "top",
+      "icon": "icons/JU88.png"
+    },
+    {
+      "key": "JU87D",
+      "label": "JU-87D",
+      "cn_name": "Ju 87D斯图卡",
+      "faction": "GER",
+      "domain": "air",
+      "view": "top",
+      "icon": "icons/JU87D.png"
+    },
+    {
+      "key": "FW190A",
+      "label": "FW-190A",
+      "cn_name": "Fw 190A战斗机",
+      "faction": "GER",
+      "domain": "air",
+      "view": "side",
+      "icon": "icons/FW190A.png"
+    },
+    {
+      "key": "JU52",
+      "label": "JU-52",
+      "cn_name": "Ju 52运输机",
+      "faction": "GER",
+      "domain": "air",
+      "view": "side",
+      "icon": "icons/JU52.png"
+    },
+    {
+      "key": "SU_RECON",
+      "label": "SU-RECON",
+      "cn_name": "步兵侦察排",
+      "faction": "SU",
+      "domain": "ground",
+      "view": "side",
+      "icon": "icons/SU_RECON.png"
+    },
+    {
+      "key": "SU_RIFLE",
+      "label": "SU-RIFLE",
+      "cn_name": "步枪排",
+      "faction": "SU",
+      "domain": "ground",
+      "view": "side",
+      "icon": "icons/SU_RIFLE.png"
+    },
+    {
+      "key": "SU_PARATROOP",
+      "label": "SU-PARA",
+      "cn_name": "空降近卫步枪排",
+      "faction": "SU",
+      "domain": "ground",
+      "view": "side",
+      "icon": "icons/SU_PARATROOP.png"
+    },
+    {
+      "key": "SU_COMMISSAR",
+      "label": "SU-POLIT",
+      "cn_name": "政委班组",
+      "faction": "SU",
+      "domain": "ground",
+      "view": "side",
+      "icon": "icons/SU_COMMISSAR.png"
+    },
+    {
+      "key": "SU_T3485",
+      "label": "T-34/85",
+      "cn_name": "T-34/85坦克排",
+      "faction": "SU",
+      "domain": "ground",
+      "view": "side",
+      "icon": "icons/SU_T3485.png"
+    },
+    {
+      "key": "SU_ZIS3",
+      "label": "ZIS-3",
+      "cn_name": "ZiS-3 76mm加农炮连",
+      "faction": "SU",
+      "domain": "ground",
+      "view": "side",
+      "icon": "icons/SU_ZIS3.png"
+    },
+    {
+      "key": "SU_TRUCK",
+      "label": "ZIS-5",
+      "cn_name": "ZiS-5卡车队",
+      "faction": "SU",
+      "domain": "ground",
+      "view": "side",
+      "icon": "icons/SU_TRUCK.png"
+    },
+    {
+      "key": "GER_GRENADIER",
+      "label": "GER-GREN",
+      "cn_name": "掷弹兵排",
+      "faction": "GER",
+      "domain": "ground",
+      "view": "side",
+      "icon": "icons/GER_GRENADIER.png"
+    },
+    {
+      "key": "GER_PARATROOP",
+      "label": "GER-PARA",
+      "cn_name": "空降猎兵排",
+      "faction": "GER",
+      "domain": "ground",
+      "view": "side",
+      "icon": "icons/GER_PARATROOP.png"
+    },
+    {
+      "key": "GER_PAK40",
+      "label": "PAK-40",
+      "cn_name": "PaK 40 75mm反坦克炮连",
+      "faction": "GER",
+      "domain": "ground",
+      "view": "side",
+      "icon": "icons/GER_PAK40.png"
+    }
+  ]
+}

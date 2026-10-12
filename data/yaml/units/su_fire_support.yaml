@@ -1,0 +1,269 @@
+# 苏军火力支援表（GDD-01 §1 行数 5——节表头写 6 而行 5，差额登记 sidecar/pending.yaml P-201）
+# 数值口径：卡名/编制/造价＝GDD-01 兵种表现值；其余字段按同类现役卡插值，
+# 逐块登记 sidecar/pending.yaml（P-301~P-314）待数值章节拍板——不阻塞（GP-01 §1.4）。
+# 字段集＝card_schema.UnitCardModel 39 字段（缺省字段省略＝pydantic 默认）。
+schema_version: "1.4"
+cards:
+  - card_key: SU_ZIS3
+    template_id: 106
+    name: "ZiS-3 76mm加农炮连（4门）"
+    faction: "SOVIET"
+    category: "FIRE_SUPPORT"
+    cost: 70
+    pool: "MAIN"
+    quota_group: "HOWITZER"
+    optics_ground_cm: 30000
+    stealth_base: 7
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 300
+    pack_time_ticks: 300
+    mode_set: ["DIRECT", "INDIRECT"]
+    own_weight_tons: 13
+    elements:
+      - element_key: E_SU_ZIS3
+        count: 4
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 6
+        fire_arc_deg: 30
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_ZIS3_DIRECT"
+            element_key: "E_SU_ZIS3"
+            name: "ZiS-3 76mm加农炮（直射）"
+            damage_type: "KE"
+            pen_min: 4
+            pen_max: 4
+            damage: 8
+            max_range_cm: 100000
+            dispersion_cm: 100
+            aim_time_ticks: 20
+            reload_time_ticks: 60
+            ammo_base: 6
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 6800
+            suppression_power: 20
+            vs_fort_mult_permille: 4000
+            needs_deployed: true
+          - weapon_key: "W_ZIS3_INDIRECT"
+            element_key: "E_SU_ZIS3"
+            name: "ZiS-3 76mm加农炮（曲射）"
+            damage_type: "HE"
+            damage: 8
+            blast_radius_cm: 1200
+            max_range_cm: 300000
+            min_range_cm: 25000
+            dispersion_cm: 100
+            aim_time_ticks: 20
+            reload_time_ticks: 24
+            ammo_base: 6
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 6800
+            trajectory: "BALLISTIC"
+            suppression_power: 25
+            vs_fort_mult_permille: 4000
+            needs_deployed: true
+  - card_key: SU_ZIS2
+    template_id: 126
+    name: "ZiS-2 57mm反坦克炮连"
+    faction: "SOVIET"
+    category: "FIRE_SUPPORT"
+    cost: 60
+    pool: "MAIN"
+    quota_group: "AT_GUN"
+    optics_ground_cm: 30000
+    stealth_base: 7
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 400
+    pack_time_ticks: 400
+    own_weight_tons: 11
+    elements:
+      - element_key: E_SU_ZIS2
+        count: 3
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 6
+        fire_arc_deg: 30
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_SU_ZIS2"
+            element_key: "E_SU_ZIS2"
+            name: "ZiS-2 57mm反坦克炮"
+            damage_type: "KE"
+            pen_min: 5
+            pen_max: 5
+            damage: 7
+            max_range_cm: 120000
+            dispersion_cm: 120
+            aim_time_ticks: 25
+            reload_time_ticks: 90
+            salvo: 1
+            ammo_base: 6
+            ammo_weight: 6000
+            projectile_speed_cm_tick: 10000
+            suppression_power: 15
+            needs_deployed: true
+  - card_key: SU_M30
+    template_id: 127
+    name: "M-30 122mm榴弹炮连"
+    faction: "SOVIET"
+    category: "FIRE_SUPPORT"
+    cost: 85
+    pool: "MAIN"
+    quota_group: "HOWITZER"
+    optics_ground_cm: 30000
+    stealth_base: 7
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 400
+    pack_time_ticks: 400
+    mode_set: ["INDIRECT"]
+    own_weight_tons: 25
+    elements:
+      - element_key: E_SU_M30
+        count: 3
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 6
+        fire_arc_deg: 30
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_SU_M30"
+            element_key: "E_SU_M30"
+            name: "M-30 122mm榴弹炮"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 10
+            blast_radius_cm: 2500
+            max_range_cm: 420000
+            min_range_cm: 30000
+            dispersion_cm: 1500
+            aim_time_ticks: 15
+            reload_time_ticks: 50
+            salvo: 1
+            ammo_base: 8
+            ammo_weight: 25000
+            projectile_speed_cm_tick: 5000
+            trajectory: "BALLISTIC"
+            suppression_power: 50
+            needs_deployed: true
+  - card_key: SU_ML20
+    template_id: 128
+    name: "ML-20 152mm加榴炮连"
+    faction: "SOVIET"
+    category: "FIRE_SUPPORT"
+    cost: 110
+    pool: "MAIN"
+    quota_group: "HOWITZER"
+    optics_ground_cm: 30000
+    stealth_base: 7
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 400
+    pack_time_ticks: 400
+    mode_set: ["DIRECT", "INDIRECT"]
+    own_weight_tons: 70
+    elements:
+      - element_key: E_SU_ML20
+        count: 2
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 6
+        fire_arc_deg: 30
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_SU_ML20_DIRECT"
+            element_key: "E_SU_ML20"
+            name: "ML-20 152mm加榴炮（直射）"
+            damage_type: "KE"
+            pen_min: 6
+            pen_max: 6
+            damage: 12
+            max_range_cm: 100000
+            dispersion_cm: 150
+            aim_time_ticks: 30
+            reload_time_ticks: 100
+            salvo: 1
+            ammo_base: 4
+            ammo_weight: 40000
+            projectile_speed_cm_tick: 6000
+            suppression_power: 30
+            needs_deployed: true
+          - weapon_key: "W_SU_ML20_INDIRECT"
+            element_key: "E_SU_ML20"
+            name: "ML-20 152mm加榴炮（曲射）"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 14
+            blast_radius_cm: 2500
+            max_range_cm: 500000
+            min_range_cm: 40000
+            dispersion_cm: 1800
+            aim_time_ticks: 20
+            reload_time_ticks: 70
+            salvo: 1
+            ammo_base: 4
+            ammo_weight: 40000
+            projectile_speed_cm_tick: 5000
+            trajectory: "BALLISTIC"
+            suppression_power: 55
+            needs_deployed: true
+  - card_key: SU_BM13
+    template_id: 129
+    name: "BM-13喀秋莎火箭炮连"
+    faction: "SOVIET"
+    category: "FIRE_SUPPORT"
+    cost: 120
+    pool: "MAIN"
+    quota_group: "ROCKET"
+    optics_ground_cm: 30000
+    stealth_base: 2
+    speed_tier: 4
+    movement_class: "WHEEL"
+    mode_set: ["INDIRECT"]
+    elements:
+      - element_key: E_SU_BM13
+        count: 4
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 30
+        armor_ke:
+          front: 0
+          side: 0
+          rear: 0
+          top: 0
+        armor_he:
+          front: 0
+          side: 0
+          rear: 0
+          top: 0
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_SU_BM13"
+            element_key: "E_SU_BM13"
+            name: "BM-13 132mm火箭炮"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 8
+            blast_radius_cm: 2500
+            max_range_cm: 480000
+            min_range_cm: 60000
+            dispersion_cm: 3000
+            aim_time_ticks: 5
+            reload_time_ticks: 600
+            salvo: 16
+            ammo_base: 16
+            ammo_weight: 40000
+            projectile_speed_cm_tick: 7000
+            trajectory: "BALLISTIC"
+            suppression_power: 45
+            needs_deployed: true

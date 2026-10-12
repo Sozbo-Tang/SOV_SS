@@ -374,7 +374,7 @@ class TestMoraleColumnsPipeline(unittest.TestCase):
         tmp, lib_path = _Pipe.build(("60", "80", "95"))
         try:
             doc = json.loads(lib_path.read_text(encoding="utf-8"))
-            self.assertEqual(doc["schema_version"], "1.3")     # minor 演进（PB-55）
+            self.assertEqual(doc["schema_version"], cs.SCHEMA_VERSION)  # minor 演进锁当前值（PB-55 1.3→航空入库 1.4）
             self.assertEqual(doc["cards"][0]["morale_sup_th"], 60)
             self.assertEqual(doc["cards"][0]["morale_pin_th"], 80)
             self.assertEqual(doc["cards"][0]["morale_rout_th"], 95)
@@ -433,10 +433,10 @@ class TestMoraleColumnsPipeline(unittest.TestCase):
         self.assertIn("morale_pin_th", cs.UnitCardModel.model_fields)
         self.assertIn("morale_rout_th", cs.UnitCardModel.model_fields)
         self.assertEqual(len(cs.UnitCardModel.model_fields), 39)  # 36→39（PB-55 +3）
-        self.assertEqual(cs.SCHEMA_VERSION, "1.3")
-        self.assertEqual(cs.SUPPORTED_CARD_SCHEMA, {1: 3})
+        self.assertEqual(cs.SCHEMA_VERSION, "1.4")  # minor 演进锁当前值（PB-55 1.3→航空入库 1.4）
+        self.assertEqual(cs.SUPPORTED_CARD_SCHEMA, {1: 4})
         self.assertTrue(cs.schema_version_supported("1.2"))   # 旧版本仍受支持
-        self.assertFalse(cs.schema_version_supported("1.4"))
+        self.assertFalse(cs.schema_version_supported("1.5"))
 
 
 if __name__ == "__main__":

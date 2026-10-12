@@ -1313,7 +1313,9 @@ TODO 挂点登记（未实现系统——不冒充通过；落地时按 §F8 :14
     （SU_TRUCK own_weight_tons 空=0 → 吨位门恒满足退化合法）——伪代码字面行为
     登记；补「自重>0 才可被拖」门或数据侧补卡车自重随数值章节；③GAP-23（声测
     班 DEPLOYED×Mount 无互锁——行驶中机动声测站持续定位）伪代码承载缺陷已
-    登记、sonar_step 未实现零现役影响，照登记不修（修改建议两案在案）。
+    登记、~~sonar_step 未实现零现役影响，照登记不修~~〔GP-01 §3 表行13（2026-10-12
+    炮击模式块）：sonar_step 已落地，GAP-23 车载判据随批实装（listener 名单
+    mounted_in 全空门）——「未实现」表述过时勘正〕。
   - PB-51 留待项（2026-10-04 原地转向块登记，均不冒充）：①转向速率双轨分叉——
     射击侧 R-09 rotate_step 仍读逐卡 turn_rate_deg（AMB-5 换算；现役 10 卡全默认 1
     →窄射界炮转车体 180°=180t 慢到不可用=既有数据欠账），命令侧 pivot 走
@@ -1525,7 +1527,7 @@ class Projectile:
 class IntelCircle:
     """§D.6 :223-224 R-03 声测定位圈（冻结精度，不撤销）。键=(team, source_unit)
     upsert（v1.5 C4：同炮更新其圈、多炮多圈共存）；圈粒度=开火单位（连级）。
-    写者=sonar_step（§F3，未实现）；读者=fire_at 盲射声测圈叠加（:928-929）。"""
+    写者=sonar_step（§F3——GP-01 §3 表行13 2026-10-12 已落地）；读者=fire_at 盲射声测圈叠加（:928-929）。"""
     team: int
     source_unit: object
     center: tuple[int, int]
@@ -1536,7 +1538,7 @@ class IntelCircle:
 class SoundTrack:
     """§D.6 :226-227 声测痕迹（v1.5 C4：每 (侦听队, 开火单位) 一条；
     last_fire_tick=最近开火 tick——sonar_hold_ticks 增长窗口判据）。
-    写者=upsert_sound_track（§F3 :651-659）；读者=sonar_step（未实现）。"""
+    写者=upsert_sound_track（§F3 :651-659）；读者=sonar_step（GP-01 §3 已落地）。"""
     listening_team: int
     unit: object
     pos: tuple[int, int]
@@ -1625,12 +1627,18 @@ class PurchaseCmd:
 
 @dataclass(frozen=True)
 class FireMissionCmd:
-    """§D.7 曲射任务令（form: POINT|LINE|CREEP；point 与 line 二选一按 form）。"""
+    """§D.7 曲射任务令（form: POINT|LINE|CREEP；point 与 line 二选一按 form）。
+    〔GP-01 §3 表行5（2026-10-12 炮击模式块）：+ammo 弹药位 "HE"|"SMOKE"——断箭
+    「弹药（高爆/烟幕/精确）×弹幕模式×时长档」三参数正交的 SOV_SS 位（精确档=
+    校射收束映射、无新位，§3 表行6 明示）；SMOKE 时 cmd_fire_mission 查 SMOKE
+    武器档、fire_at 走武器烟弹路径（落 SmokeZone 不落 Projectile）。缺省 "HE"=
+    既有行为逐位不变（wire 1.1 同批增键）。〕"""
     unit: object
     form: object
     point: object = None        # (cm, cm)——form=POINT
     line: object = None         # [(cm,cm), (cm,cm)]——form=LINE
     ammo_mult: int = 1          # 1..3
+    ammo: str = "HE"            # "HE"|"SMOKE"（GP-01 §3 弹药位）
     salvo_mode: object = None   # FULL|HALF
     creep_speed: int = 0
 
@@ -1778,10 +1786,16 @@ class AirAltCmd:
 
 @dataclass(frozen=True)
 class AirStrikeCmd:
-    """对地攻击（§F3 cmd_air_strike：BOMB|STRAFE 两档，attack run 状态机）。"""
+    """对地攻击（§F3 cmd_air_strike：BOMB|STRAFE 两档，attack run 状态机）。
+    〔GP-01 §4 ③段（2026-10-12 空中可控块·评审②补）：+axis 可选攻击轴
+    ((cm,cm),(cm,cm))|None——K+拖拽画线形态：有 axis 时 cmd_air_strike 按玩家
+    线向推导 run_start/run_end（替代 _run_points 机位向，「先调好进场角再下攻击
+    令」的航点纪律由玩家显式承载，GDD-06 A1:157-159/FE-01:54 落档）；缺省 None=
+    现行为逐位不变（wire 1.1 同批增键）。〕"""
     aircraft: object
     target: tuple[int, int]
     weapon: str
+    axis: object = None        # ((cm,cm),(cm,cm))|None——画线攻击轴（GP-01 §4）
 
 
 @dataclass(frozen=True)
@@ -1846,8 +1860,13 @@ class World:
                               # →地形/图界突变天然换键失效；上界=cfg.pathfind_cache_entries；
                               # 零行为差——详见 pathfind.py）
     await_resupply: list = field(default_factory=list)   # §D.6 方案19 待补给集合（system_supply 尾部自清理）
-    intel_circles: list = field(default_factory=list)  # §D.6 :223 R-03 声测圈（写者 sonar_step 未实现）
+    intel_circles: list = field(default_factory=list)  # §D.6 :223 R-03 声测圈（写者=sonar_step，GP-01 §3 表行13 已落地）
     sound_tracks: list = field(default_factory=list)   # §D.6 :226 声测痕迹（写者 upsert_sound_track）
+    rejection_log: list = field(default_factory=list)  # 命令拒绝环形日志（GP-01 §4 ④段：各支 cmd_*
+                                 # 返 False 时 {tick,cmd,ref_id}——容量 REJECTION_LOG_CAP 环形；
+                                 # **不进 state_fingerprint_text**（wire.py 显式枚举字段面——
+                                 # 回放校验和零扰动，黄金回放不因日志重录）；读者=
+                                 # state_frame 顶层 rejections（尾 8 条→fsm toast）
     mount_requests: list = None   # §D.6 ⑦ 上车请求表（方案12 惰性：首条请求才建，None=无请求非异常）
     objectives: list = field(default_factory=list)  # §D.6 :231 占点列表（system_objectives 写 owner）
     buildings: list = field(default_factory=list)   # §D.6 :243 建筑表（⑤块：hit_building/collapse_building 消费；写侧=PB-57 地图装配
@@ -2049,6 +2068,38 @@ def consume_commands(world: World, cfg: BalanceConfig = CONFIG) -> None:
         _dispatch_command(world, cmd, cfg)
 
 
+# ── GP-01 §4 ④段 命令拒绝日志（2026-10-12 空中可控块：现状静默拒绝是「下不了令」
+#    体感的另一半成因——各支 cmd_* 返 False 即落环形日志，经 state_frame.rejections
+#    （尾 8 条）暴露给 fsm toast）──
+
+REJECTION_LOG_CAP = 32          # 环形容量（GP-01 §4：32 条）
+
+
+def _cmd_ref_id(cmd) -> int | None:
+    """命令 → 引用主体 ID（日志锚点）：unit/aircraft/element 等带 .id 引用字段
+    优先（属性序=命令族实际携带面首中即返）；player 无 id 用 .index；皆无=None。"""
+    for attr in ("unit", "aircraft", "element", "sniper_unit", "squad_unit",
+                 "truck_element", "towed_element", "carrier_unit"):
+        oid = getattr(getattr(cmd, attr, None), "id", None)
+        if isinstance(oid, int):
+            return oid
+    idx = getattr(getattr(cmd, "player", None), "index", None)
+    return idx if isinstance(idx, int) else None
+
+
+def _rej(world: World, cmd, ret):
+    """分派支统一包装：cmd_* 返 False（引擎门拒绝——非 None=处理体带拒绝语义）
+    时落 {tick, cmd, ref_id} 环形日志并维持环形容量；其余返回值原样透传。
+    零掷骰；rejection_log 不进 state_fingerprint_text（回放校验和零扰动）。"""
+    if ret is False:
+        world.rejection_log.append(
+            {"tick": world.tick, "cmd": type(cmd).__name__,
+             "ref_id": _cmd_ref_id(cmd)})
+        if len(world.rejection_log) > REJECTION_LOG_CAP:
+            del world.rejection_log[0]
+    return ret
+
+
 def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
     """§D.7 分派骨架（:256-268 全集 22 类）：命令类型 → cmd_* 处理体。已落地：
     PurchaseCmd→§F7 cmd_purchase；MoveCmd/StopCmd/SprintCmd→MOVEMENT_PSEUDOCODE_v1.2
@@ -2069,29 +2120,32 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
     ——MOVEMENT §2.2 命令族余量就此清零：ReverseCmd 归一化在 issue_move 门3 后门4 前
     `cmd ← MoveCmd{path=[dest], mode=REVERSE, queue=FALSE}`，CancelCmd=MV-B-18 另半
     全清变体）；未知类型抛
-    TypeError（命令流完整性保护——已登记命令集之外的类型不得静默入流）。"""
+    TypeError（命令流完整性保护——已登记命令集之外的类型不得静默入流）。
+    〔GP-01 §4 ④段（2026-10-12）：各支调用统一 _rej 包装——处理体返 False（引擎门
+    拒绝：射程/冷却/状态机段位/弹药等）落 rejection_log 环形日志；行为语义零变化
+    （包装透传返回值），新增的只是拒绝可见性。〕"""
     if isinstance(cmd, MoveCmd):
-        issue_move(world, cfg, cmd, handoff=False)   # §2.2 外部通道（queue 位在此内分派）
+        _rej(world, cmd, issue_move(world, cfg, cmd, handoff=False))   # §2.2 外部通道（queue 位在此内分派）
     elif isinstance(cmd, ReverseCmd):
-        issue_move(world, cfg, cmd, handoff=False)   # §2.2 :142 特化归一在 issue_move 内
+        _rej(world, cmd, issue_move(world, cfg, cmd, handoff=False))   # §2.2 :142 特化归一在 issue_move 内
                                                      # （门3 后门4 前——归一化先于门4）；
                                                      # 门4/增量②④ 消费端速度链块已活
     elif isinstance(cmd, StopCmd):
-        cmd_halt(cmd.unit)                           # §2.2 HaltCmd 语义（MV-B-18）
+        _rej(world, cmd, cmd_halt(cmd.unit))                           # §2.2 HaltCmd 语义（MV-B-18）
     elif isinstance(cmd, CancelCmd):
-        cmd_cancel(cmd.unit)                         # §2.2 :160 全清变体（MV-B-18 另半
+        _rej(world, cmd, cmd_cancel(cmd.unit))                         # §2.2 :160 全清变体（MV-B-18 另半
                                                      # ——清航点+复位模式+清整个队列+清
                                                      # pivot+清任务体；stance 不动）
     elif isinstance(cmd, PivotCmd):
-        cmd_pivot(cmd.unit, cmd.facing_deg)          # PB-51 原地转向（2026-10-04——停车+写 pivot_to）
+        _rej(world, cmd, cmd_pivot(cmd.unit, cmd.facing_deg))          # PB-51 原地转向（2026-10-04——停车+写 pivot_to）
     elif isinstance(cmd, FormationCmd):
-        cmd_formation(cmd.units, cmd.shape)          # MOVEMENT v1.2 §2.2 :151-152（PB-56
+        _rej(world, cmd, cmd_formation(cmd.units, cmd.shape))          # MOVEMENT v1.2 §2.2 :151-152（PB-56
                                                      # 批③ Formation 族块，2026-10-06——
                                                      # 组下令逐单位写 formation_shape
                                                      # 槽、无 REJECT 门；消费端
                                                      # make_formation_fn 三表既有）
     elif isinstance(cmd, DeployCmd):
-        cmd_deploy(world, cmd.unit)                     # §F6 :1072（PB-56 批②
+        _rej(world, cmd, cmd_deploy(world, cmd.unit))                     # §F6 :1072（PB-56 批②
                                                         # 机动链命令块·拖曳展开，
                                                         # 2026-10-06——MOBILE→
                                                         # DEPLOYING 计时/GAP-09
@@ -2100,7 +2154,7 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
                                                         # system_timers ① 展开
                                                         # 收装计时既有）
     elif isinstance(cmd, PackCmd):
-        cmd_pack_or_move(world, cmd.unit)               # §F6 :1116（PB-56 批②——
+        _rej(world, cmd, cmd_pack_or_move(world, cmd.unit))               # §F6 :1116（PB-56 批②——
                                                         # DEPLOYED→PACKING 计时/
                                                         # DEPLOYING→MOBILE 作废；
                                                         # MoveCmd 触发面已接线
@@ -2109,7 +2163,7 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
                                                         # issue_move 效果点，见
                                                         # docstring）
     elif isinstance(cmd, SetModeCmd):
-        cmd_set_element_mode(world, cmd.element, cmd.mode)      # §F6 :1193（PB-56 批①
+        _rej(world, cmd, cmd_set_element_mode(world, cmd.element, cmd.mode))      # §F6 :1193（PB-56 批①
                                                                # 作战链命令块·SetMode，
                                                                # 2026-10-06——写点序
                                                                # ①-⑦：资格门+TOW 解挂
@@ -2118,18 +2172,19 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
                                                                # 半清除；炮击任务令
                                                                # 双门的解锁钥匙）
     elif isinstance(cmd, PurchaseCmd):
-        cmd_purchase(world, cmd.player, cmd.template, cfg)          # §F7 :1374（仅盲部署 phase）
+        _rej(world, cmd, cmd_purchase(world, cmd.player, cmd.template, cfg))          # §F7 :1374（仅盲部署 phase）
     elif isinstance(cmd, FireMissionCmd):
-        cmd_fire_mission(world, cmd.unit, cmd.form,
-                         cmd.point if cmd.form is FireMissionForm.POINT else cmd.line,
-                         cmd.ammo_mult, cmd.salvo_mode, cmd.creep_speed, cfg)  # §F4 :960
+        _rej(world, cmd, cmd_fire_mission(
+            world, cmd.unit, cmd.form,
+            cmd.point if cmd.form is FireMissionForm.POINT else cmd.line,
+            cmd.ammo_mult, cmd.ammo, cmd.salvo_mode, cmd.creep_speed, cfg))  # §F4 :960（GP-01 §3 +ammo 位）
     elif isinstance(cmd, CancelFireMissionCmd):
-        cmd_cancel_fire_mission(world, cmd.unit)                # §F4 :972
+        _rej(world, cmd, cmd_cancel_fire_mission(world, cmd.unit))                # §F4 :972
     elif isinstance(cmd, SmokeCmd):
-        cmd_smoke(world, cmd.element, cmd.point, cfg)      # §F6 :1274（PB-53 自卫烟幕路径，
+        _rej(world, cmd, cmd_smoke(world, cmd.element, cmd.point, cfg))      # §F6 :1274（PB-53 自卫烟幕路径，
                                                            # 2026-10-04——武器烟弹路径未落地见 TODO）
     elif isinstance(cmd, SetStanceCmd):
-        cmd_set_stance(cmd.unit, cmd.stance)                     # §D.7 :261 最小写点
+        _rej(world, cmd, cmd_set_stance(cmd.unit, cmd.stance))                     # §D.7 :261 最小写点
                                                                # （PB-56 批①，2026-10-06
                                                                # ——v1.7 仅字段定义无
                                                                # 处理体，勘察处置案 a：
@@ -2137,22 +2192,22 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
                                                                # 行为门全在消费侧
                                                                # fire_permitted ②）
     elif isinstance(cmd, ToggleAmbushCmd):
-        cmd_toggle_ambush(cmd.unit)                              # §F4 :874（PB-56 批①
+        _rej(world, cmd, cmd_toggle_ambush(cmd.unit))                              # §F4 :874（PB-56 批①
                                                                # 作战链命令块·
                                                                # ToggleAmbush，2026-10-06
                                                                # ——R-12 伏击开关唯一
                                                                # 写点：资格门+手动退出
                                                                # 携首击加成+开启需静止）
     elif isinstance(cmd, SprintCmd):
-        cmd_sprint(world, cmd.unit, cfg)                         # §D.0 :48/方案14（MOVEMENT §2.2）
+        _rej(world, cmd, cmd_sprint(world, cmd.unit, cfg))                         # §D.0 :48/方案14（MOVEMENT §2.2）
     elif isinstance(cmd, GarrisonCmd):
-        cmd_garrison(world, cmd.unit, cmd.building)    # §F6 :1248（PB-57 驻楼命令块，
+        _rej(world, cmd, cmd_garrison(world, cmd.unit, cmd.building))    # §F6 :1248（PB-57 驻楼命令块，
                                                        # 2026-10-06——兵种/容量两门+塌楼收口，
                                                        # 接受=双向引用写入）
     elif isinstance(cmd, UnGarrisonCmd):
-        cmd_un_garrison(world, cmd.unit)               # §F6 :1253（PB-57——双向清理+楼旁落位）
+        _rej(world, cmd, cmd_un_garrison(world, cmd.unit))               # §F6 :1253（PB-57——双向清理+楼旁落位）
     elif isinstance(cmd, MountCmd):
-        cmd_mount(world, cmd.squad_elements, cmd.carrier_unit, cfg)   # §F6 :1137（PB-56
+        _rej(world, cmd, cmd_mount(world, cmd.squad_elements, cmd.carrier_unit, cfg))   # §F6 :1137（PB-56
                                                                # 批② 机动链命令块·
                                                                # 上车，2026-10-06——
                                                                # ㉑A 逐班门序①-⑪，
@@ -2164,13 +2219,13 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
                                                                # 可推翻拍板项见
                                                                # cmd_mount docstring）
     elif isinstance(cmd, DismountCmd):
-        cmd_dismount(world, cmd.squad_unit)               # §F6 :1131（PB-56 批②
+        _rej(world, cmd, cmd_dismount(world, cmd.squad_unit))               # §F6 :1131（PB-56 批②
                                                           # 机动链命令块·下车，
                                                           # 2026-10-06——旁落位
                                                           # 同点位+跨卡 cargo_units
                                                           # 按身份移除）
     elif isinstance(cmd, TowCmd):
-        cmd_tow(world, cmd.tower_elements, cmd.towed_element)   # §F6 :1228（PB-56
+        _rej(world, cmd, cmd_tow(world, cmd.tower_elements, cmd.towed_element))   # §F6 :1228（PB-56
                                                         # 批② 机动链命令块·拖曳展开，
                                                         # 2026-10-06——GAP-10 同队门+
                                                         # 合法被拖对象门+D065 互斥门
@@ -2179,17 +2234,17 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
                                                         # TowPair/置 TOWING·TOWED/
                                                         # redeploy_needed/清炮击任务）
     elif isinstance(cmd, UntowCmd):
-        cmd_untow(world, cmd.element)                   # §F6 :1242（PB-56 批②——
+        _rej(world, cmd, cmd_untow(world, cmd.element))                   # §F6 :1242（PB-56 批②——
                                                         # 涉本元素拖曳对逐一
                                                         # stop_tow(VOLUNTARY)，
                                                         # GAP-24 元素级同构；无资格门）
     elif isinstance(cmd, AttackCmd):
-        cmd_attack(world, cmd.element, cmd.target, cfg)    # §F4 :848（PB-56 批① 作战链
+        _rej(world, cmd, cmd_attack(world, cmd.element, cmd.target, cfg))    # §F4 :848（PB-56 批① 作战链
                                                            # 命令块，2026-10-06——门序①-⑪
                                                            # 逐条+建筑资格门，玩家令直射
                                                            # 拆楼链可达性闭环）
     elif isinstance(cmd, SetSniperCoverCmd):
-        cmd_set_sniper_cover(world, cmd.sniper_unit, cmd.target_unit)   # §F6 :1258（PB-56
+        _rej(world, cmd, cmd_set_sniper_cover(world, cmd.sniper_unit, cmd.target_unit))   # §F6 :1258（PB-56
                                                         # 批③ 支援链命令块，
                                                         # 2026-10-06——资格/
                                                         # ⑳A 同队/存活/非自身
@@ -2201,10 +2256,10 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
                                                         # 既有，旁表唯一写者
                                                         # 就此补通）
     elif isinstance(cmd, SetAirdropBeaconCmd):
-        cmd_set_airdrop_beacon(world, cmd.unit, cmd.pos)   # §F6 :1269（2026-10-06
+        _rej(world, cmd, cmd_set_airdrop_beacon(world, cmd.unit, cmd.pos))   # §F6 :1269（2026-10-06
                                                           # 收口补落——22 类最后一支）
     elif isinstance(cmd, BuySuppliesCmd):
-        buy_supplies(world, cmd.truck_element, cmd.rounds, cmd.medical, cfg)   # §F6 :1215
+        _rej(world, cmd, buy_supplies(world, cmd.truck_element, cmd.rounds, cmd.medical, cfg))   # §F6 :1215
                                                         # （PB-56 批③ 支援链
                                                         # 命令块，2026-10-06
                                                         #——hasSupply 载具门+
@@ -2217,7 +2272,7 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
                                                         # system_supply 装货
                                                         # 整链首次全通）
     elif isinstance(cmd, AirCallCmd):
-        cmd_air_call(world, cmd.player, cmd.template, cmd.payload, cfg)   # AIR §F1
+        _rej(world, cmd, cmd_air_call(world, cmd.player, cmd.template, cmd.payload, cfg))   # AIR §F1
                                                         # （2026-10-07 空中
                                                         # 闭环·块1——九命令
                                                         # 分派支：§D.5 契约⑦
@@ -2225,31 +2280,33 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
                                                         # air.py 行为层既有；
                                                         # B-18 无 phase 门）
     elif isinstance(cmd, AirMoveCmd):
-        cmd_air_move(world, cmd.aircraft, cmd.path)    # AIR §F2（同上——RUN/EGRESS
+        _rej(world, cmd, cmd_air_move(world, cmd.aircraft, cmd.path))    # AIR §F2（同上——RUN/EGRESS
                                                         # 直线段不可转向 GAP-28）
     elif isinstance(cmd, AirPatrolCmd):
-        cmd_air_patrol(world, cmd.aircraft, cmd.center, cmd.radius)   # AIR §F2
+        _rej(world, cmd, cmd_air_patrol(world, cmd.aircraft, cmd.center, cmd.radius))   # AIR §F2
                                                         # （B-20 CAP 操作入口）
     elif isinstance(cmd, AirAltCmd):
-        cmd_air_alt(world, cmd.aircraft, cmd.tier, cfg)   # AIR §F2（B-29 微操特许；
+        _rej(world, cmd, cmd_air_alt(world, cmd.aircraft, cmd.tier, cfg))   # AIR §F2（B-29 微操特许；
                                                           # cfg 穿线=空裁6 2026-10-07）
     elif isinstance(cmd, AirStrikeCmd):
-        cmd_air_strike(world, cmd.aircraft, cmd.target, cmd.weapon, cfg)   # AIR §F3
+        _rej(world, cmd, cmd_air_strike(world, cmd.aircraft, cmd.target,
+                                        cmd.weapon, cmd.axis, cfg))   # AIR §F3
                                                         # （attack run 状态机；
-                                                        # cfg 穿线=空裁6 2026-10-07）
+                                                        # cfg 穿线=空裁6 2026-10-07；
+                                                        # axis 画线攻击轴=GP-01 §4）
     elif isinstance(cmd, AirAirdropCmd):
-        cmd_air_airdrop(world, cmd.aircraft, cmd.drop_point, cfg)          # AIR §F3
+        _rej(world, cmd, cmd_air_airdrop(world, cmd.aircraft, cmd.drop_point, cfg))          # AIR §F3
                                                         # （空投两分支 §F6；
                                                         # cfg 穿线=空裁6 2026-10-07）
     elif isinstance(cmd, AirEngageAirCmd):
-        cmd_air_engage_air(world, cmd.aircraft, cmd.engage)           # AIR §F4
+        _rej(world, cmd, cmd_air_engage_air(world, cmd.aircraft, cmd.engage))           # AIR §F4
                                                         # （D015 转对空丢弹）
     elif isinstance(cmd, AirDisengageCmd):
-        cmd_air_disengage(world, cmd.aircraft, cfg)   # AIR §F4（tail 掷骰——
+        _rej(world, cmd, cmd_air_disengage(world, cmd.aircraft, cfg))   # AIR §F4（tail 掷骰——
                                                         # 处理体掷 AIR 通道，
                                                         # 命令层自身零掷骰）
     elif isinstance(cmd, AirRTBCmd):
-        cmd_air_rtb(world, cmd.aircraft)              # AIR §F2（B-22 不可逆）
+        _rej(world, cmd, cmd_air_rtb(world, cmd.aircraft))              # AIR §F2（B-22 不可逆）
     else:
         raise TypeError("unknown command type: %s" % type(cmd).__name__)
 
@@ -2853,7 +2910,8 @@ def fire_direct(world: World, e, ws, tgt, cfg: BalanceConfig = CONFIG) -> None:
 
 def upsert_sound_track(world: World, firing_unit, new_pos,
                        cfg: BalanceConfig = CONFIG) -> None:
-    """§F3 :651-659 声测痕迹 upsert（fire_at 写侧——保留清单#3；读侧 sonar_step 未实现）：
+    """§F3 :651-659 声测痕迹 upsert（fire_at 写侧——保留清单#3；读侧 sonar_step 已随
+    GP-01 §3 表行13〔2026-10-12 炮击模式块〕落地，回路「声测→圈→反炮盲射」闭合）：
     每 (侦听队, 开火单位) 一条（队集=players 队序去重——resolve_settlement 同口径）；
     新开火位置距 track.pos > sonar_move_reset_cm → accum 清零（换阵地重定位，C4②）；
     pos/last_fire_tick 每次开火刷新。"""
@@ -2874,11 +2932,79 @@ def upsert_sound_track(world: World, firing_unit, new_pos,
         track.last_fire_tick = world.tick
 
 
+def sonar_step(world: World, cfg: BalanceConfig = CONFIG) -> None:
+    """§F3 :634-648 声测定位（GP-01 §3 表行13 落地，2026-10-12 炮击模式块——
+    IntelCircle 唯一写者，闭合「声测→圈→反炮盲射」回路：SoundTrack 写者
+    upsert_sound_track 已在 fire_at/cmd_smoke 喂入，读者 fire_at 盲射声测圈
+    叠加既有——本函数即 tick.py IntelCircle 类注「写者未实现」的兑现）。
+
+    侦听者名单（IMPL §F3 system_sensing :605-611）：存活 × sonar_radius_cm>0 ×
+    DEPLOYED × 整单位未车载（GAP-23——声测班上车〔D065 运兵模式〕后停止新增
+    定位/收窄；已显示圈按 R-03「冻结精度不撤销」不受影响）；名单空整段跳过
+    （方案4）。逐 SoundTrack：① 同侦听队且声源（track.pos）在 sonar_radius_cm
+    内的有效侦听者为空→圈冻结（声测班移动/阵亡，C4①）；② 停火超
+    sonar_hold_ticks→accum 冻结（C4③——「开火越久越准」非「侦听越久越准」）；
+    ③ 否则 accum += MAX(有效侦听者 sonar_rate) × 开火单位 acoustic_signature
+    （v1.5 终审修——sonar_rate 作用域=本次有效侦听者；曲射声源强度参数，火箭炮
+    最高）；④ 过 sonar_locate_threshold 即按键 (侦听队, 开火单位) upsert
+    IntelCircle（v1.3 审查#2：圈记**侦听方**队——消费端 fire_at
+    `c.team == gun.unit.team` 匹配己方圈；v1.5 C4：同炮更新其圈、多炮多圈
+    共存），半径 LERP(sonar_max_radius_cm→sonar_min_radius_cm,
+    MIN(1,(accum−threshold)÷threshold)) 随持续开火收窄。零掷骰（无 SONAR
+    通道——确定性阈值+累积口径，GDD-02 v1.6 审查#305 成文在案）。"""
+    listeners = [u for u in world.units
+                 if u.alive and u.template.sonar_radius_cm > 0
+                 and u.deploy_state is DeployState.DEPLOYED
+                 and all(e.mounted_in is None for e in u.elements)]   # GAP-23 车载判据
+    if not listeners:                     # 方案4：名单空→整段跳过（不生成新圈）
+        return
+    for track in world.sound_tracks:
+        eff = [u for u in listeners
+               if u.team == track.listening_team
+               and dist_cm(u.pos, track.pos) <= u.template.sonar_radius_cm]
+        if not eff:
+            continue                      # C4①：声测班移动/阵亡→圈冻结不撤销
+        if world.tick - track.last_fire_tick > cfg.sonar_hold_ticks:
+            continue                      # C4③：停火期 accum 不增长（圈冻结最后精度）
+        track.accum += (max(s.template.sonar_rate for s in eff)
+                        * track.unit.template.acoustic_signature)
+        if track.accum < cfg.sonar_locate_threshold:
+            continue                      # 未达定位门：无圈（R-03 越久越准的累积段）
+        t = min(track.accum - cfg.sonar_locate_threshold,
+                cfg.sonar_locate_threshold)     # MIN(1,·) 封顶→半径下限
+        radius = (cfg.sonar_max_radius_cm
+                  + (cfg.sonar_min_radius_cm - cfg.sonar_max_radius_cm)
+                  * t // cfg.sonar_locate_threshold)
+        circle = next((c for c in world.intel_circles
+                       if c.team == eff[0].team and c.source_unit is track.unit), None)
+        if circle is None:                # v1.5 C4：(team, source_unit) 键 upsert
+            world.intel_circles.append(IntelCircle(
+                team=eff[0].team, source_unit=track.unit,
+                center=track.pos, radius_cm=radius))
+        else:
+            circle.center = track.pos
+            circle.radius_cm = radius
+
+
+def _fm_ws(gun, ammo: str):
+    """炮击任务武器档选择（GP-01 §3 表行5「查 SMOKE 武器档」，2026-10-12 炮击
+    模式块）：HE=主武器（weapon_states[0]，既有口径）；SMOKE=首个
+    damage_type==SMOKE 档（迫击炮 YAML 第二武器行，GDD-01「82mm/120mm 可打
+    烟雾弹」）；无档 None=该门不参与（cmd_fire_mission 门级 REJECT 判据同一
+    谓词——单谓词两消费点）。"""
+    if ammo == "SMOKE":
+        return next((ws for ws in gun.weapon_states
+                     if ws.template.damage_type is DamageType.SMOKE), None)
+    return gun.weapon_states[0] if gun.weapon_states else None
+
+
 def process_fire_mission(world: World, unit: UnitInstance,
                          cfg: BalanceConfig = CONFIG) -> None:
     """§F4 :908-917 炮击任务推进（system_combat 尾部——方案3 静态门在调用侧）。
     R-14 半轮=前 ⌈N/2⌉ 门 INDIRECT 元素（AMB-09 向上取整——3 门连半轮=2 门）；
-    逐炮 READY + 开火许可（未展开/被拖/载货不打——v1.1 修复统一走许可）才 fire_at。"""
+    逐炮 READY + 开火许可（未展开/被拖/载货不打——v1.1 修复统一走许可）才 fire_at。
+    〔GP-01 §3（2026-10-12）：武器档按任务弹药位选——SMOKE 任务取烟弹档（无档门
+    跳过、任务由有档门推进）；HE=主武器既有。〕"""
     fm = unit.fire_mission
     if fm is None:
         return
@@ -2888,7 +3014,9 @@ def process_fire_mission(world: World, unit: UnitInstance,
     for gun in guns:
         if not gun.weapon_states:
             continue
-        ws = gun.weapon_states[0]                            # 主武器
+        ws = _fm_ws(gun, fm.ammo)                             # 弹药位选档（GP-01 §3）
+        if ws is None:
+            continue                                          # SMOKE 任务×无烟档门
         if ws.state is not WState.READY:
             continue
         if not fire_permitted(world, unit, gun, ws, cfg):
@@ -2912,7 +3040,14 @@ def fire_at(world: World, gun, ws, fm, cfg: BalanceConfig = CONFIG) -> None:
     换点重置；曲射档案=alt_profile 否则默认档案（M8/A14：双职炮曲射吃 HE 数值——
     纯榴弹炮两者同一）；每次 fire_at 发 salvo 发（M8/G11：同批共用取样点、各吃独立
     散布）；弹药/任务计数按 salvo 增减；曲射只留声测痕迹不写 reveal_timer（㉗A）；
-    shots_left<=0 任务体销毁（方案10：校射进度随之失效）。掷骰通道=SCATTER only。"""
+    shots_left<=0 任务体销毁（方案10：校射进度随之失效）。掷骰通道=SCATTER only。
+    〔GP-01 §3 表行5（2026-10-12 炮击模式块）：fm.ammo=="SMOKE" 走武器烟弹路径
+    ——PB-53 留待项收口：三形态落点/盲射圈叠加与 HE 共用 → 烟档 SCATTER 散布 →
+    **落 SmokeZone 不落 Projectile**（resolve_blast SMOKE 支同款三字段口径——
+    radius/ttl 出 cfg.smoke_radius_cm/smoke_ttl_ticks，600tick=60s=断箭 1.1.1
+    炮兵烟幕标准时长，**不新增字段防同语义分叉**）→ 耗弹装填 → 声测喂入（AMB-14/
+    17②：曲射链恒喂）。烟弹不参与校射（R-16=HE 观测收束链，断箭烟幕无对应机制
+    ——SMOKE 任务 calib 恒 0、无精度语义）。〕"""
     w = ws.template
     if fm.form is FireMissionForm.POINT:
         pt = fm.target_point
@@ -2927,6 +3062,25 @@ def fire_at(world: World, gun, ws, fm, cfg: BalanceConfig = CONFIG) -> None:
     for c in world.intel_circles:
         if c.team == gun.unit.team and dist_cm(c.center, pt) <= c.radius_cm:
             extra = max(extra, c.radius_cm)
+    if fm.ammo == "SMOKE":                                   # GP-01 §3：武器烟弹路径
+        scatter_cm = w.dispersion_cm + extra                 # 烟弹无校射收束（见 docstring）
+        rng_scatter = world.rng.scatter()
+        for _i in range(w.salvo):
+            aim = (pt[0] + rng_scatter.sym(scatter_cm),
+                   pt[1] + rng_scatter.sym(scatter_cm))
+            world.smoke_zones.append(SmokeZone(
+                center=aim, radius_cm=cfg.smoke_radius_cm,
+                ttl_ticks=cfg.smoke_ttl_ticks))              # resolve_blast SMOKE 支同款
+        ws.ammo_left -= w.salvo
+        ws.state = WState.RELOADING
+        ws.timer = max(1, w.reload_time_ticks * reload_factor_bp(gun, cfg) // 10000)
+        mark_resupply_if_needed(world, gun.unit)              # 烟弹缺口同登记（§F6 审查#11）
+        fm.shots_left -= w.salvo
+        fm.shots_fired += w.salvo
+        upsert_sound_track(world, gun.unit, gun.pos, cfg)     # AMB-14/17②：曲射恒喂声测
+        if fm.shots_left <= 0:
+            gun.unit.fire_mission = None                      # 任务体销毁（方案10）
+        return
     if fm.form is FireMissionForm.POINT:                      # R-16 连内共享校射（⑩A：仅 POINT）
         _ffn, _sfn, _ = terrain_sensing_channels(world)       # 感知接线块 2026-10-07：
         if point_in_friendly_vision(cfg, world, gun.unit.team, fm.target_point,  # 校射视线同
@@ -2962,11 +3116,16 @@ def fire_at(world: World, gun, ws, fm, cfg: BalanceConfig = CONFIG) -> None:
 
 
 def cmd_fire_mission(world: World, unit: UnitInstance, form, point_or_line,
-                     ammo_mult: int, salvo_mode, creep_speed: int,
+                     ammo_mult: int, ammo: str, salvo_mode, creep_speed: int,
                      cfg: BalanceConfig = CONFIG) -> bool:
     """§F4 :960-971 任务创建入口（REJECT：无 INDIRECT 位 / 无 INDIRECT 元素）。
     R-13 弹量基数：shots=（HALF ? ⌈N/2⌉ : N）× 主武器 ammo_base × ammo_mult
     （M9/G03：HALF 与 process_fire_mission 同规则——AMB-09 ⌈N/2⌉ 口径）。
+    〔GP-01 §3 表行5（2026-10-12 炮击模式块）：+ammo 弹药位门 "HE"|"SMOKE"——
+    ① 非 {"HE","SMOKE"} 值 REJECT（wire str 自由面，处理体收口）；② SMOKE 须
+    至少一门 INDIRECT 炮带烟弹档（damage_type==SMOKE，_fm_ws 谓词——无档 REJECT
+    =「查 SMOKE 武器档」管线第一步）；③ 弹量基数与 §2.11 超程进位判距按弹药位
+    取档：SMOKE=烟档 ammo_base/max_range（HE=主武器既有）。〕
     §2.11 超射程自动进位（2026-10-06 速度链块；GAP-13 adopt/MV-B-21 炮击任务
     语境）：双门通过后、任务体安装时——目标在 INDIRECT 主武器最大射程（MAX）外
     → movement.auto_approach_waypoint 插"射程内侧 standoff 航点"（下界半射程
@@ -2986,14 +3145,18 @@ def cmd_fire_mission(world: World, unit: UnitInstance, form, point_or_line,
     增量不触 PCG32 通道——发射段掷骰属既有 SCATTER 纪律）。"""
     if not (unit.template.mode_set & (1 << Mode.INDIRECT)):
         return False
+    if ammo not in ("HE", "SMOKE"):                          # GP-01 §3 ① 值域门
+        return False
     guns = [g for g in unit.elements if g.mode is Mode.INDIRECT]
     if not guns:
         return False
-    guns_max_range = 0                              # §2.11：任务炮 INDIRECT 主武器射程 MAX
+    if ammo == "SMOKE" and all(_fm_ws(g, "SMOKE") is None for g in guns):
+        return False                                         # GP-01 §3 ② 烟档门
+    guns_max_range = 0                              # §2.11：任务炮弹药位对应武器档射程 MAX
     for g in guns:
-        if g.weapon_states:
-            guns_max_range = max(guns_max_range,
-                                 g.weapon_states[0].template.max_range_cm)
+        ws = _fm_ws(g, ammo)
+        if ws is not None:
+            guns_max_range = max(guns_max_range, ws.template.max_range_cm)
     if guns_max_range > 0:
         is_pt = form is FireMissionForm.POINT
         ref = point_or_line if is_pt else nearest_on_segment(
@@ -3003,14 +3166,15 @@ def cmd_fire_mission(world: World, unit: UnitInstance, form, point_or_line,
             issue_move(world, cfg,
                        MoveCmd(unit=unit, path=[wp], mode=MoveMode.NORMAL))
     n = (len(guns) + 1) // 2 if salvo_mode is SalvoMode.HALF else len(guns)
-    main_ws = guns[0].weapon_states[0]
+    main_ws = _fm_ws(guns[0], ammo)                          # GP-01 §3 ③ 按弹药位取档
     shots = n * main_ws.template.ammo_base * ammo_mult
     is_point = form is FireMissionForm.POINT
     unit.fire_mission = FireMission(
         form=form,
         target_point=point_or_line if is_point else None,
         target_line=(tuple(point_or_line) if not is_point else None),
-        creep_speed_cm_tick=creep_speed, ammo_mult=ammo_mult, salvo_mode=salvo_mode,
+        creep_speed_cm_tick=creep_speed, ammo_mult=ammo_mult, ammo=ammo,
+        salvo_mode=salvo_mode,
         shots_left=shots, shots_fired=0, started_tick=world.tick,
         calib_target=(point_or_line if is_point else None), calib_progress=0)
     return True
@@ -4107,6 +4271,11 @@ def world_tick(world: World, cfg: BalanceConfig = CONFIG) -> None:
                                                                        #    穿林/穿烟/林内
                                                                        #    三通道喂入；含
                                                                        #    sense_air 对空分支）
+        sonar_step(world, cfg)  # GP-01 §3 表行13（2026-10-12）：R-03 声测圈
+                                                                       #    （IMPL §F3 system_
+                                                                       #    sensing 尾位同款
+                                                                       #    ——IntelCircle 唯一
+                                                                       #    写者；零掷骰）
     air_recon_step(world, cfg)   # 航空挂点①（③与④之间——AIR IMPL v1.4 增量清单①/GAP2-01）
     for unit in world.units:                                           # v1.7 GAP-25 rotating 复位
         for e in unit.elements:                                        # （PB-51 改锚 2026-10-04：原地

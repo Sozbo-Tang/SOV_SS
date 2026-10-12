@@ -7,14 +7,30 @@ name = "sov-ss"
 version = "0.1.0"
 description = "SOV_SS 确定性整型战术仿真核心：地面数据卡管线（CSV→pydantic→JSON）＋仿真侧加载（stdlib-only）"
 requires-python = ">=3.13"
-# 运行依赖仅 pydantic——构建期校验层（sovs/sim/card_schema.py、tools/build_cards.py）；
-# 仿真核心运行时（sovs/sim/card_loader.py 及其余 sim 模块）保持 stdlib-only（TECH-00 §3.2/§4）。
-dependencies = ["pydantic>=2.13"]
+# 构建期校验层依赖：pydantic＋pyyaml（sovs/sim/card_schema.py、tools/build_yaml.py——
+# DATA-03 §6）；仿真核心运行时（sovs/sim/card_loader.py/air_loader.py 及其余 sim 模块）
+# 保持 stdlib-only（TECH-00 §3.2/§4——AST 守卫独立保证，pyyaml 仅构建期 import）。
+dependencies = ["pydantic>=2.13", "pyyaml>=6"]
 
 [project.optional-dependencies]
-# 交换格式拍板为 CSV（DATA-01 §1）——stdlib csv 即读；openpyxl 仅为 xlsx 备用前端留位，
-# pandas 明确不引入（未装，且 dtype 推断会把 int 列静默升 float，与严格 int 纪律冲突）。
+# 交换格式拍板为 YAML（DATA-03 §1 取代 DATA-01 §1 CSV 口径）；openpyxl 仅为 xlsx
+# 备用前端留位，pandas 明确不引入（未装，且 dtype 推断会把 int 列静默升 float，
+# 与严格 int 纪律冲突）。
 xlsx = ["openpyxl>=3.1"]
+# FE-01 前端层可选组：仅 Arcade 渲染层（页面/截图/可视化）使用；仿真核心 sovs/sim
+# 保持 stdlib-only（TECH-00 §3.2/§4），arcade 不得进入 sim 运行时依赖与 import 路径。
+# 注意：本步只加依赖组；若后续 fe 组新增自带 python 包（非数据/资源目录），
+# 记得同步补 [tool.setuptools].packages。
+fe = ["arcade>=3.3,<4"]
+
+[tool.pytest.ini_options]
+# 全量自检口径（FE-T02 起冻结）：裸 `python3 -m pytest -q` 只收集本仓测试根 tests/
+# ——kev/ 为独立第三方子仓库（jaredpalmer/kev，自有 .venv-kev 环境与 torch 等依赖），
+# 其测试由该环境自跑；混入本仓收集只报 ImportError（改动前基线实测 10 个收集错误，
+# 与本仓代码无关）。显式 `pytest tests` 行为不变。
+testpaths = ["tests"]
 
 [tool.setuptools]
-packages = ["sovs", "sovs.sim"]
+# sovs.ui=FE-T06 观战渲染层（arcade 可选组 fe 依赖；sim/ai 保持 stdlib+pydantic）；
+# sovs.app=GP-01 §5.3 会话胶水层（世界生命周期/门禁剧本/编辑器后端——可 import sim）
+packages = ["sovs", "sovs.sim", "sovs.ai", "sovs.ui", "sovs.app"]

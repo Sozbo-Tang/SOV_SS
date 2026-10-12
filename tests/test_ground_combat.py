@@ -1191,12 +1191,12 @@ class TestCmdSetMode(unittest.TestCase):
         u = add_unit(w, make_unit(w, BATT_TPL, 0, 0, (0, 0)))
         self.assertTrue(u.template.mode_set & (1 << Mode.INDIRECT))
         self.assertFalse(cmd_fire_mission(w, u, FireMissionForm.POINT,
-                                          (50000, 50000), 1, SalvoMode.FULL, 0))
+                                          (50000, 50000), 1, "HE", SalvoMode.FULL, 0))
         self.assertIsNone(u.fire_mission)
         queue_command(w, SetModeCmd(element=u.elements[0], mode=Mode.INDIRECT))
         world_tick(w)
         self.assertTrue(cmd_fire_mission(w, u, FireMissionForm.POINT,
-                                         (50000, 50000), 1, SalvoMode.FULL, 0))
+                                         (50000, 50000), 1, "HE", SalvoMode.FULL, 0))
         fm = u.fire_mission
         self.assertIsNotNone(fm)
         self.assertEqual(fm.shots_left, 6)          # 1 门 INDIRECT × HOW ammo_base 6 × 1
@@ -1212,7 +1212,7 @@ class TestCmdSetMode(unittest.TestCase):
         for e in u.elements:
             cmd_set_element_mode(w, e, Mode.INDIRECT)
         self.assertTrue(cmd_fire_mission(w, u, FireMissionForm.POINT,
-                                         (1, 2), 1, SalvoMode.FULL, 0))
+                                         (1, 2), 1, "HE", SalvoMode.FULL, 0))
         fm = u.fire_mission
         self.assertEqual(fm.shots_left, 18)                     # 3 门 × 6
         self.assertTrue(cmd_set_element_mode(w, u.elements[0], Mode.DIRECT))
@@ -1224,7 +1224,7 @@ class TestCmdSetMode(unittest.TestCase):
                                                                 # 任务体销毁校射随之失效）
         cmd_set_element_mode(w, u.elements[0], Mode.INDIRECT)   # 重开 1 门重建任务
         self.assertTrue(cmd_fire_mission(w, u, FireMissionForm.POINT,
-                                         (1, 2), 1, SalvoMode.FULL, 0))
+                                         (1, 2), 1, "HE", SalvoMode.FULL, 0))
         fm2 = u.fire_mission
         u2 = add_unit(w, make_unit(w, BATT_TPL, 0, 0, (1000, 1000)))
         for e in u2.elements:
@@ -1338,7 +1338,7 @@ class TestCmdSetMode(unittest.TestCase):
         batt = add_unit(w, make_unit(w, BATT_TPL, 0, 0, (15000, 0)))
         cmd_set_element_mode(w, batt.elements[0], Mode.INDIRECT)
         self.assertTrue(cmd_fire_mission(w, batt, FireMissionForm.POINT,
-                                         (1, 1), 1, SalvoMode.FULL, 0))
+                                         (1, 1), 1, "HE", SalvoMode.FULL, 0))
         self.assertIsNotNone(batt.fire_mission)
         self.assertEqual([r.state for r in w.rng._rngs], rng0)   # 前置亦零掷骰
         cmd_set_element_mode(w, te, Mode.DIRECT)                 # ② TOW 解挂
@@ -1633,12 +1633,12 @@ class TestFireMission(unittest.TestCase):
         w = make_world(3)
         nb = add_unit(w, make_unit(w, BATT_NOBIT_TPL, 0, 0, (0, 0)))   # 无 INDIRECT 位
         self.assertFalse(cmd_fire_mission(w, nb, FireMissionForm.POINT,
-                                          (510000, 500000), 1, SalvoMode.FULL, 0))
+                                          (510000, 500000), 1, "HE", SalvoMode.FULL, 0))
         b = add_unit(w, make_unit(w, BATT_TPL, 0, 0, (500000, 500000)))
         for e in b.elements:                                # 有位无 INDIRECT 元素
             e.mode = Mode.DIRECT
         self.assertFalse(cmd_fire_mission(w, b, FireMissionForm.POINT,
-                                          (510000, 500000), 1, SalvoMode.FULL, 0))
+                                          (510000, 500000), 1, "HE", SalvoMode.FULL, 0))
         self.assertIsNone(b.fire_mission)
         self.assertIsNone(nb.fire_mission)
 
@@ -1646,18 +1646,18 @@ class TestFireMission(unittest.TestCase):
         # R-13/R-14：HALF=⌈3/2⌉=2 门 ×6=12；FULL=3×6=18；mult=2 翻倍
         w, b = self._battery()
         self.assertTrue(cmd_fire_mission(w, b, FireMissionForm.POINT,
-                                         (510000, 500000), 1, SalvoMode.HALF, 0))
+                                         (510000, 500000), 1, "HE", SalvoMode.HALF, 0))
         self.assertEqual(b.fire_mission.shots_left, 12)
         self.assertEqual(b.fire_mission.calib_target, (510000, 500000))
         self.assertEqual(b.fire_mission.calib_progress, 0)
         self.assertTrue(cmd_fire_mission(w, b, FireMissionForm.POINT,
-                                         (510000, 500000), 2, SalvoMode.FULL, 0))
+                                         (510000, 500000), 2, "HE", SalvoMode.FULL, 0))
         self.assertEqual(b.fire_mission.shots_left, 3 * 6 * 2)
 
     def test_half_round_only_first_ceil_guns_fire(self):
         # AMB-09：半轮=前 ⌈3/2⌉=2 门；第 3 门弹药不动
         w, b = self._battery()
-        cmd_fire_mission(w, b, FireMissionForm.POINT, (520000, 500000), 1,
+        cmd_fire_mission(w, b, FireMissionForm.POINT, (520000, 500000), 1, "HE",
                          SalvoMode.HALF, 0)
         world_tick(w)                                       # tick1 齐射（aim 0）
         self.assertEqual([e.weapon_states[0].ammo_left for e in b.elements],
@@ -1670,7 +1670,7 @@ class TestFireMission(unittest.TestCase):
         # 且无圈——sym(0)=0 恒等）；ammo/状态/计时/counters 按批推进
         w, b = self._battery()
         pt = (520000, 500000)
-        cmd_fire_mission(w, b, FireMissionForm.POINT, pt, 1, SalvoMode.FULL, 0)
+        cmd_fire_mission(w, b, FireMissionForm.POINT, pt, 1, "HE", SalvoMode.FULL, 0)
         world_tick(w)
         self.assertEqual(len(w.projectiles), 3)             # 3 门各 1 发
         for p in w.projectiles:
@@ -1687,7 +1687,7 @@ class TestFireMission(unittest.TestCase):
     def test_mission_exhausted_and_destroyed(self):
         # HALF 12 发：2 门 × 6 轮 → 打空即销毁任务体（方案10）；第 3 门弹药满
         w, b = self._battery()
-        cmd_fire_mission(w, b, FireMissionForm.POINT, (520000, 500000), 1,
+        cmd_fire_mission(w, b, FireMissionForm.POINT, (520000, 500000), 1, "HE",
                          SalvoMode.HALF, 0)
         for _ in range(60):                                 # 齐射节拍=reload 10
             world_tick(w)
@@ -1701,7 +1701,7 @@ class TestFireMission(unittest.TestCase):
         # v1.1 修复：未展开的炮不打（统一走开火许可）
         w, b = self._battery(deployed=False)
         b.deploy_state = DeployState.MOBILE
-        cmd_fire_mission(w, b, FireMissionForm.POINT, (520000, 500000), 1,
+        cmd_fire_mission(w, b, FireMissionForm.POINT, (520000, 500000), 1, "HE",
                          SalvoMode.FULL, 0)
         for _ in range(3):
             world_tick(w)
@@ -1724,7 +1724,7 @@ class TestFireMission(unittest.TestCase):
 
     def test_cancel_command_destroys_mission(self):
         w, b = self._battery()
-        cmd_fire_mission(w, b, FireMissionForm.POINT, (520000, 500000), 1,
+        cmd_fire_mission(w, b, FireMissionForm.POINT, (520000, 500000), 1, "HE",
                          SalvoMode.FULL, 0)
         from sovs.sim.tick import CancelFireMissionCmd, FireMissionCmd, queue_command
         queue_command(w, CancelFireMissionCmd(unit=b))
@@ -1741,7 +1741,7 @@ class TestFireMission(unittest.TestCase):
             element_templates=(SQUAD_ELEM,), optics_ground_cm=20000, stealth_base=5,
             speed_tier=1, movement_class=MovementClass.FOOT)
         obs = add_unit(w, make_unit(w, observer_tpl, 0, 0, (500000, 500000)))
-        cmd_fire_mission(w, b, FireMissionForm.POINT, (520000, 500000), 1,
+        cmd_fire_mission(w, b, FireMissionForm.POINT, (520000, 500000), 1, "HE",
                          SalvoMode.FULL, 0)
         fire_at(w, b.elements[0], b.elements[0].weapon_states[0], b.fire_mission)
         self.assertEqual(b.fire_mission.calib_progress, 20)
@@ -1780,7 +1780,7 @@ class TestFireMission(unittest.TestCase):
             element_templates=(SQUAD_ELEM,), optics_ground_cm=20000, stealth_base=5,
             speed_tier=1, movement_class=MovementClass.FOOT)
         obs = add_unit(w, make_unit(w, observer_tpl, 0, 0, (500000, 500000)))
-        cmd_fire_mission(w, b, FireMissionForm.POINT, (520000, 500000), 1,
+        cmd_fire_mission(w, b, FireMissionForm.POINT, (520000, 500000), 1, "HE",
                          SalvoMode.FULL, 0)
         w.smoke_zones.append(SmokeZone(center=(510000, 500000),
                                        radius_cm=CONFIG.smoke_radius_cm,
@@ -1932,7 +1932,7 @@ class TestAutoApproachConsumption(unittest.TestCase):
         b.group_speed_cap = 2
         rng0 = [r.state for r in w.rng._rngs]
         self.assertTrue(cmd_fire_mission(w, b, FireMissionForm.POINT,
-                                         (250000, 0), 1, SalvoMode.FULL, 0))
+                                         (250000, 0), 1, "HE", SalvoMode.FULL, 0))
         self.assertIsNotNone(b.fire_mission)
         self.assertEqual(b.move_path, [(52000, 0)])
         self.assertIs(b.move_mode, MoveMode.NORMAL)
@@ -1945,7 +1945,7 @@ class TestAutoApproachConsumption(unittest.TestCase):
         # 射程内（d=100000≤200000）：不插航点——move_path 原样（零行为差分支）
         w, b = self._battery()
         self.assertTrue(cmd_fire_mission(w, b, FireMissionForm.POINT,
-                                         (100000, 0), 1, SalvoMode.FULL, 0))
+                                         (100000, 0), 1, "HE", SalvoMode.FULL, 0))
         self.assertEqual(b.move_path, [])
 
     def test_line_mission_uses_nearest_point(self):
@@ -1954,7 +1954,7 @@ class TestAutoApproachConsumption(unittest.TestCase):
         w, b = self._battery()
         self.assertTrue(cmd_fire_mission(w, b, FireMissionForm.LINE,
                                          [(250000, 0), (250000, 100000)],
-                                         1, SalvoMode.FULL, 0))
+                                         1, "HE", SalvoMode.FULL, 0))
         self.assertEqual(b.move_path, [(52000, 0)])
 
     def test_rejected_mission_installs_nothing(self):
@@ -1963,7 +1963,7 @@ class TestAutoApproachConsumption(unittest.TestCase):
         for e in b.elements:
             e.mode = Mode.DIRECT
         self.assertFalse(cmd_fire_mission(w, b, FireMissionForm.POINT,
-                                          (250000, 0), 1, SalvoMode.FULL, 0))
+                                          (250000, 0), 1, "HE", SalvoMode.FULL, 0))
         self.assertIsNone(b.fire_mission)
         self.assertEqual(b.move_path, [])
 
@@ -2050,7 +2050,7 @@ class TestFireMissionDeterminismDualRun(unittest.TestCase):
                 e.mode = Mode.INDIRECT
             b.deploy_state = DeployState.DEPLOYED
             cmd_fire_mission(w, b, FireMissionForm.LINE,
-                             ((450000, 450000), (480000, 450000)), 1,
+                             ((450000, 450000), (480000, 450000)), 1, "HE",
                              SalvoMode.HALF, 0)
             return w
 

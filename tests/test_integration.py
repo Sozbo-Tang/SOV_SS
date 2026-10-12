@@ -23,6 +23,7 @@ from sovs.sim.air import (AircraftInstance, AircraftTemplate, AirRole, AirState,
                           cmd_air_strike)
 from sovs.sim.tick import (SmokeZone, add_unit, make_unit, make_world,
                            world_tick)
+from sovs.sim.wire import state_fingerprint_text
 from sovs.sim.types import (AltTier, DamageType, ElementTemplate, ElementType,
                             MovementClass, TargetDomain, Trajectory, UnitType,
                             WeaponTemplate, UnitTemplate, WState)
@@ -107,50 +108,13 @@ def inst(w, t, team=0, pos=(500000, 500000), alt=AltTier.MID):
 
 def fingerprint(w):
     """全状态指纹：单位/元素/武器态/弹丸/航空器/玩家/八通道 PCG32 内部 state。
-    返工补全（2026-10-01，验收 nit）：单位段 +deploy_state/deploy_timer/
-    infiltration_timer（system_timers 消费面）、元素段 +garrison_in/mounted_in
-    引用（id 或 -）、烟区逐区 center/ttl（原仅 S%d 计数—— SmokeZone 两字段均
-    入指纹，ttl 递减漂移不再漏检）。"""
-    parts = ["t%d:p%d:r%s" % (w.tick, w.phase,
-                              ",".join(str(r.state) for r in w.rng._rngs))]
-    for u in w.units:
-        parts.append("U%d,%d,%s,%d,%d,%d,%d,%d,%d,%d" % (
-            u.id, u.team, u.pos, int(u.alive), u.spotted_mask,
-            int(u.mark_level), len(u.move_path),
-            int(u.deploy_state), u.deploy_timer, u.infiltration_timer))
-        for e in u.elements:
-            gref = "-" if e.garrison_in is None else \
-                "G%d" % getattr(e.garrison_in, "id", -1)
-            mref = "-" if e.mounted_in is None else "M%d" % e.mounted_in.id
-            parts.append("E%d,%s,%d,%d,%d,%d,%d,%s,%s" % (
-                e.id, e.pos, e.hp_current, e.facing, e.suppression,
-                e.reveal_timer, int(e.rotating), gref, mref))
-            for ws in e.weapon_states:
-                t = ws.target
-                tref = "-" if t is None else (
-                    "A%d" % t.id if isinstance(t, AircraftInstance) else "E%d" % t.id)
-                parts.append("W%d,%d,%d,%s" % (int(ws.state), ws.timer,
-                                               ws.ammo_left, tref))
-    for a in w.aircraft:
-        d = a.dogfight
-        parts.append("A%d,%d,%s,%d,%d,%d,%d,%d,%d,%s,%r,%s,%d,%d,%d,%s" % (
-            a.id, a.team, a.pos, int(a.alt_tier), a.hp_current, a.spotted_mask,
-            int(a.state), a.facing, a.no_engage_until, a.flight_plan, a.task,
-            sorted(a.ammo_left.items()), a.alt_pending is not None,
-            int(a.patrol_loop), a.paratroop_cargo is not None,
-            ("%d/%d/%d" % (d.opponent.id, d.round_timer, d.rounds)) if d else "-"))
-    for p in w.projectiles:
-        ht = p.hit_target
-        parts.append("P%s,%s,%d,%d,%s" % (
-            p.pos, p.dest, p.will_hit, p.speed_cm_tick,
-            ("A%d" % ht.id) if isinstance(ht, AircraftInstance) else "-"))
-    for pl in w.players:
-        parts.append("PL%d,%d,%s,%d" % (pl.index, pl.air_points,
-                                        sorted(pl.air_cooldowns.items()),
-                                        len(pl.deck_slots)))
-    for z in w.smoke_zones:                                          # 逐区 center/ttl（返工补全）
-        parts.append("S%s,%d" % (z.center, z.ttl_ticks))
-    return "|".join(parts)
+
+    〔FE-T03 2026-10-11：本体抽取为公共函数 sovs/sim/wire.state_fingerprint_text
+    （回放校验和 state_checksum 与本指纹同源同粒度——单一事实源），本函数委托
+    之；抽取前字段面不变（单位段 +deploy_state/deploy_timer/infiltration_timer、
+    元素段 +garrison_in/mounted_in 引用、烟区逐区 center/ttl——2026-10-01 返工
+    补全口径照旧）。〕"""
+    return state_fingerprint_text(w)
 
 
 def rich_world(seed):

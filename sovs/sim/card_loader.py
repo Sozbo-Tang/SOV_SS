@@ -39,8 +39,9 @@ class CardLoaderError(ValueError):
     """加载期错误（版本门/结构缺键/类型/枚举域/唯一性/空降对表）。"""
 
 
-# ── 版本门（与 card_schema.SUPPORTED_CARD_SCHEMA 同值双写——tests 锁死互检）──
-SUPPORTED_CARD_SCHEMA: dict[int, int] = {1: 3}
+# ── 版本门（与 card_schema.SUPPORTED_CARD_SCHEMA 同值双写——tests 锁死互检；
+#    1.3→1.4＝2026-10-12 GP-01 §1.3 航空入库 minor，card_schema.py:48 同步）──
+SUPPORTED_CARD_SCHEMA: dict[int, int] = {1: 4}
 
 
 def schema_version_supported(version: str) -> bool:

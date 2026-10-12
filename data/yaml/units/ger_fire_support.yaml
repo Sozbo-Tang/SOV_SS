@@ -1,0 +1,291 @@
+# 德军火力支援表（GDD-01 §2 火力支援 6 卡）
+# 数值口径：卡名/编制/造价＝GDD-01 兵种表现值；其余字段按同类现役卡插值，
+# 逐块登记 sidecar/pending.yaml（P-301~P-314）待数值章节拍板——不阻塞（GP-01 §1.4）。
+# 字段集＝card_schema.UnitCardModel 39 字段（缺省字段省略＝pydantic 默认）。
+schema_version: "1.4"
+cards:
+  - card_key: GER_IG18
+    template_id: 225
+    name: "le.IG 18 75mm步兵炮排"
+    faction: "GERMAN"
+    category: "FIRE_SUPPORT"
+    cost: 40
+    pool: "MAIN"
+    quota_group: "HOWITZER"
+    optics_ground_cm: 30000
+    stealth_base: 7
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 150
+    pack_time_ticks: 150
+    mode_set: ["DIRECT", "INDIRECT"]
+    own_weight_tons: 4
+    elements:
+      - element_key: E_GER_IG18
+        count: 2
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 4
+        fire_arc_deg: 30
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_GER_IG18_DIRECT"
+            element_key: "E_GER_IG18"
+            name: "le.IG 18 75mm步兵炮（直射）"
+            damage_type: "KE"
+            pen_min: 2
+            pen_max: 2
+            damage: 6
+            max_range_cm: 40000
+            dispersion_cm: 200
+            aim_time_ticks: 12
+            reload_time_ticks: 45
+            salvo: 1
+            ammo_base: 10
+            ammo_weight: 5000
+            projectile_speed_cm_tick: 3000
+            suppression_power: 12
+            vs_fort_mult_permille: 3000
+            needs_deployed: true
+          - weapon_key: "W_GER_IG18_INDIRECT"
+            element_key: "E_GER_IG18"
+            name: "le.IG 18 75mm步兵炮（曲射）"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 5
+            blast_radius_cm: 1500
+            max_range_cm: 80000
+            min_range_cm: 10000
+            dispersion_cm: 1200
+            aim_time_ticks: 15
+            reload_time_ticks: 55
+            salvo: 1
+            ammo_base: 10
+            ammo_weight: 5000
+            projectile_speed_cm_tick: 3000
+            trajectory: "BALLISTIC"
+            suppression_power: 20
+            needs_deployed: true
+  - card_key: GER_PAK38
+    template_id: 226
+    name: "PaK 38 50mm反坦克炮连"
+    faction: "GERMAN"
+    category: "FIRE_SUPPORT"
+    cost: 40
+    pool: "MAIN"
+    quota_group: "AT_GUN"
+    optics_ground_cm: 30000
+    stealth_base: 8
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 300
+    pack_time_ticks: 300
+    own_weight_tons: 4
+    elements:
+      - element_key: E_GER_PAK38
+        count: 3
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 6
+        fire_arc_deg: 30
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_GER_PAK38"
+            element_key: "E_GER_PAK38"
+            name: "PaK 38 50mm反坦克炮"
+            damage_type: "KE"
+            pen_min: 4
+            pen_max: 4
+            damage: 6
+            max_range_cm: 80000
+            dispersion_cm: 120
+            aim_time_ticks: 20
+            reload_time_ticks: 80
+            salvo: 1
+            ammo_base: 12
+            ammo_weight: 5000
+            projectile_speed_cm_tick: 8300
+            suppression_power: 12
+            needs_deployed: true
+  - card_key: GER_PAK40
+    template_id: 203
+    name: "PaK 40 75mm反坦克炮连（3门）"
+    faction: "GERMAN"
+    category: "FIRE_SUPPORT"
+    cost: 65
+    pool: "MAIN"
+    quota_group: "AT_GUN"
+    optics_ground_cm: 30000
+    stealth_base: 7
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 300
+    pack_time_ticks: 300
+    own_weight_tons: 15
+    elements:
+      - element_key: E_GER_PAK40
+        count: 3
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 6
+        fire_arc_deg: 30
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_PAK40"
+            element_key: "E_GER_PAK40"
+            name: "PaK 40 75mm反坦克炮"
+            damage_type: "KE"
+            pen_min: 6
+            pen_max: 7
+            damage: 10
+            max_range_cm: 100000
+            dispersion_cm: 100
+            aim_time_ticks: 20
+            reload_time_ticks: 65
+            ammo_base: 6
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 7900
+            suppression_power: 20
+            vs_fort_mult_permille: 3000
+            needs_deployed: true
+  - card_key: GER_FH18
+    template_id: 227
+    name: "le.FH 18/40 105mm榴弹炮连"
+    faction: "GERMAN"
+    category: "FIRE_SUPPORT"
+    cost: 85
+    pool: "MAIN"
+    quota_group: "HOWITZER"
+    optics_ground_cm: 30000
+    stealth_base: 7
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 400
+    pack_time_ticks: 400
+    mode_set: ["INDIRECT"]
+    own_weight_tons: 20
+    elements:
+      - element_key: E_GER_FH18
+        count: 4
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 6
+        fire_arc_deg: 30
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_GER_FH18"
+            element_key: "E_GER_FH18"
+            name: "le.FH 18/40 105mm榴弹炮"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 10
+            blast_radius_cm: 2500
+            max_range_cm: 450000
+            min_range_cm: 30000
+            dispersion_cm: 1500
+            aim_time_ticks: 15
+            reload_time_ticks: 50
+            salvo: 1
+            ammo_base: 8
+            ammo_weight: 15000
+            projectile_speed_cm_tick: 5000
+            trajectory: "BALLISTIC"
+            suppression_power: 50
+            needs_deployed: true
+  - card_key: GER_SFH18
+    template_id: 228
+    name: "s.FH 18 150mm榴弹炮连"
+    faction: "GERMAN"
+    category: "FIRE_SUPPORT"
+    cost: 110
+    pool: "MAIN"
+    quota_group: "HOWITZER"
+    optics_ground_cm: 30000
+    stealth_base: 7
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 400
+    pack_time_ticks: 400
+    mode_set: ["INDIRECT"]
+    own_weight_tons: 55
+    elements:
+      - element_key: E_GER_SFH18
+        count: 3
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 6
+        fire_arc_deg: 30
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_GER_SFH18"
+            element_key: "E_GER_SFH18"
+            name: "s.FH 18 150mm榴弹炮"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 13
+            blast_radius_cm: 3000
+            max_range_cm: 500000
+            min_range_cm: 35000
+            dispersion_cm: 1800
+            aim_time_ticks: 20
+            reload_time_ticks: 60
+            salvo: 1
+            ammo_base: 6
+            ammo_weight: 30000
+            projectile_speed_cm_tick: 5000
+            trajectory: "BALLISTIC"
+            suppression_power: 60
+            needs_deployed: true
+  - card_key: GER_NEBEL
+    template_id: 229
+    name: "15cm Nebelwerfer 41火箭炮连"
+    faction: "GERMAN"
+    category: "FIRE_SUPPORT"
+    cost: 130
+    pool: "MAIN"
+    quota_group: "ROCKET"
+    optics_ground_cm: 30000
+    stealth_base: 7
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 200
+    pack_time_ticks: 200
+    mode_set: ["INDIRECT"]
+    elements:
+      - element_key: E_GER_NEBEL
+        count: 6
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 4
+        fire_arc_deg: 360
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_GER_NEBEL"
+            element_key: "E_GER_NEBEL"
+            name: "Nebelwerfer 41 150mm火箭炮"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 9
+            blast_radius_cm: 2500
+            max_range_cm: 440000
+            min_range_cm: 50000
+            dispersion_cm: 3500
+            aim_time_ticks: 5
+            reload_time_ticks: 600
+            salvo: 6
+            ammo_base: 6
+            ammo_weight: 30000
+            projectile_speed_cm_tick: 7000
+            trajectory: "BALLISTIC"
+            suppression_power: 50
+            needs_deployed: true

@@ -1,0 +1,113 @@
+# 苏军航空 5 机型（GDD-01 §1 航空表 :92-99 / GDD-02 v1.9 §6.1 :321-326——air_data.py
+# CARD_KWARGS 冻结现值逐字平移，〔待定 P-01~P-12〕随 air_data.PENDING_NUMERIC_ITEMS）。
+# 字段集＝card_schema.AirCardModel（AircraftTemplate 冻结 20 字段镜像＋card_key/faction
+# 管线键——schema 1.4）。weapons 按 weapon_key 引用 air_weapons.yaml（编译期解引用；
+# 运行时 BOMB 弹药以 payload 购买数为准——§F1/GAP2-04）。
+schema_version: "1.4"
+cards:
+  - card_key: PO2
+    template_id: 1                 # 回放校验号自编（苏 1~5/德 11~15）
+    name: Po-2侦察机
+    faction: SOVIET
+    role: RECON
+    cost_body: 20                  # 〔GDD〕v1.9 :321
+    hp_max: 60                     # 〔数锚〕GDD-03 :12 带内下限〔待定 P-02〕
+    armor_aa: 0                    # 帆布双翼无装甲〔数锚〕GDD-03 :132〔待定 P-03〕
+    speed_cm_tick: 60              # 150km/h×2//5；≤air_recon_speed_ref=100 锚〔待定 P-01〕
+    dogfight_power: 1              # 〔数锚〕GDD-03 :132「1/3」照抄
+    maneuver: 3
+    alt_ceiling: LOW               # 〔冻结〕IMPL v1.4 §A :677
+    optics_air_cm: 6000            # R-23 :314 低空观察半径小〔待定 P-05〕
+    recon_mark_base_bp: 3000       # 〔待定 P-06〕
+    weapons: []                    # 无武器机型（§F7 GAP2-05 侦察机豁免弹尽 RTB 前提）
+    payload_max_bombs: 0
+    payload_max_supply: 0
+    paratroop_seats: 0
+    turret_damage: 0
+    can_engage_air: false
+    has_dive: false
+    payload_price: {}
+  - card_key: PE2
+    template_id: 2
+    name: Pe-2战术轰炸机
+    faction: SOVIET
+    role: BOMBER
+    cost_body: 85                  # 〔GDD〕v1.9 :322
+    hp_max: 70                     # 〔数锚〕带内中值〔待定 P-02〕
+    armor_aa: 3                    # 〔待定 P-03〕
+    speed_cm_tick: 216             # 540km/h×2//5——快速水平轰炸〔待定 P-01〕
+    dogfight_power: 3              # 〔数锚〕GDD-03 :133「3/7」照抄
+    maneuver: 7
+    alt_ceiling: MID               # 〔冻结〕§D.1 注 :102
+    weapons:
+      - {ref: W_BOMB_FAB250, ammo: 4}   # 〔冻结〕硬要求③；弹量=档案满载数
+    payload_max_bombs: 4           # 1000kg=4×250kg 级〔数锚〕GDD-03 :133〔待定 P-09〕
+    payload_max_supply: 0
+    paratroop_seats: 0
+    turret_damage: 3               # 〔冻结〕§D.1 #17 BOMBER>0〔待定 P-12〕
+    can_engage_air: false
+    has_dive: false                # 快速水平轰炸——非俯冲机型
+    payload_price: {BOMB: 6}       # 〔待定 P-10〕
+  - card_key: IL2M
+    template_id: 3
+    name: Il-2M攻击机
+    faction: SOVIET
+    role: ATTACK
+    cost_body: 90                  # 〔GDD〕v1.9 :323
+    hp_max: 130                    # 〔数锚〕GDD-03 :12/:211 显式（装甲壳 700kg）
+    armor_aa: 12                   # 〔数锚〕GDD-03 :131→全场最高〔待定 P-03〕
+    speed_cm_tick: 160             # 400km/h×2//5〔待定 P-01〕
+    dogfight_power: 5              # 〔数锚〕GDD-03 :131「5/4」照抄
+    maneuver: 4                    # 卡面 :323「机动笨」——全场低位
+    alt_ceiling: MID               # 〔待定 P-04〕可下 LOW 扫射/投弹
+    weapons:
+      - {ref: W_BOMB_FAB100, ammo: 4}
+      - {ref: W_STRAFE_VYA23, ammo: 24}  # 〔冻结〕硬要求①「STRAFE+BOMB」
+    payload_max_bombs: 4           # 400kg=4×100kg 级〔待定 P-09〕
+    payload_max_supply: 0
+    paratroop_seats: 0
+    turret_damage: 0
+    can_engage_air: true           # 〔冻结〕§D.1 #18＋D015 转对空丢弹
+    has_dive: false                # 浅俯冲非真俯冲轰炸机（B-09 专属 Ju 87D）
+    payload_price: {BOMB: 3}       # 〔待定 P-10〕
+  - card_key: YAK9
+    template_id: 4
+    name: Yak-9战斗机
+    faction: SOVIET
+    role: FIGHTER
+    cost_body: 70                  # 〔GDD〕v1.9 :324
+    hp_max: 70                     # 〔待定 P-02〕
+    armor_aa: 3                    # 〔待定 P-03〕
+    speed_cm_tick: 239             # ~599km/h×2//5〔待定 P-01〕
+    dogfight_power: 7              # 〔数锚〕GDD-03 :134「7/9」照抄
+    maneuver: 9
+    alt_ceiling: HIGH              # 〔冻结〕§D.1 注 :102
+    weapons:
+      - {ref: W_STRAFE_SHVAK, ammo: 16}  # 〔冻结〕硬要求②
+    payload_max_bombs: 0
+    payload_max_supply: 0
+    paratroop_seats: 0
+    turret_damage: 0
+    can_engage_air: true           # 〔冻结〕硬要求⑦（AMB3-03）
+    has_dive: false
+    payload_price: {}
+  - card_key: LI2
+    template_id: 5
+    name: Li-2运输机
+    faction: SOVIET
+    role: TRANSPORT
+    cost_body: 40                  # 〔GDD〕v1.9 :325
+    hp_max: 80                     # 〔数锚〕带内上限〔待定 P-02〕
+    armor_aa: 2                    # 〔待定 P-03〕
+    speed_cm_tick: 128             # 320km/h×2//5〔待定 P-01〕
+    dogfight_power: 2              # 〔数锚〕GDD-03 :135「2/5」照抄
+    maneuver: 5
+    alt_ceiling: MID               # 〔待定 P-04〕
+    weapons: []                    # 〔冻结〕硬要求⑤ 空
+    payload_max_bombs: 0
+    payload_max_supply: 150        # rounds+medical 合计上限（§F1）〔待定 P-11〕
+    paratroop_seats: 1             # 〔冻结〕§D.1 #16（D017）
+    turret_damage: 2               # 〔待定 P-12〕
+    can_engage_air: false
+    has_dive: false
+    payload_price: {SUPPLY: 1}     # 每补给重量单位 1 点（2026-10-03 一池化拍板）〔待定 P-10〕

@@ -1,0 +1,483 @@
+# 苏军步兵表（GDD-01 §1 步兵 9 卡含政委班组＋表外空降 1 卡＝本文件 10 卡；空降=航空节『+1』GDD-01:99，category=INFANTRY/pool=RESERVE/delivery=LI2 与 CSV SU_PARATROOP 同口径）
+# 数值口径：卡名/编制/造价＝GDD-01 兵种表现值；其余字段按同类现役卡插值，
+# 逐块登记 sidecar/pending.yaml（P-301~P-314）待数值章节拍板——不阻塞（GP-01 §1.4）。
+# 字段集＝card_schema.UnitCardModel 39 字段（缺省字段省略＝pydantic 默认）。
+schema_version: "1.4"
+cards:
+  - card_key: SU_RIFLE
+    template_id: 102
+    name: "步枪排"
+    faction: "SOVIET"
+    category: "INFANTRY"
+    cost: 45
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON"]
+    elements:
+      - element_key: E_SU_RIFLE
+        count: 3
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 10
+        weapons:
+          - weapon_key: "W_RIFLE_MOSIN"
+            element_key: "E_SU_RIFLE"
+            name: "莫辛纳甘步枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 30000
+            dispersion_cm: 200
+            aim_time_ticks: 5
+            reload_time_ticks: 12
+            ammo_base: 200
+            ammo_weight: 10
+            projectile_speed_cm_tick: 8000
+            suppression_power: 8
+          - weapon_key: "W_RIFLE_DP27"
+            element_key: "E_SU_RIFLE"
+            name: "DP-27轻机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 45000
+            dispersion_cm: 300
+            aim_time_ticks: 4
+            reload_time_ticks: 10
+            salvo: 5
+            ammo_base: 141
+            ammo_weight: 20
+            projectile_speed_cm_tick: 8000
+            suppression_power: 12
+          - weapon_key: "W_RIFLE_PPSH"
+            element_key: "E_SU_RIFLE"
+            name: "PPSh-41冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 10
+            salvo: 4
+            ammo_base: 71
+            ammo_weight: 10
+            projectile_speed_cm_tick: 3500
+            suppression_power: 14
+  - card_key: SU_SMG
+    template_id: 113
+    name: "冲锋枪排"
+    faction: "SOVIET"
+    category: "INFANTRY"
+    cost: 50
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON"]
+    elements:
+      - element_key: E_SU_SMG
+        count: 3
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 10
+        weapons:
+          - weapon_key: "W_SU_SMG_PPSH"
+            element_key: "E_SU_SMG"
+            name: "PPSh-41冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 10
+            salvo: 4
+            ammo_base: 213
+            ammo_weight: 10
+            projectile_speed_cm_tick: 3500
+            suppression_power: 14
+  - card_key: SU_GUARD
+    template_id: 114
+    name: "近卫步枪排"
+    faction: "SOVIET"
+    category: "INFANTRY"
+    cost: 60
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON"]
+    elements:
+      - element_key: E_SU_GUARD
+        count: 3
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 10
+        squad_quality_bp: 12000
+        weapons:
+          - weapon_key: "W_SU_GUARD_MOSIN"
+            element_key: "E_SU_GUARD"
+            name: "莫辛纳甘步枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 30000
+            dispersion_cm: 200
+            aim_time_ticks: 5
+            reload_time_ticks: 12
+            salvo: 1
+            ammo_base: 200
+            ammo_weight: 10
+            projectile_speed_cm_tick: 8000
+            suppression_power: 8
+          - weapon_key: "W_SU_GUARD_DP27"
+            element_key: "E_SU_GUARD"
+            name: "DP-27轻机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 45000
+            dispersion_cm: 300
+            aim_time_ticks: 4
+            reload_time_ticks: 10
+            salvo: 5
+            ammo_base: 141
+            ammo_weight: 20
+            projectile_speed_cm_tick: 8000
+            suppression_power: 12
+  - card_key: SU_MAXIM
+    template_id: 115
+    name: "机枪排"
+    faction: "SOVIET"
+    category: "INFANTRY"
+    cost: 35
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON"]
+    elements:
+      - element_key: E_SU_MAXIM
+        count: 2
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 4
+        weapons:
+          - weapon_key: "W_SU_MAXIM"
+            element_key: "E_SU_MAXIM"
+            name: "Maxim M1910重机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 3
+            max_range_cm: 48000
+            dispersion_cm: 300
+            aim_time_ticks: 5
+            reload_time_ticks: 100
+            salvo: 10
+            ammo_base: 500
+            ammo_weight: 20
+            projectile_speed_cm_tick: 8000
+            suppression_power: 18
+  - card_key: SU_ATR
+    template_id: 116
+    name: "反坦克枪排"
+    faction: "SOVIET"
+    category: "INFANTRY"
+    cost: 25
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON"]
+    elements:
+      - element_key: E_SU_ATR
+        count: 2
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 2
+        weapons:
+          - weapon_key: "W_SU_PTRS"
+            element_key: "E_SU_ATR"
+            name: "PTRS反坦克枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 2
+            damage: 3
+            max_range_cm: 20000
+            dispersion_cm: 200
+            aim_time_ticks: 8
+            reload_time_ticks: 50
+            salvo: 1
+            ammo_base: 30
+            ammo_weight: 50
+            projectile_speed_cm_tick: 10000
+            suppression_power: 5
+  - card_key: SU_MORTAR82
+    template_id: 117
+    name: "82mm迫击炮排"
+    faction: "SOVIET"
+    category: "INFANTRY"
+    cost: 40
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    deploy_time_ticks: 150
+    pack_time_ticks: 150
+    mode_set: ["INDIRECT"]
+    elements:
+      - element_key: E_SU_M82
+        count: 2
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 4
+        fire_arc_deg: 360
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_SU_M82_HE"
+            element_key: "E_SU_M82"
+            name: "BM-37 82mm迫击炮（HE）"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 6
+            blast_radius_cm: 2000
+            max_range_cm: 32000
+            min_range_cm: 4000
+            dispersion_cm: 800
+            aim_time_ticks: 10
+            reload_time_ticks: 30
+            salvo: 2
+            ammo_base: 30
+            ammo_weight: 3000
+            projectile_speed_cm_tick: 1500
+            trajectory: "BALLISTIC"
+            suppression_power: 25
+            needs_deployed: true
+          - weapon_key: "W_SU_M82_SMOKE"
+            element_key: "E_SU_M82"
+            name: "BM-37 82mm迫击炮（烟幕）"
+            damage_type: "SMOKE"
+            pen_min: 0
+            pen_max: 0
+            damage: 0
+            blast_radius_cm: 3000
+            max_range_cm: 32000
+            min_range_cm: 4000
+            dispersion_cm: 1000
+            aim_time_ticks: 10
+            reload_time_ticks: 60
+            salvo: 1
+            ammo_base: 4
+            ammo_weight: 3000
+            projectile_speed_cm_tick: 1500
+            suppression_power: 0
+            needs_deployed: true
+  - card_key: SU_MORTAR120
+    template_id: 118
+    name: "120mm重迫击炮排"
+    faction: "SOVIET"
+    category: "INFANTRY"
+    cost: 60
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    deploy_time_ticks: 200
+    pack_time_ticks: 200
+    mode_set: ["INDIRECT"]
+    elements:
+      - element_key: E_SU_M120
+        count: 2
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 4
+        fire_arc_deg: 360
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_SU_M120_HE"
+            element_key: "E_SU_M120"
+            name: "PM-38 120mm重迫击炮（HE）"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 8
+            blast_radius_cm: 2500
+            max_range_cm: 40000
+            min_range_cm: 5000
+            dispersion_cm: 900
+            aim_time_ticks: 12
+            reload_time_ticks: 40
+            salvo: 2
+            ammo_base: 24
+            ammo_weight: 16000
+            projectile_speed_cm_tick: 1500
+            trajectory: "BALLISTIC"
+            suppression_power: 35
+            needs_deployed: true
+          - weapon_key: "W_SU_M120_SMOKE"
+            element_key: "E_SU_M120"
+            name: "PM-38 120mm重迫击炮（烟幕）"
+            damage_type: "SMOKE"
+            pen_min: 0
+            pen_max: 0
+            damage: 0
+            blast_radius_cm: 3000
+            max_range_cm: 40000
+            min_range_cm: 5000
+            dispersion_cm: 1000
+            aim_time_ticks: 10
+            reload_time_ticks: 60
+            salvo: 1
+            ammo_base: 4
+            ammo_weight: 16000
+            projectile_speed_cm_tick: 1500
+            suppression_power: 0
+            needs_deployed: true
+  - card_key: SU_ENGINEER
+    template_id: 119
+    name: "工兵排"
+    faction: "SOVIET"
+    category: "INFANTRY"
+    cost: 50
+    pool: "MAIN"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON"]
+    elements:
+      - element_key: E_SU_ENG
+        count: 3
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 8
+        weapons:
+          - weapon_key: "W_SU_ENG_PPSH"
+            element_key: "E_SU_ENG"
+            name: "PPSh-41冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 10
+            salvo: 4
+            ammo_base: 213
+            ammo_weight: 10
+            projectile_speed_cm_tick: 3500
+            suppression_power: 14
+          - weapon_key: "W_SU_ENG_DEMO"
+            element_key: "E_SU_ENG"
+            name: "爆破包"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 15
+            blast_radius_cm: 800
+            max_range_cm: 800
+            dispersion_cm: 0
+            aim_time_ticks: 5
+            reload_time_ticks: 200
+            salvo: 1
+            ammo_base: 3
+            ammo_weight: 500
+            projectile_speed_cm_tick: 300
+            suppression_power: 10
+            vs_fort_mult_permille: 3000
+  - card_key: SU_COMMISSAR
+    template_id: 104
+    name: "政委班组"
+    faction: "SOVIET"
+    category: "INFANTRY"
+    cost: 25
+    pool: "MAIN"
+    per_card_limit: 1
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON"]
+    aura:
+      kind: "MELEE"
+      bonus_bp: 1500
+      radius_cm: 5000
+    elements:
+      - element_key: E_SU_COMMISSAR
+        count: 1
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 2
+        weapons:
+          - weapon_key: "W_COMMI_PPSH"
+            element_key: "E_SU_COMMISSAR"
+            name: "PPSh-41冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 10
+            salvo: 4
+            ammo_base: 71
+            ammo_weight: 10
+            projectile_speed_cm_tick: 3500
+            suppression_power: 14
+  - card_key: SU_PARATROOP
+    template_id: 103
+    name: "空降近卫步枪排"
+    faction: "SOVIET"
+    category: "INFANTRY"
+    cost: 60
+    pool: "RESERVE"
+    delivery: "LI2"
+    optics_ground_cm: 35000
+    stealth_base: 6
+    speed_tier: 1
+    movement_class: "FOOT"
+    flags: ["CAN_GARRISON", "CAN_INFILTRATE", "DELIVERY_AIRDROP_ONLY"]
+    elements:
+      - element_key: E_SU_PARA
+        count: 3
+        element_type: "SQUAD"
+        unit_type: "INFANTRY"
+        hp_max: 10
+        squad_quality_bp: 11500
+        weapons:
+          - weapon_key: "W_PARA_PPSH"
+            element_key: "E_SU_PARA"
+            name: "PPSh-41冲锋枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 12000
+            dispersion_cm: 300
+            aim_time_ticks: 3
+            reload_time_ticks: 10
+            salvo: 4
+            ammo_base: 213
+            ammo_weight: 10
+            projectile_speed_cm_tick: 3500
+            suppression_power: 14

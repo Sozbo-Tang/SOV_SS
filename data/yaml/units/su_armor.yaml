@@ -1,0 +1,457 @@
+# 苏军装甲表（GDD-01 §1 装甲 7 卡：T-34/76/T-34/85/IS-2/SU-76/SU-85/ISU-152/OT-34）
+# 数值口径：卡名/编制/造价＝GDD-01 兵种表现值；其余字段按同类现役卡插值，
+# 逐块登记 sidecar/pending.yaml（P-301~P-314）待数值章节拍板——不阻塞（GP-01 §1.4）。
+# 字段集＝card_schema.UnitCardModel 39 字段（缺省字段省略＝pydantic 默认）。
+schema_version: "1.4"
+cards:
+  - card_key: SU_T3476
+    template_id: 120
+    name: "T-34/76坦克排"
+    faction: "SOVIET"
+    category: "ARMOR"
+    cost: 70
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 3
+    speed_tier: 3
+    movement_class: "TRACK"
+    turn_rate_deg: 100
+    own_weight_tons: 300
+    elements:
+      - element_key: E_SU_T3476
+        count: 3
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 90
+        armor_ke:
+          front: 2
+          side: 2
+          rear: 2
+          top: 1
+        armor_he:
+          front: 2
+          side: 2
+          rear: 2
+          top: 1
+        self_smoke_charges: 2
+        weapons:
+          - weapon_key: "W_SU_T3476_F34"
+            element_key: "E_SU_T3476"
+            name: "F-34 76mm坦克炮"
+            damage_type: "KE"
+            pen_min: 4
+            pen_max: 4
+            damage: 8
+            max_range_cm: 100000
+            dispersion_cm: 150
+            aim_time_ticks: 25
+            reload_time_ticks: 70
+            salvo: 1
+            ammo_base: 40
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 6800
+            suppression_power: 20
+            alt_profile:
+              damage: 5
+              blast_radius_cm: 1000
+          - weapon_key: "W_SU_T3476_MG"
+            element_key: "E_SU_T3476"
+            name: "7.62mm车载机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 40000
+            dispersion_cm: 200
+            aim_time_ticks: 3
+            reload_time_ticks: 50
+            salvo: 6
+            ammo_base: 500
+            ammo_weight: 20
+            projectile_speed_cm_tick: 8000
+            suppression_power: 12
+  - card_key: SU_T3485
+    template_id: 105
+    name: "T-34/85坦克排（3车）"
+    faction: "SOVIET"
+    category: "ARMOR"
+    cost: 100
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 3
+    speed_tier: 3
+    movement_class: "TRACK"
+    turn_rate_deg: 100
+    terrain_speed_override_bp: 6500
+    reverse_speed_override_bp: 2500
+    road_bonus_override_cm: 55
+    own_weight_tons: 300
+    elements:
+      - element_key: E_SU_T34
+        count: 3
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 90
+        armor_ke:
+          front: 5
+          side: 2
+          rear: 2
+          top: 1
+        armor_he:
+          front: 5
+          side: 2
+          rear: 2
+          top: 1
+        self_smoke_charges: 2
+        weapons:
+          - weapon_key: "W_T34_D5T"
+            element_key: "E_SU_T34"
+            name: "D-5T 85mm坦克炮"
+            damage_type: "KE"
+            pen_min: 5
+            pen_max: 6
+            damage: 10
+            max_range_cm: 100000
+            dispersion_cm: 150
+            aim_time_ticks: 30
+            reload_time_ticks: 80
+            ammo_base: 24
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 7900
+            suppression_power: 22
+            vs_fort_mult_permille: 5000
+            alt_profile:
+              blast_radius_cm: 1200
+              damage: 6
+          - weapon_key: "W_T34_MG"
+            element_key: "E_SU_T34"
+            name: "7.62mm车载机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 40000
+            dispersion_cm: 200
+            aim_time_ticks: 3
+            reload_time_ticks: 50
+            salvo: 6
+            ammo_base: 500
+            ammo_weight: 20
+            projectile_speed_cm_tick: 8000
+            suppression_power: 12
+  - card_key: SU_IS2
+    template_id: 121
+    name: "IS-2重型坦克排"
+    faction: "SOVIET"
+    category: "ARMOR"
+    cost: 150
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 3
+    speed_tier: 3
+    movement_class: "TRACK"
+    turn_rate_deg: 100
+    own_weight_tons: 440
+    elements:
+      - element_key: E_SU_IS2
+        count: 2
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 110
+        armor_ke:
+          front: 6
+          side: 5
+          rear: 3
+          top: 1
+        armor_he:
+          front: 6
+          side: 5
+          rear: 3
+          top: 1
+        weapons:
+          - weapon_key: "W_SU_IS2_D25"
+            element_key: "E_SU_IS2"
+            name: "D-25T 122mm坦克炮"
+            damage_type: "KE"
+            pen_min: 5
+            pen_max: 7
+            damage: 14
+            max_range_cm: 110000
+            dispersion_cm: 180
+            aim_time_ticks: 35
+            reload_time_ticks: 140
+            salvo: 1
+            ammo_base: 18
+            ammo_weight: 25000
+            projectile_speed_cm_tick: 8000
+            suppression_power: 30
+            alt_profile:
+              damage: 12
+              blast_radius_cm: 2500
+          - weapon_key: "W_SU_IS2_MG"
+            element_key: "E_SU_IS2"
+            name: "7.62mm车载机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 40000
+            dispersion_cm: 200
+            aim_time_ticks: 3
+            reload_time_ticks: 50
+            salvo: 6
+            ammo_base: 500
+            ammo_weight: 20
+            projectile_speed_cm_tick: 8000
+            suppression_power: 12
+  - card_key: SU_SU76
+    template_id: 122
+    name: "SU-76突击炮排"
+    faction: "SOVIET"
+    category: "ARMOR"
+    cost: 65
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 4
+    speed_tier: 3
+    movement_class: "TRACK"
+    turn_rate_deg: 100
+    elements:
+      - element_key: E_SU_SU76
+        count: 4
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 45
+        armor_ke:
+          front: 2
+          side: 1
+          rear: 1
+          top: 1
+        armor_he:
+          front: 2
+          side: 1
+          rear: 1
+          top: 1
+        fire_arc_deg: 30
+        suppression_vuln_permille: 2000
+        weapons:
+          - weapon_key: "W_SU_SU76_ZIS3"
+            element_key: "E_SU_SU76"
+            name: "ZiS-3Sh 76mm突击炮"
+            damage_type: "KE"
+            pen_min: 4
+            pen_max: 4
+            damage: 8
+            max_range_cm: 100000
+            dispersion_cm: 150
+            aim_time_ticks: 20
+            reload_time_ticks: 70
+            salvo: 1
+            ammo_base: 40
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 6800
+            suppression_power: 20
+            alt_profile:
+              damage: 5
+              blast_radius_cm: 1000
+  - card_key: SU_SU85
+    template_id: 123
+    name: "SU-85坦克歼击车排"
+    faction: "SOVIET"
+    category: "ARMOR"
+    cost: 105
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 4
+    speed_tier: 3
+    movement_class: "TRACK"
+    turn_rate_deg: 100
+    flags: ["CAN_AMBUSH"]
+    elements:
+      - element_key: E_SU_SU85
+        count: 3
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 90
+        armor_ke:
+          front: 2
+          side: 2
+          rear: 2
+          top: 1
+        armor_he:
+          front: 2
+          side: 2
+          rear: 2
+          top: 1
+        fire_arc_deg: 30
+        weapons:
+          - weapon_key: "W_SU_SU85_D5S"
+            element_key: "E_SU_SU85"
+            name: "D-5S 85mm坦克炮"
+            damage_type: "KE"
+            pen_min: 5
+            pen_max: 6
+            damage: 10
+            max_range_cm: 110000
+            dispersion_cm: 130
+            aim_time_ticks: 25
+            reload_time_ticks: 90
+            salvo: 1
+            ammo_base: 30
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 7900
+            suppression_power: 22
+            alt_profile:
+              damage: 6
+              blast_radius_cm: 1200
+  - card_key: SU_ISU152
+    template_id: 124
+    name: "ISU-152重型突击炮排"
+    faction: "SOVIET"
+    category: "ARMOR"
+    cost: 170
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 3
+    speed_tier: 3
+    movement_class: "TRACK"
+    turn_rate_deg: 100
+    flags: ["CAN_AMBUSH"]
+    elements:
+      - element_key: E_SU_ISU152
+        count: 2
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 100
+        armor_ke:
+          front: 5
+          side: 4
+          rear: 3
+          top: 1
+        armor_he:
+          front: 5
+          side: 4
+          rear: 3
+          top: 1
+        fire_arc_deg: 30
+        weapons:
+          - weapon_key: "W_SU_ISU152_ML20S"
+            element_key: "E_SU_ISU152"
+            name: "ML-20S 152mm加榴炮"
+            damage_type: "KE"
+            pen_min: 4
+            pen_max: 5
+            damage: 20
+            max_range_cm: 100000
+            dispersion_cm: 200
+            aim_time_ticks: 40
+            reload_time_ticks: 160
+            salvo: 1
+            ammo_base: 20
+            ammo_weight: 40000
+            projectile_speed_cm_tick: 6000
+            suppression_power: 55
+            alt_profile:
+              damage: 16
+              blast_radius_cm: 3500
+  - card_key: SU_OT34
+    template_id: 125
+    name: "OT-34喷火坦克排"
+    faction: "SOVIET"
+    category: "ARMOR"
+    cost: 90
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 3
+    speed_tier: 3
+    movement_class: "TRACK"
+    turn_rate_deg: 100
+    own_weight_tons: 300
+    elements:
+      - element_key: E_SU_OT34_TANK
+        count: 2
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 90
+        armor_ke:
+          front: 2
+          side: 2
+          rear: 2
+          top: 1
+        armor_he:
+          front: 2
+          side: 2
+          rear: 2
+          top: 1
+        self_smoke_charges: 2
+        weapons:
+          - weapon_key: "W_SU_OT34_F34"
+            element_key: "E_SU_OT34_TANK"
+            name: "F-34 76mm坦克炮"
+            damage_type: "KE"
+            pen_min: 4
+            pen_max: 4
+            damage: 8
+            max_range_cm: 100000
+            dispersion_cm: 150
+            aim_time_ticks: 25
+            reload_time_ticks: 70
+            salvo: 1
+            ammo_base: 40
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 6800
+            suppression_power: 20
+            alt_profile:
+              damage: 5
+              blast_radius_cm: 1000
+          - weapon_key: "W_SU_OT34_MG"
+            element_key: "E_SU_OT34_TANK"
+            name: "7.62mm车载机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 40000
+            dispersion_cm: 200
+            aim_time_ticks: 3
+            reload_time_ticks: 50
+            salvo: 6
+            ammo_base: 500
+            ammo_weight: 20
+            projectile_speed_cm_tick: 8000
+            suppression_power: 12
+      - element_key: E_SU_OT34_FLAME
+        count: 1
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 90
+        armor_ke:
+          front: 2
+          side: 2
+          rear: 2
+          top: 1
+        armor_he:
+          front: 2
+          side: 2
+          rear: 2
+          top: 1
+        self_smoke_charges: 2
+        weapons:
+          - weapon_key: "W_SU_OT34_ATO"
+            element_key: "E_SU_OT34_FLAME"
+            name: "ATO-41喷火器"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 10
+            blast_radius_cm: 1500
+            max_range_cm: 4000
+            dispersion_cm: 0
+            aim_time_ticks: 3
+            reload_time_ticks: 30
+            salvo: 4
+            ammo_base: 40
+            ammo_weight: 50
+            projectile_speed_cm_tick: 800
+            suppression_power: 30
+            vs_fort_mult_permille: 3000

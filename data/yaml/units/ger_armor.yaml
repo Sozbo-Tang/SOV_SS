@@ -1,0 +1,400 @@
+# 德军装甲表（GDD-01 §2 装甲 7 卡）
+# 数值口径：卡名/编制/造价＝GDD-01 兵种表现值；其余字段按同类现役卡插值，
+# 逐块登记 sidecar/pending.yaml（P-301~P-314）待数值章节拍板——不阻塞（GP-01 §1.4）。
+# 字段集＝card_schema.UnitCardModel 39 字段（缺省字段省略＝pydantic 默认）。
+schema_version: "1.4"
+cards:
+  - card_key: GER_PZIV
+    template_id: 218
+    name: "四号坦克H型排"
+    faction: "GERMAN"
+    category: "ARMOR"
+    cost: 110
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 3
+    speed_tier: 3
+    movement_class: "TRACK"
+    turn_rate_deg: 100
+    own_weight_tons: 250
+    elements:
+      - element_key: E_GER_PZIV
+        count: 4
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 90
+        armor_ke:
+          front: 4
+          side: 3
+          rear: 2
+          top: 1
+        armor_he:
+          front: 4
+          side: 3
+          rear: 2
+          top: 1
+        weapons:
+          - weapon_key: "W_GER_PZIV_KWK40"
+            element_key: "E_GER_PZIV"
+            name: "KwK 40 75mm坦克炮"
+            damage_type: "KE"
+            pen_min: 6
+            pen_max: 7
+            damage: 10
+            max_range_cm: 100000
+            dispersion_cm: 150
+            aim_time_ticks: 25
+            reload_time_ticks: 80
+            salvo: 1
+            ammo_base: 40
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 7900
+            suppression_power: 22
+          - weapon_key: "W_GER_PZIV_MG34"
+            element_key: "E_GER_PZIV"
+            name: "MG34车载机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 40000
+            dispersion_cm: 200
+            aim_time_ticks: 3
+            reload_time_ticks: 50
+            salvo: 6
+            ammo_base: 500
+            ammo_weight: 20
+            projectile_speed_cm_tick: 8000
+            suppression_power: 12
+  - card_key: GER_PANTHER
+    template_id: 219
+    name: "黑豹坦克排"
+    faction: "GERMAN"
+    category: "ARMOR"
+    cost: 200
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 3
+    speed_tier: 3
+    movement_class: "TRACK"
+    turn_rate_deg: 100
+    own_weight_tons: 450
+    elements:
+      - element_key: E_GER_PANTHER
+        count: 4
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 95
+        armor_ke:
+          front: 7
+          side: 3
+          rear: 2
+          top: 1
+        armor_he:
+          front: 7
+          side: 3
+          rear: 2
+          top: 1
+        weapons:
+          - weapon_key: "W_GER_PANTHER_KWK42"
+            element_key: "E_GER_PANTHER"
+            name: "KwK 42 75mm坦克炮"
+            damage_type: "KE"
+            pen_min: 7
+            pen_max: 8
+            damage: 10
+            max_range_cm: 110000
+            dispersion_cm: 120
+            aim_time_ticks: 25
+            reload_time_ticks: 85
+            salvo: 1
+            ammo_base: 36
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 9000
+            suppression_power: 22
+          - weapon_key: "W_GER_PANTHER_MG34"
+            element_key: "E_GER_PANTHER"
+            name: "MG34车载机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 40000
+            dispersion_cm: 200
+            aim_time_ticks: 3
+            reload_time_ticks: 50
+            salvo: 6
+            ammo_base: 500
+            ammo_weight: 20
+            projectile_speed_cm_tick: 8000
+            suppression_power: 12
+  - card_key: GER_TIGER
+    template_id: 220
+    name: "虎式坦克排"
+    faction: "GERMAN"
+    category: "ARMOR"
+    cost: 190
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 3
+    speed_tier: 2
+    movement_class: "TRACK"
+    turn_rate_deg: 100
+    own_weight_tons: 570
+    elements:
+      - element_key: E_GER_TIGER
+        count: 2
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 100
+        armor_ke:
+          front: 5
+          side: 4
+          rear: 3
+          top: 1
+        armor_he:
+          front: 5
+          side: 4
+          rear: 3
+          top: 1
+        weapons:
+          - weapon_key: "W_GER_TIGER_KWK36"
+            element_key: "E_GER_TIGER"
+            name: "KwK 36 88mm坦克炮"
+            damage_type: "KE"
+            pen_min: 7
+            pen_max: 8
+            damage: 12
+            max_range_cm: 110000
+            dispersion_cm: 140
+            aim_time_ticks: 25
+            reload_time_ticks: 95
+            salvo: 1
+            ammo_base: 40
+            ammo_weight: 10000
+            projectile_speed_cm_tick: 8300
+            suppression_power: 25
+          - weapon_key: "W_GER_TIGER_MG34"
+            element_key: "E_GER_TIGER"
+            name: "MG34车载机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 40000
+            dispersion_cm: 200
+            aim_time_ticks: 3
+            reload_time_ticks: 50
+            salvo: 6
+            ammo_base: 500
+            ammo_weight: 20
+            projectile_speed_cm_tick: 8000
+            suppression_power: 12
+  - card_key: GER_STUG
+    template_id: 221
+    name: "三号突击炮G型排"
+    faction: "GERMAN"
+    category: "ARMOR"
+    cost: 90
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 4
+    speed_tier: 3
+    movement_class: "TRACK"
+    turn_rate_deg: 100
+    flags: ["CAN_AMBUSH"]
+    own_weight_tons: 240
+    elements:
+      - element_key: E_GER_STUG
+        count: 3
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 85
+        armor_ke:
+          front: 5
+          side: 3
+          rear: 2
+          top: 1
+        armor_he:
+          front: 5
+          side: 3
+          rear: 2
+          top: 1
+        fire_arc_deg: 30
+        weapons:
+          - weapon_key: "W_GER_STUG_KWK40"
+            element_key: "E_GER_STUG"
+            name: "StuK 40 75mm突击炮"
+            damage_type: "KE"
+            pen_min: 6
+            pen_max: 7
+            damage: 10
+            max_range_cm: 100000
+            dispersion_cm: 140
+            aim_time_ticks: 25
+            reload_time_ticks: 80
+            salvo: 1
+            ammo_base: 35
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 7900
+            suppression_power: 22
+          - weapon_key: "W_GER_STUG_MG34"
+            element_key: "E_GER_STUG"
+            name: "MG34车载机枪"
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 40000
+            dispersion_cm: 200
+            aim_time_ticks: 3
+            reload_time_ticks: 50
+            salvo: 6
+            ammo_base: 500
+            ammo_weight: 20
+            projectile_speed_cm_tick: 8000
+            suppression_power: 12
+  - card_key: GER_JGDPZ4
+    template_id: 222
+    name: "四号歼击车排"
+    faction: "GERMAN"
+    category: "ARMOR"
+    cost: 115
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 4
+    speed_tier: 3
+    movement_class: "TRACK"
+    turn_rate_deg: 100
+    flags: ["CAN_AMBUSH"]
+    own_weight_tons: 260
+    elements:
+      - element_key: E_GER_JGDPZ4
+        count: 3
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 85
+        armor_ke:
+          front: 5
+          side: 3
+          rear: 2
+          top: 1
+        armor_he:
+          front: 5
+          side: 3
+          rear: 2
+          top: 1
+        fire_arc_deg: 30
+        weapons:
+          - weapon_key: "W_GER_JGDPZ4_PAK39"
+            element_key: "E_GER_JGDPZ4"
+            name: "PaK 39 75mm歼击炮"
+            damage_type: "KE"
+            pen_min: 6
+            pen_max: 7
+            damage: 10
+            max_range_cm: 105000
+            dispersion_cm: 130
+            aim_time_ticks: 25
+            reload_time_ticks: 80
+            salvo: 1
+            ammo_base: 35
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 7900
+            suppression_power: 22
+  - card_key: GER_HETZER
+    template_id: 223
+    name: "追猎者排"
+    faction: "GERMAN"
+    category: "ARMOR"
+    cost: 100
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 5
+    speed_tier: 3
+    movement_class: "TRACK"
+    turn_rate_deg: 100
+    flags: ["CAN_AMBUSH"]
+    own_weight_tons: 160
+    elements:
+      - element_key: E_GER_HETZER
+        count: 4
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 60
+        armor_ke:
+          front: 4
+          side: 2
+          rear: 1
+          top: 1
+        armor_he:
+          front: 4
+          side: 2
+          rear: 1
+          top: 1
+        fire_arc_deg: 30
+        weapons:
+          - weapon_key: "W_GER_HETZER_PAK39"
+            element_key: "E_GER_HETZER"
+            name: "PaK 39 75mm歼击炮"
+            damage_type: "KE"
+            pen_min: 6
+            pen_max: 7
+            damage: 10
+            max_range_cm: 100000
+            dispersion_cm: 130
+            aim_time_ticks: 25
+            reload_time_ticks: 80
+            salvo: 1
+            ammo_base: 35
+            ammo_weight: 9000
+            projectile_speed_cm_tick: 7900
+            suppression_power: 22
+  - card_key: GER_NASHORN
+    template_id: 224
+    name: "犀牛自行反坦克炮排"
+    faction: "GERMAN"
+    category: "ARMOR"
+    cost: 120
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 3
+    speed_tier: 3
+    movement_class: "TRACK"
+    turn_rate_deg: 100
+    own_weight_tons: 240
+    elements:
+      - element_key: E_GER_NASHORN
+        count: 2
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 70
+        armor_ke:
+          front: 2
+          side: 1
+          rear: 1
+          top: 1
+        armor_he:
+          front: 2
+          side: 1
+          rear: 1
+          top: 1
+        fire_arc_deg: 30
+        suppression_vuln_permille: 2000
+        weapons:
+          - weapon_key: "W_GER_NASHORN_PAK43"
+            element_key: "E_GER_NASHORN"
+            name: "PaK 43 88mm反坦克炮"
+            damage_type: "KE"
+            pen_min: 8
+            pen_max: 9
+            damage: 12
+            max_range_cm: 120000
+            dispersion_cm: 100
+            aim_time_ticks: 30
+            reload_time_ticks: 100
+            salvo: 1
+            ammo_base: 30
+            ammo_weight: 10000
+            projectile_speed_cm_tick: 9000
+            suppression_power: 25

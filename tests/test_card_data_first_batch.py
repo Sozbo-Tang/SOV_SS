@@ -1,16 +1,20 @@
-"""首批最小卡组数据测试（data/ 五表：P-13 空降两卡＋六类代表卡，共 10 张）。
+"""首批最小卡组数据测试（CSV 五表：P-13 空降两卡＋六类代表卡，共 10 张）。
+
+〔2026-10-12 GP-01 M1 迁移批注〕数据源由 data/ 五表改指 **data/legacy_csv/ 归档**
+（DATA-03 §4.1：CSV 退役留档保审计面——本测试＝归档 CSV 自洽性回归锚：build_cards
+仍可从归档重建并可加载；数据面权威已让位 data/yaml/（tests/test_yaml_pipeline.py
+承载迁移逐字节相等锚，含「10 卡 YAML 编译产物 cards/pending 与本归档产物相等」）。
+归档产物 data/legacy_csv/gen/ 冻结于 schema 1.3；同源重建随 card_schema 当前值 1.4
+（航空入库 minor 升版——GP-01 §1.3），cards/pending 数组值不受版本影响〕。
 
 覆盖（任务验收①③③）：
 ① P-13 两卡（SU_PARATROOP/GER_PARATROOP）存在于卡库且其元素为冻结
    ElementTemplate 实例，卡记录字段与 air_data.PARATROOP_CARDS 对表
-   （cost 60/65、RESERVE、LI2/JU52——GDD-02 v1.9 :326/:335；air_data.py:368-381）；
+   （cost 60/65、RESERVE、LI2/JU52——GDD-02 v1.9 :326/:335）；
 ② 全部 10 卡 → card_loader.load_library 构造冻结 dataclass
    （UnitTemplate/ElementTemplate/WeaponTemplate，DATA-01 §9 映射表）；
 ③ 代表卡卡组（su_min/ger_min）通过 D032 同型限份＋D011 类别配额＋R-13 子配额
    ＋D038 点数全量校验（card_loader.validate_deck，阈值注入——DATA-01 §12 D-1）。
-
-数据源＝仓库 data/（CSV 为唯一编辑面）；JSON 从 data/gen/ 加载，并断言与
-同输入重建字节一致（稳定序列化——方案 §E.2-4）。仅本文件，不跑全量。
 """
 import json
 import tempfile
@@ -25,8 +29,8 @@ from sovs.sim.types import (AltProfile, ElementTemplate, UnitTemplate,
 from tools import build_cards as bc
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DATA_DIR = REPO_ROOT / "data"
-GEN_LIBRARY = DATA_DIR / "gen" / "cards_ground.v1.json"
+DATA_DIR = REPO_ROOT / "data" / "legacy_csv"   # CSV 归档（DATA-03 §4.1）
+GEN_LIBRARY = DATA_DIR / "gen" / "cards_ground.v1.json"  # CSV 时代冻结产物（1.3）
 
 #: 首批 10 卡（六类：侦察/步兵/装甲/火支×2子类/防空后勤/指挥班组＋空降两卡）
 FIRST_BATCH = (
@@ -68,9 +72,15 @@ class FirstBatchData(unittest.TestCase):
         )
 
     def test_generated_json_matches_rebuild(self):
-        """data/gen 产物在位且与同输入重建字节一致（§E.2-4 确定性锚）。"""
-        self.assertTrue(GEN_LIBRARY.is_file(), f"缺生成产物 {GEN_LIBRARY}")
-        self.assertEqual(GEN_LIBRARY.read_bytes(), self.lib_path.read_bytes())
+        """归档产物在位；同源（legacy_csv）重建 cards/pending 数组与归档一致（§E.2-4
+        确定性锚——版本根键随 schema 当前值 1.4，归档冻结 1.3，数组面不受影响）。"""
+        self.assertTrue(GEN_LIBRARY.is_file(), f"缺归档产物 {GEN_LIBRARY}")
+        archived = json.loads(GEN_LIBRARY.read_text(encoding="utf-8"))
+        rebuilt = json.loads(self.lib_path.read_text(encoding="utf-8"))
+        self.assertEqual(archived["schema_version"], "1.3")   # 归档冻结
+        self.assertEqual(rebuilt["schema_version"], cs.SCHEMA_VERSION)
+        self.assertEqual(rebuilt["cards"], archived["cards"])
+        self.assertEqual(rebuilt["pending"], archived["pending"])
 
     def test_first_batch_card_set(self):
         self.assertEqual(set(self.lib), set(FIRST_BATCH))
@@ -205,8 +215,8 @@ class FirstBatchData(unittest.TestCase):
         P-121 更新在册），余 8 卡维持 0=无能力；发数与 cfg.self_smoke_default_charges=2
         同值。行为面：cmd_smoke 玩家令入口，HeadlessAI 不发 SmokeCmd=整局零扰动。"""
         doc = json.loads(self.lib_path.read_text(encoding="utf-8"))
-        self.assertEqual(doc["schema_version"], cs.SCHEMA_VERSION)  # minor 演进锁当前值（PB-53 1.2→PB-55 1.3）
-        self.assertEqual(cs.SUPPORTED_CARD_SCHEMA, {1: 3})
+        self.assertEqual(doc["schema_version"], cs.SCHEMA_VERSION)  # minor 演进锁当前值（PB-55 1.3→航空入库 1.4）
+        self.assertEqual(cs.SUPPORTED_CARD_SCHEMA, {1: 4})
         self.assertEqual(cl.SUPPORTED_CARD_SCHEMA, cs.SUPPORTED_CARD_SCHEMA)
         for key in FIRST_BATCH:
             expect = 2 if key in ("SU_TRUCK", "SU_T3485") else 0   # v1 定标两卡配属

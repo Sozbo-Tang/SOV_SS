@@ -1,0 +1,8 @@
+# 德军最小卡组（data/decks/ger_min.csv 迁移——DATA-03 §3 卡组源行）。
+schema_version: "1.4"
+deck_key: ger_min
+faction: GERMAN
+cards:
+  - {card_key: GER_GRENADIER, copies: 2}
+  - {card_key: GER_PARATROOP, copies: 1}
+  - {card_key: GER_PAK40, copies: 2}

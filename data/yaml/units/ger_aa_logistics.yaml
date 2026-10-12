@@ -1,0 +1,226 @@
+# 德军防空与后勤表（GDD-01 §2 防空与后勤 5 卡）
+# 数值口径：卡名/编制/造价＝GDD-01 兵种表现值；其余字段按同类现役卡插值，
+# 逐块登记 sidecar/pending.yaml（P-301~P-314）待数值章节拍板——不阻塞（GP-01 §1.4）。
+# 字段集＝card_schema.UnitCardModel 39 字段（缺省字段省略＝pydantic 默认）。
+schema_version: "1.4"
+cards:
+  - card_key: GER_FLAK38
+    template_id: 230
+    name: "Flak 38 20mm高炮排"
+    faction: "GERMAN"
+    category: "AA_LOGISTICS"
+    cost: 35
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    air_ceiling: "LOW"
+    stealth_base: 7
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 100
+    pack_time_ticks: 100
+    own_weight_tons: 4
+    elements:
+      - element_key: E_GER_FLAK38
+        count: 3
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 4
+        fire_arc_deg: 360
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_GER_FLAK38"
+            element_key: "E_GER_FLAK38"
+            name: "Flak 38 20mm高射炮"
+            target_mask: ["GROUND", "AIR_LOW"]
+            damage_type: "KE"
+            pen_min: 1
+            pen_max: 1
+            damage: 2
+            max_range_cm: 50000
+            dispersion_cm: 300
+            aim_time_ticks: 5
+            reload_time_ticks: 30
+            salvo: 8
+            ammo_base: 200
+            ammo_weight: 100
+            projectile_speed_cm_tick: 9000
+            suppression_power: 8
+  - card_key: GER_FLAK43
+    template_id: 231
+    name: "Flak 43 37mm高炮排"
+    faction: "GERMAN"
+    category: "AA_LOGISTICS"
+    cost: 45
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    air_ceiling: "MID"
+    stealth_base: 7
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 200
+    pack_time_ticks: 200
+    own_weight_tons: 20
+    elements:
+      - element_key: E_GER_FLAK43
+        count: 2
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 6
+        fire_arc_deg: 360
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_GER_FLAK43"
+            element_key: "E_GER_FLAK43"
+            name: "Flak 43 37mm高射炮"
+            target_mask: ["GROUND", "AIR_LOW", "AIR_MID"]
+            damage_type: "KE"
+            pen_min: 3
+            pen_max: 4
+            damage: 5
+            max_range_cm: 80000
+            dispersion_cm: 200
+            aim_time_ticks: 8
+            reload_time_ticks: 40
+            salvo: 4
+            ammo_base: 120
+            ammo_weight: 1500
+            projectile_speed_cm_tick: 8000
+            suppression_power: 12
+            needs_deployed: true
+  - card_key: GER_FLAK36
+    template_id: 232
+    name: "Flak 36 88mm高炮连"
+    faction: "GERMAN"
+    category: "AA_LOGISTICS"
+    cost: 85
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    air_ceiling: "HIGH"
+    stealth_base: 7
+    speed_tier: 1
+    movement_class: "FOOT"
+    turn_rate_deg: 50
+    deploy_time_ticks: 300
+    pack_time_ticks: 300
+    mode_set: ["DIRECT", "INDIRECT"]
+    own_weight_tons: 70
+    elements:
+      - element_key: E_GER_FLAK36
+        count: 2
+        element_type: "GUN"
+        unit_type: "INFANTRY"
+        hp_max: 6
+        fire_arc_deg: 360
+        suppression_vuln_permille: 1500
+        weapons:
+          - weapon_key: "W_GER_FLAK36_DIRECT"
+            element_key: "E_GER_FLAK36"
+            name: "Flak 36 88mm高射炮（平射）"
+            target_mask: ["GROUND", "AIR_LOW", "AIR_MID", "AIR_HIGH"]
+            damage_type: "KE"
+            pen_min: 5
+            pen_max: 6
+            damage: 9
+            max_range_cm: 110000
+            dispersion_cm: 150
+            aim_time_ticks: 15
+            reload_time_ticks: 70
+            salvo: 2
+            ammo_base: 60
+            ammo_weight: 10000
+            projectile_speed_cm_tick: 8300
+            suppression_power: 22
+            needs_deployed: true
+          - weapon_key: "W_GER_FLAK36_INDIRECT"
+            element_key: "E_GER_FLAK36"
+            name: "Flak 36 88mm高射炮（曲射）"
+            damage_type: "HE"
+            pen_min: 0
+            pen_max: 0
+            damage: 8
+            blast_radius_cm: 2000
+            max_range_cm: 400000
+            min_range_cm: 30000
+            dispersion_cm: 2000
+            aim_time_ticks: 20
+            reload_time_ticks: 80
+            salvo: 1
+            ammo_base: 20
+            ammo_weight: 10000
+            projectile_speed_cm_tick: 5000
+            trajectory: "BALLISTIC"
+            suppression_power: 35
+            needs_deployed: true
+  - card_key: GER_TRUCK
+    template_id: 233
+    name: "卡车队（Opel Blitz）"
+    faction: "GERMAN"
+    category: "AA_LOGISTICS"
+    cost: 40
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 3
+    speed_tier: 4
+    movement_class: "WHEEL"
+    terrain_speed_override_bp: 5500
+    flags: ["HAS_SUPPLY"]
+    mode_set: ["TOW", "CARGO", "TRANSPORT"]
+    tow_tonnage: 15
+    elements:
+      - element_key: E_GER_TRUCK
+        count: 3
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 30
+        armor_ke:
+          front: 0
+          side: 0
+          rear: 0
+          top: 0
+        armor_he:
+          front: 0
+          side: 0
+          rear: 0
+          top: 0
+        suppression_vuln_permille: 1500
+        seats: 1
+        cargo_rounds_max: 600
+        cargo_medical_max: 120
+        cargo_weight_max: 600
+        self_smoke_charges: 2
+        weapons: []
+  - card_key: GER_BERGE
+    template_id: 234
+    name: "豹式救援车排"
+    faction: "GERMAN"
+    category: "AA_LOGISTICS"
+    cost: 55
+    pool: "MAIN"
+    optics_ground_cm: 30000
+    stealth_base: 3
+    speed_tier: 3
+    movement_class: "TRACK"
+    turn_rate_deg: 100
+    mode_set: ["DIRECT", "TOW"]
+    tow_tonnage: 450
+    own_weight_tons: 270
+    repair_power_hp_per_tick: 2
+    elements:
+      - element_key: E_GER_BERGE
+        count: 2
+        element_type: "VEHICLE"
+        unit_type: "MECH"
+        hp_max: 60
+        armor_ke:
+          front: 2
+          side: 1
+          rear: 1
+          top: 1
+        armor_he:
+          front: 2
+          side: 1
+          rear: 1
+          top: 1
+        weapons: []

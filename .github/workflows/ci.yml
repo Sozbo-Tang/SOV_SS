@@ -1,0 +1,50 @@
+# FE-T03/FE-T04 CI：全量 pytest 双平台矩阵 + 黄金回放逐位校验（--smoke 零渲染栈）。
+# 降级条款（FE-01 §5 FE-T04）：当前仓库无远端（git remote -v 空）——验收=
+# 「工作流文件落库且每条步骤命令本地可跑同验」（本地已复跑 pytest 全量绿 +
+# python3 tools/replay_viewer.py --smoke data/gen/replays/*.jsonl 全绿）；
+# 远端就绪后补跑矩阵回填跨平台结论。
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    # job1：mac/win 矩阵全量 pytest（FE-T04 跨平台确定性基线）
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: 安装依赖（pydantic 经 pyproject dependencies）
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pytest
+      - name: 全量测试
+        run: python -m pytest tests -q
+
+  replay-smoke:
+    # job2：架构守卫 + 黄金回放逐文件 Replayer 校验（--smoke 路径零 arcade
+    # 依赖，CI 免装渲染栈）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pytest
+      - name: 架构约束守卫
+        run: python -m pytest tests/test_arch_constraints.py -q
+      - name: 黄金回放逐位校验
+        run: python3 tools/replay_viewer.py --smoke data/gen/replays/*.jsonl

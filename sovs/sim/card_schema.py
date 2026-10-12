@@ -1,7 +1,11 @@
-"""DATA-01 地面数据卡 schema（构建期 pydantic v2 校验层——冻结于 docs/DATA-01-地面数据卡schema冻结-v1.md）。
+"""DATA-01 地面数据卡 schema（构建期 pydantic v2 校验层——冻结于 docs/DATA-01-地面数据卡schema冻结-v1.md；
+配置面交换格式＝YAML 由 DATA-03 接管，本文件降级为「schema 字段权威」——DATA-03 §1/§2）。
 
 三层模型：WeaponRowModel（武器行 29 字段）→ ElementModel（元素 17 字段）→ UnitCardModel
 （单卡 39 字段——33＋PB-52 三可选字段＋PB-55 三士气阈值可选字段 2026-10-04；元素级 PB-53 +1 字段同日）；外加 DeckModel（卡组）与 CardLibraryModel（全库 JSON 根）。
+2026-10-12 GP-01 §1.3/DATA-03 航空入库：同文件增航空三模型 AirWeaponModel（空射武器
+档案）/AirCardModel（机型卡——AircraftTemplate 冻结 20 字段镜像）/AirLibraryModel
+（航空 JSON 根）——pydantic 文件白名单 {card_schema.py} 不动（tests/test_arch_constraints:30）。
 字段清单、单位、取值域、默认分级与冻结文档 §4 逐字段一一对应；本文档为唯一权威，
 改字段先改文档（演进规则见 §2：只向后兼容——加可选字段＝minor，改语义/单位/删字段＝major）。
 
@@ -18,11 +22,13 @@ card_loader 构造冻结 dataclass 时共用该表反查。
 （air_data.py:7-17 六级：〔GDD〕〔数锚〕〔冻结〕〔拍板〕〔锚点〕〔待定〕）；值级偏离与
 待定登记走 sidecar（DATA-01 §6）。
 
-版本门（DATA-01 §2.2）：SCHEMA_VERSION＝"1.3"（major.minor；1.0→1.1＝2026-10-04
+版本门（DATA-01 §2.2）：SCHEMA_VERSION＝"1.4"（major.minor；1.0→1.1＝2026-10-04
 PB-52 单位级地形数值块加三可选字段、1.1→1.2＝2026-10-04 PB-53 自卫烟幕块加元素级
 可选字段 self_smoke_charges、1.2→1.3＝2026-10-04 PB-55 士气效果接线块加卡级三可选
-字段 morale_{sup,pin,rout}_th——均 §2.3-1 加可选字段＝minor）；
-SUPPORTED_CARD_SCHEMA＝{1: 3}——键＝major、值＝接受的 minor 上界；
+字段 morale_{sup,pin,rout}_th、1.3→1.4＝2026-10-12 GP-01 §1.3/DATA-03 航空入库块
+加 AirCardModel/AirWeaponModel 可选域——均 §2.3-1 加可选字段＝minor；地面 39 字段
+零触碰）；
+SUPPORTED_CARD_SCHEMA＝{1: 4}——键＝major、值＝接受的 minor 上界；
 schema_version_supported() 供 CardLibraryModel/DeckModel 校验器与加载器复用。
 
 ⚠️ 阈值常量归口偏离登记（DATA-01 §12）：施工方案（out/card-schema-plan.md §C.2，v1.1）
@@ -39,13 +45,14 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator, model_validator
 
+from .air import AirRole
 from .types import (AltTier, AuraKind, DamageType, ElementType, Mode,
                     MovementClass, TargetDomain, Trajectory, UnitFlag, UnitType)
 
 # ── 版本门（DATA-01 §2）──
-SCHEMA_VERSION: str = "1.3"
+SCHEMA_VERSION: str = "1.4"
 #: 结构化支持表：键＝major、值＝接受的 minor 上界（加载器 fail-fast 拒绝一切表外版本）
-SUPPORTED_CARD_SCHEMA: dict[int, int] = {1: 3}
+SUPPORTED_CARD_SCHEMA: dict[int, int] = {1: 4}
 
 
 def schema_version_supported(version: str) -> bool:
@@ -105,6 +112,10 @@ TOKEN_VALUE: dict[str, dict[str, int]] = {
                     if t.name in ("GROUND", "AIR_LOW", "AIR_MID", "AIR_HIGH")},
     "mode_set": {t.name: int(t) for t in Mode},
     "flags": {t.name: int(t) for t in UnitFlag},
+    # 航空域（GP-01 §1.3 schema 1.4）：air_role 值取自 air.AirRole（air.py:229-233，
+    # 同「不重复手写数值」纪律——air 而非 types 仅因枚举宿主在彼）；alt_ceiling 复用
+    # 上方 air_ceiling 域（机型恒可及一层，无 NONE）
+    "air_role": {t.name: int(t) for t in AirRole},
 }
 
 # ── deck 阈值常量（〔待定〕占位——归口偏离登记见模块 docstring 与 DATA-01 §12）──
@@ -452,3 +463,219 @@ def validate_deck(deck: DeckModel, library: CardLibraryModel) -> None:
         raise ValueError(f"主力池点数 {points['MAIN']} 超上限 {deck.points_main_cap}（D038）")
     if points["RESERVE"] > deck.points_reserve_cap:
         raise ValueError(f"预备队池点数 {points['RESERVE']} 超上限 {deck.points_reserve_cap}（D038）")
+
+
+# ── 航空三模型（GP-01 §1.1/§1.3、DATA-03 §1/§2——schema 1.4 加可选域，2026-10-12）──
+
+AirRoleTok = Literal["RECON", "BOMBER", "ATTACK", "FIGHTER", "TRANSPORT"]
+#: 机型高度层：恒可及一层（无地面卡 NONE 哨兵——air.AircraftTemplate.alt_ceiling 非 Optional）
+AirAltTok = Literal["LOW", "MID", "HIGH"]
+#: 载荷单价键域（2026-10-03 拍板：载荷一池化——BOMB 按颗/SUPPLY 按重量单位）
+PayloadPriceKeyTok = Literal["BOMB", "SUPPLY"]
+
+
+class AirWeaponModel(BaseModel):
+    """空射武器档案（air_data.py:57-128 七档迁 YAML——DATA-03 §3「航空卡」行）。
+
+    字段集＝WeaponRowModel 29 字段减 element_key 外键（航空武器内联于机型 weapons
+    引用，无跨表外键）＝weapon_key 管线键＋27 模板字段；默认值对齐 types.WeaponTemplate
+    而非 WeaponRowModel（两处刻意差：max_range_cm 允许 0＝BOMB 无射程门、ammo_weight
+    默认 1＝2026-10-03 每发重量拍板）——BOMB 档 max_range=0 合法（投弹走 §F2 走廊
+    判定而非射程门，air.py weapon_slot 谓词不含射程）。
+    """
+    model_config = ConfigDict(extra="forbid")
+    weapon_key: str = Field(min_length=1)                    # 管线键（全库唯一，机型 ref 引用）
+    name: str = Field(min_length=1)                          # "BOMB"|"STRAFE"（档身份谓词）
+    target_mask: list[TargetDomainTok] = Field(default=["GROUND"], min_length=1)
+    damage_type: DamageTypeTok
+    pen_min: StrictInt = Field(default=0, ge=0, le=20)
+    pen_max: StrictInt = Field(default=0, ge=0, le=20)
+    damage: StrictInt = Field(default=0, ge=0)
+    blast_radius_cm: StrictInt = Field(default=0, ge=0)
+    max_range_cm: StrictInt = Field(default=0, ge=0)         # 0 合法（BOMB 无射程门）
+    min_range_cm: StrictInt = Field(default=0, ge=0)
+    dispersion_cm: StrictInt = Field(default=0, ge=0)
+    accuracy_base_bp: StrictInt = Field(default=10000, ge=0, le=10000)
+    aim_time_ticks: StrictInt = Field(default=0, ge=0)
+    reload_time_ticks: StrictInt = Field(default=0, ge=0)
+    salvo: StrictInt = Field(default=1, ge=1)
+    ammo_base: StrictInt = Field(default=0, ge=0)            # 档案满载数（GAP2-04 口径）
+    ammo_weight: StrictInt = Field(default=1, ge=0)          # WeaponTemplate 默认 1（非 0）
+    projectile_speed_cm_tick: StrictInt = Field(default=0, ge=0)
+    trajectory: TrajectoryTok = "DIRECT"
+    suppression_power: StrictInt = Field(default=0, ge=0)
+    crit_mod_permille: StrictInt = Field(default=0, ge=0)    # 硬要求⑥：空射恒 0（AMB2-08）
+    vs_fort_mult_permille: StrictInt = Field(default=1000, ge=0)
+    needs_deployed: StrictBool = False
+    combat_style: CombatStyleTok = "NORMAL"
+    reveal_time_ticks: StrictInt = Field(default=0, ge=0)
+    restricted_profiles: list[RestrictedProfileModel] = []
+    alt_profile: AltProfileModel | None = None
+    self_defense: SelfDefenseModel | None = None
+
+    @model_validator(mode="after")
+    def _pen_order(self) -> "AirWeaponModel":
+        if self.pen_max < self.pen_min:
+            raise ValueError("pen_max 必须 ≥ pen_min（贴脸≥远距）")
+        if self.min_range_cm > self.max_range_cm:
+            raise ValueError("min_range_cm 必须 ≤ max_range_cm")
+        return self
+
+
+class AirWeaponRefModel(BaseModel):
+    """机型挂档引用 {ref, ammo}（air_data CARD_KWARGS weapons 元组 (WeaponTemplate, 弹量)
+    的 YAML 形态——编译期对 air_weapons.yaml 解引用校验，运行时弹量以本值为准）。"""
+    model_config = ConfigDict(extra="forbid")
+    ref: str = Field(min_length=1)                           # → AirWeaponModel.weapon_key
+    ammo: StrictInt = Field(ge=1)                            # §D.1 #13 弹量≥1（0 弹=挂档即死档）
+
+
+class AirCardModel(BaseModel):
+    """航空机型卡（字段集＝air.AircraftTemplate 冻结 20 字段镜像＋card_key 管线主键
+    ＋faction 归属键——air.py:262-284 唯一权威签名；先例：WeaponRowModel 29＝27 模板
+    ＋2 管线键）。职能必填/缺位归零矩阵（tests/test_air_data ①同款）构建期前置。"""
+    model_config = ConfigDict(extra="forbid")
+    card_key: str = Field(pattern=r"^[A-Z][A-Z0-9_]*$")      # 管线主键（PO2/IL2M/…，全库唯一）
+    template_id: StrictInt = Field(gt=0)                     # 回放校验号（苏 1~5/德 11~15 现值平移）
+    name: str = Field(min_length=1)                          # 〔GDD〕GDD-01 航空表/GDD-02 v1.9 §6
+    faction: FactionTok                                     # 苏/德（air_su/air_ger 文件级同值）
+    role: AirRoleTok                                        # 〔冻结〕§D.1 #3（AirRole 五值）
+    cost_body: StrictInt = Field(gt=0)                      # 〔GDD〕v1.9 :321-335 卡面价
+    hp_max: StrictInt = Field(gt=0)                         # 〔数锚〕GDD-03 :12（Il-2M=130 显式例外）
+    armor_aa: StrictInt = Field(ge=0, le=20)                # 0-20 相对刻度〔待定 P-03〕
+    speed_cm_tick: StrictInt = Field(gt=0)                  # km/h×2//5〔待定 P-01〕
+    dogfight_power: StrictInt = Field(ge=0)                 # 〔数锚〕GDD-03 §2.4 照抄
+    maneuver: StrictInt = Field(ge=0)                       # 同上
+    alt_ceiling: AirAltTok                                  # 〔冻结〕§D.1 注 :102
+    optics_air_cm: StrictInt = Field(default=0, ge=0)       # 仅 RECON>0（§F5）
+    recon_mark_base_bp: StrictInt = Field(default=0, ge=0)  # 仅 RECON>0
+    weapons: list[AirWeaponRefModel] = []                   # 按档案引用（编译期解引用）
+    payload_max_bombs: StrictInt = Field(default=0, ge=0)
+    payload_max_supply: StrictInt = Field(default=0, ge=0)
+    paratroop_seats: StrictInt = Field(default=0, ge=0)
+    turret_damage: StrictInt = Field(default=0, ge=0)       # §D.1 #17 BOMBER/TRANSPORT>0
+    can_engage_air: StrictBool = False                      # §D.1 #18
+    has_dive: StrictBool = False                            # §D.1 #19（Ju 87D 专属）
+    payload_price: dict[PayloadPriceKeyTok, StrictInt] = Field(default_factory=dict)
+
+    @field_validator("payload_price")
+    @classmethod
+    def _price_positive(cls, v: dict[str, int]) -> dict[str, int]:
+        for key, price in v.items():
+            if price < 1:
+                raise ValueError(f"payload_price[{key}]={price} 须 ≥1（零价载荷=免费弹药）")
+        return v
+
+    @model_validator(mode="after")
+    def _role_mandatory_matrix(self) -> "AirCardModel":
+        """职能必填/缺位归零（§D.3 硬要求①~⑦——tests/test_air_data ①矩阵构建期前置）。"""
+        names = [w.ref for w in self.weapons]
+        if self.role == "RECON":
+            if self.optics_air_cm <= 0 or self.recon_mark_base_bp <= 0:
+                raise ValueError("RECON 须 optics_air_cm/recon_mark_base_bp>0")
+            if names:
+                raise ValueError("RECON weapons 须空（§A :677 无武器机型）")
+        elif self.role == "BOMBER":
+            if not names:
+                raise ValueError("BOMBER 须配 BOMB 档（硬要求③）")
+            if self.payload_max_bombs <= 0 or "BOMB" not in self.payload_price:
+                raise ValueError("BOMBER 须 payload_max_bombs>0 且 BOMB 单价")
+            if self.turret_damage <= 0:
+                raise ValueError("BOMBER turret_damage 须>0（§D.1 #17）")
+        elif self.role == "ATTACK":
+            if not names:
+                raise ValueError("ATTACK 须配武器档（硬要求①/④）")
+            if self.payload_max_bombs <= 0 or "BOMB" not in self.payload_price:
+                raise ValueError("ATTACK 须 payload_max_bombs>0 且 BOMB 单价")
+        elif self.role == "FIGHTER":
+            if not self.can_engage_air:
+                raise ValueError("FIGHTER.can_engage_air 须 TRUE（硬要求⑦）")
+        elif self.role == "TRANSPORT":
+            if names:
+                raise ValueError("TRANSPORT weapons 须空（硬要求⑤）")
+            if self.paratroop_seats != 1:
+                raise ValueError("TRANSPORT paratroop_seats=1（§D.1 #16，D017）")
+            if self.payload_max_supply <= 0 or "SUPPLY" not in self.payload_price:
+                raise ValueError("TRANSPORT 须 payload_max_supply>0 且 SUPPLY 单价")
+            if self.turret_damage <= 0:
+                raise ValueError("TRANSPORT turret_damage 须>0（§D.1 #17）")
+        # 缺位归零（条件槽语义）
+        if self.role != "RECON" and (self.optics_air_cm or self.recon_mark_base_bp):
+            raise ValueError("optics_air_cm/recon_mark_base_bp 仅 RECON 可>0")
+        if self.role != "TRANSPORT" and (self.paratroop_seats or self.payload_max_supply):
+            raise ValueError("paratroop_seats/payload_max_supply 仅 TRANSPORT 可>0")
+        if self.role not in ("BOMBER", "TRANSPORT") and self.turret_damage:
+            raise ValueError("turret_damage 仅 BOMBER/TRANSPORT 可>0（§D.1 #17 反向）")
+        return self
+
+
+class AirParatroopSpecModel(BaseModel):
+    """空降卡记录（air_data.ParatroopCardSpec 四字段镜像——地面侧全字段走地面卡管线
+    data/yaml/units/*infantry.yaml，本记录=价/池/投送三键的运行期对表锚，构建期自
+    delivery≠NONE 地面卡推导，不双写）。"""
+    model_config = ConfigDict(extra="forbid")
+    card_key: str = Field(pattern=r"^[A-Z][A-Z0-9_]*$")
+    name: str = Field(min_length=1)
+    cost_points: StrictInt = Field(gt=0)
+    pool: Literal["RESERVE"]                                # D017 预备队池（恒 RESERVE）
+    delivery: str = Field(min_length=1)                     # 投送机型 card_key（LI2/JU52）
+
+
+class AirLibraryModel(BaseModel):
+    """航空 JSON 根（data/gen/cards_air.v1.json——GP-01 §1.2 新产物）。"""
+    model_config = ConfigDict(extra="forbid")
+    schema_version: str
+    source_sha256: str = Field(min_length=1)  # 拼接 YAML 源文本哈希（审计口径平移）
+    weapons: list[AirWeaponModel] = Field(min_length=1)
+    aircraft: list[AirCardModel] = Field(min_length=1)
+    paratroops: list[AirParatroopSpecModel] = []
+
+    @model_validator(mode="after")
+    def _air_library_rules(self) -> "AirLibraryModel":
+        if not schema_version_supported(self.schema_version):
+            raise ValueError(
+                f"schema_version {self.schema_version!r} 不在支持表 "
+                f"{SUPPORTED_CARD_SCHEMA}（major 不在表或 minor 超上界）")
+        wkeys = [w.weapon_key for w in self.weapons]
+        if len(wkeys) != len(set(wkeys)):
+            raise ValueError("weapon_key 必须全库唯一")
+        akeys = [a.card_key for a in self.aircraft]
+        if len(akeys) != len(set(akeys)):
+            raise ValueError("aircraft card_key 必须全库唯一")
+        tids = [a.template_id for a in self.aircraft]
+        if len(tids) != len(set(tids)):
+            raise ValueError("template_id 必须全库唯一")
+        known = set(wkeys)
+        archive = {w.weapon_key: w for w in self.weapons}
+        for a in self.aircraft:  # 引用闭合（编译期解引用校验的 schema 面）
+            for ref in a.weapons:
+                if ref.ref not in known:
+                    raise ValueError(
+                        f"{a.card_key} 挂档 {ref.ref!r} 未在空射武器档案登记")
+                w = archive[ref.ref]
+                if ref.ammo < w.salvo:
+                    raise ValueError(
+                        f"{a.card_key}:{ref.ref} 弹量 {ref.ammo} < 档案 salvo "
+                        f"{w.salvo}（0 弹=挂档即死档——§D.1 #13）")
+                if w.name == "BOMB" and ref.ammo != a.payload_max_bombs:
+                    raise ValueError(
+                        f"{a.card_key}:{ref.ref} BOMB 弹量 {ref.ammo} ≠ "
+                        f"payload_max_bombs {a.payload_max_bombs}（§F1/GAP2-04 满载口径）")
+        # 档案名×职能矩阵（硬要求②③：FIGHTER=STRAFE、BOMBER=BOMB——档身份谓词 air.py:399）
+        for a in self.aircraft:
+            names = [archive[w.ref].name for w in a.weapons]
+            if a.role == "BOMBER" and any(n != "BOMB" for n in names):
+                raise ValueError(f"BOMBER {a.card_key} 挂非 BOMB 档 {names}（硬要求③）")
+            if a.role == "FIGHTER" and any(n != "STRAFE" for n in names):
+                raise ValueError(f"FIGHTER {a.card_key} 挂非 STRAFE 档 {names}（硬要求②）")
+            if a.role == "ATTACK" and "BOMB" not in names:
+                raise ValueError(f"ATTACK {a.card_key} 须含 BOMB 档（硬要求①/④）")
+        pkeys = [p.card_key for p in self.paratroops]
+        if len(pkeys) != len(set(pkeys)):
+            raise ValueError("paratroops card_key 必须唯一")
+        fleet = set(akeys)
+        for p in self.paratroops:
+            if p.delivery not in fleet:
+                raise ValueError(
+                    f"空降卡 {p.card_key} 投送机型 {p.delivery!r} 不在机型库")
+        return self
