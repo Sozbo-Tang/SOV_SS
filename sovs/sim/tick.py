@@ -1769,7 +1769,7 @@ class BuySuppliesCmd:
 
 @dataclass(frozen=True)
 class CreateDumpCmd:
-    """卸货成堆（2026-10-13 终审修复块——basics:202-204「Order your truck to
+    """卸货成堆（2026-10-13 终审修复块——basics:203-204「Order your truck to
     unload somewhere to create a supply dump」；U+点地对满载补给卡车下发，
     cmd_create_dump 承载）。"""
     unit: object
@@ -2374,7 +2374,7 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
     elif isinstance(cmd, CreateDumpCmd):
         _rej(world, cmd, cmd_create_dump(world, cmd.unit, cmd.pos, cfg))    # 终审修复块
                                                           # 2026-10-13：U+点地
-                                                          # 卸货成堆（basics:202-204）
+                                                          # 卸货成堆（basics:203-204）
                                                         # （PB-56 批③ 支援链
                                                         # 命令块，2026-10-06
                                                         #——hasSupply 载具门+
@@ -4615,7 +4615,7 @@ def system_rtb(world: World, cfg: BalanceConfig = CONFIG) -> None:
 
 def cmd_create_dump(world: World, unit: UnitInstance, pos,
                     cfg: BalanceConfig = CONFIG) -> bool:
-    """卸货成堆处理体（2026-10-13 终审修复块——basics:202-204「Order your truck to
+    """卸货成堆处理体（2026-10-13 终审修复块——basics:203-204「Order your truck to
     unload somewhere to create a supply dump where units can be rearmed and
     repaired」；推翻 D065「卡车即移动堆、不建堆实体」的单形态判——车载制保留并存
     （满载卡车=移动堆），堆实体经本令落地）。门序：

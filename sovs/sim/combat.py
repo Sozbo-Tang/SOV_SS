@@ -319,11 +319,11 @@ def unregister_unit_refs(world, unit) -> None:
 # system_supply 恢复门/指纹 E 段）零改动即活（口子设计的兑现）。
 # 与 D071 前旧链的差异（登记可推翻）：
 # - 掷骰域 below(4)：旧链 2026-10-06 速度链块收窄到 below(3)（MOB 出域）；
-#   手册四类明文含 Mobility（basics:229-230「moves slower and can even be
+#   手册四类明文含 Mobility（basics:230「moves slower and can even be
 #   totally stuck」）→ 恢复 below(4)＝四类全产出，movement 速度链同步恢复
 #   MOB 乘区（MINOR 减速/MAJOR 趴窝）——速度链块「重伤≠瘫痪」旧判就此被
 #   终审推翻（GAP-14 重伤减速单阈值保留并存）。
-# - 车辆门＝element_type is VEHICLE（basics:214「When vehicles are hit」——
+# - 车辆门＝element_type is VEHICLE（basics:215「When vehicles are hit」——
 #   被拖炮（GUN）不入暴击面）。
 # - +crit_guaranteed 武器位（manual.txt:339-341 必暴击：掷槽位仍走 CRIT 通道
 #   保确定性纪律，掷成功跳过、0 伤跳弹亦触发）。
@@ -334,11 +334,11 @@ def unregister_unit_refs(world, unit) -> None:
 def roll_crit(world, elem, dmg: int, weapon, cfg: BalanceConfig = CONFIG) -> None:
     """受击暴击掷（MECH 车辆生产块调用；CRIT 通道两掷=chance_bp 一次+below(4)
     槽位一次）。prob=MIN(10000, dmg×crit_per_hp_bp×crit_mod_permille//1000)
-    （basics:216「概率与伤害量成正比」——重伤近必暴、轻伤偶发；RPG/集束类
+    （basics:217「概率与伤害量成正比」——重伤近必暴、轻伤偶发；RPG/集束类
     crit_mod_permille>1000 放大概率）。零产出路径不掷（prob<=0/非车辆直回）——
     CRIT 通道消费面与伤害链同步（通道纪律：掷骰=效果面之实）。"""
     if elem.template.element_type is not ElementType.VEHICLE:
-        return                                    # basics:214 仅车辆受暴击
+        return                                    # basics:215 仅车辆受暴击
     if dmg <= 0:
         return                                    # 零伤无掷（必暴击位另走 guaranteed）
     prob = min(10000, dmg * cfg.crit_per_hp_bp * weapon.crit_mod_permille // 1000)
@@ -361,7 +361,7 @@ def roll_guaranteed_crit(world, elem) -> None:
 
 
 def upgrade_crit(elem, slot) -> None:
-    """basics:222-224 轻（黄）→重（红）只升不降（NONE→MINOR→MAJOR；已 MAJOR
+    """basics:220 轻（黄）→重（红）只升不降（NONE→MINOR→MAJOR；已 MAJOR
     保持）。修满移除走 system_supply 恢复门（口子④：hp 判满即 crit.clear()）。"""
     cur = elem.crit.get(slot, CritLevel.NONE)
     if cur is CritLevel.MAJOR:
@@ -513,7 +513,7 @@ def resolve_hit(world, p, cfg: BalanceConfig = CONFIG) -> None:
     → 方案1 combat_style 分支（狙击 R-02 / 近战绕装甲曲线）→ 装甲面/穿深/曲线伤害
     → apply_damage 唯一入口 → 面压制（AMB-01 衰减）。〔严重损伤生产块 2026-10-13
     终审恢复：步兵轻 AT 必暴击（manual.txt:339-341）＋普通武器概率暴击掷
-    （basics:214-218）〕"""
+    （basics:215-218）〕"""
     tgt = p.hit_target
     if isinstance(tgt, Building):
         hit_building(world, tgt, p.damage * p.weapon.vs_fort_mult_permille // 1000
@@ -598,7 +598,7 @@ def resolve_blast(world, p, cfg: BalanceConfig = CONFIG) -> None:
     出 cfg，§D.6 :222 三字段口径）；爆破：半径内（含等号）元素按 AMB-01 衰减式吃
     溅射（乘区书写序 damage*falloff//10000*squad_bp//10000）+ 点压制；建筑按
     weapon vs_fort 直扣（无 squad 衰减）。〔严重损伤生产块 2026-10-13 终审恢复：
-    每受击车辆各掷暴击（basics:214-218——集束类 crit_mod_permille 放大）〕"""
+    每受击车辆各掷暴击（basics:215-218——集束类 crit_mod_permille 放大）〕"""
     if p.damage_type is DamageType.SMOKE:
         world.smoke_zones.append(SmokeZone(center=p.dest, radius_cm=cfg.smoke_radius_cm,
                                            ttl_ticks=cfg.smoke_ttl_ticks))

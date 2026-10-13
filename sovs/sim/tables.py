@@ -66,7 +66,7 @@ class BalanceConfig:
                                              # stand=MAX(max_range−此值, max_range//2)——AMB-4 半射程
                                              # 下界；2000cm 固定余量在 max_range≤196,000cm 时独立
                                              # 覆盖 DIR8 近似误差 ≈1.015%）
-    dump_arrive_radius_cm: int = 2000        # 卸货成堆落点半径（basics:202-204「unload
+    dump_arrive_radius_cm: int = 2000        # 卸货成堆落点半径（basics:203-204「unload
                                             # somewhere」——落点旁 20m 内视为到场即卸；
                                             # 占位待定标，与 auto_approach_standoff_cm 同量级）
     return_fire_window_ticks: int = 50       # 受击还击窗（断箭手册 Hold Fire「Unit(s) will
@@ -176,11 +176,11 @@ class BalanceConfig:
     # 块恢复**：严重损伤四类暴击（basics:214-230/manual.txt:339-341）两常数回表
     # （原值）——
     crit_per_hp_bp: int = 1200          # 每 1 点伤害暴击概率基（bp/HP）：prob=MIN(10000,
-                                       # dmg×本值×武器 crit_mod_permille//1000)——basics:216
+                                       # dmg×本值×武器 crit_mod_permille//1000)——basics:217
                                        # 「概率与伤害量成正比」（dmg≥9 饱和必暴=RPG 近身
                                        # 威胁面；crit_mod_permille>1000=RPG/集束类放大，
                                        # basics:218）
-    crit_mob_minor_mult_bp: int = 5000  # Mobility 轻伤减速 ×0.5（原值回表；basics:229-230
+    crit_mob_minor_mult_bp: int = 5000  # Mobility 轻伤减速 ×0.5（原值回表；basics:230
                                        # 「moves slower」——MAJOR 趴窝 0 速在 movement.
                                        # move_speed_cm_tick 判 0 承载「can even be totally
                                        # stuck」字面；HP≤25% 重伤减速单阈值 D068 并存）

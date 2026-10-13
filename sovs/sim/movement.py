@@ -96,7 +96,7 @@ def move_speed_cm_tick(cfg: BalanceConfig, unit, now: int, *,
                        on_road: bool = False, terrain_bp: int | None = None) -> int:
     if not unit.elements:
         return 0
-    # ── 〔2026-10-13 终审恢复〕MOB 暴击乘区回贴（basics:229-230 Mobility「moves
+    # ── 〔2026-10-13 终审恢复〕MOB 暴击乘区回贴（basics:230 Mobility「moves
     #    slower and can even be totally stuck」——2026-10-06 速度链块拆除行
     #    （GAP-14/契约⑩「重伤≠瘫痪」）被终审按手册推翻：MAJOR=趴窝 0 速（等拖曳
     #    语义复活）、MINOR=×crit_mob_minor_mult_bp；D068 HP≤25% 重伤减速单阈值

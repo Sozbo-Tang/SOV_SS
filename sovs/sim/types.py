@@ -63,7 +63,7 @@ class WState(IntEnum):
 
 
 class CritSlot(IntEnum):
-    """严重损伤四类暴击槽（basics:220-230 四型左→右序；D071 全拆〔2026-10-07〕
+    """严重损伤四类暴击槽（basics:222-230 四型左→右序；D071 全拆〔2026-10-07〕
     →**2026-10-13 终审修复块恢复**：roll_crit/roll_guaranteed_crit/upgrade_crit
     生产端回贴、四槽重新有产出者——消费端（aim/reload/optics 乘区族＋movement
     MOB 速度链＋system_supply 恢复门）零改动即活=口子设计的兑现）。"""
@@ -460,7 +460,7 @@ class UnitInstance:
     rtb_pending: bool = False        # 地面 RTB 在途（B 键——cmd_ground_rtb 写点；到场
                                      # system_rtb 结算退款移除。写点另有 cmd_cancel 撤令清位）
     dump_pending: tuple | None = None  # 卸货成堆在途位（U+点地——cmd_create_dump 写
-                                     # 点；2026-10-13 终审修复块 basics:202--204「Order
+                                     # 点；2026-10-13 终审修复块 basics:203-204「Order
                                      # your truck to unload somewhere to create a supply
                                      # dump」：到场 system_dump_delivery 落堆清位；E 撤令清）
     radar_on: bool = False           # 雷达开关（Z 高炮单位——cmd_radar 写点；缺省关，

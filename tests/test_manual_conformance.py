@@ -37,6 +37,13 @@
   basics:202-204，D065「卡车即堆不建堆实体」单形态判被推翻为并存形态）；
   ⑤新增 SPEC_DEVIATED 走样分区（SEAD 反辐射博弈／设置菜单改键——题材与
   范围硬冲突的显式在册登记，非后置、非静默）。
+- **复审第 2 轮（2026-10-13 同日）**：①登记面二手锚行号全面勘正（HOTKEYS 节
+  13 处＋U/弹药档/飞机限制三处＋核验发现的相关漂移——以 out/refs/manual.txt
+  现值逐段重读为准：Q 557-558/E 560/F 569/R 562/T 564/B 588-589/V 585-586/
+  Sprint 577-578/Smoke 580-581/Decoy 583/TAB 550/SHIFT 552/相机 591-596/
+  U 566-567/弹药档 452-457/飞机限制 basics:310-315 等）；②GP-02 §四占位定标
+  四项（燃油基数/诱饵规避窗/空投费延迟/弹幕换算式）＋补给计价升入
+  SPEC_MANUAL_SILENT（49→54 条——常量锚＋行为锁，防 CONFIG 静默改值）。
 """
 from __future__ import annotations
 
@@ -83,54 +90,54 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # SPEC_MANUAL_SILENT=手册无数值/未定义（登记在册，无从逐值验收）。
 
 SPEC_DONE: tuple[tuple[str, str, str], ...] = (
-    # ── ORDERS（manual.txt:350-401）──
-    ("Q", "ORDERS/Attack Move（攻击移动）", "manual.txt:352-355,560-562"),
-    ("E", "ORDERS/Cancel Order（取消命令）", "manual.txt:357-359,565"),
+    # ── ORDERS（manual.txt:350-406）──
+    ("Q", "ORDERS/Attack Move（攻击移动）", "manual.txt:353-355,557-558"),
+    ("E", "ORDERS/Cancel Order（取消命令）", "manual.txt:358-360,560"),
     ("H", "ORDERS/Hold Fire（禁火/还击纪律）", "manual.txt:364-368,575"),
-    ("F", "ORDERS/Fast Move（快速移动）", "manual.txt:370-374,570"),
-    ("R", "ORDERS/Reverse Move（倒车）", "manual.txt:376-381,566"),
+    ("F", "ORDERS/Fast Move（快速移动）", "manual.txt:370-374,569"),
+    ("R", "ORDERS/Reverse Move（倒车）", "manual.txt:376-381,562"),
     ("Q+左键点敌", "ORDERS/Force Fire（强制射击）", "manual.txt:383-388"),
-    ("B", "ORDERS/Return to Base（回基地退款）", "manual.txt:390-400,577-578"),
-    ("U", "ORDERS/Unload（卸载）", "manual.txt:402-407,567-568"),
+    ("B", "ORDERS/Return to Base（回基地退款）", "manual.txt:394-400,588-589"),
+    ("U", "ORDERS/Unload（卸载）", "manual.txt:402-406,566-567"),
     # ── AIRCRAFT（manual.txt:409-441）──
     ("K+拖拽画线", "AIRCRAFT/Strafing and Bombing Run（扫射/轰炸航线）",
      "manual.txt:411-418"),
-    ("V", "AIRCRAFT/Low Altitude（低空）", "manual.txt:421-428,576"),
+    ("V", "AIRCRAFT/Low Altitude（低空）", "manual.txt:421-428,585-586"),
     ("O", "AIRCRAFT/Airdrop（空投）", "manual.txt:430-440"),
-    # ── ARTILLERY（manual.txt:443-474）──
-    ("T", "ARTILLERY/Fire Mission（火任务主令）", "manual.txt:443-453,569"),
+    # ── ARTILLERY（manual.txt:443-476）──
+    ("T", "ARTILLERY/Fire Mission（火任务主令）", "manual.txt:443-453,564"),
     ("图标（fm_panel 参数条）", "ARTILLERY/弹药档 Explosive/Smoke/Precision",
-     "manual.txt:455-458"),
+     "manual.txt:452-457"),
     ("图标（fm_panel 参数条）", "ARTILLERY/弹幕时长 Short/Medium/Long",
-     "manual.txt:459-461"),
+     "manual.txt:458-461"),
     ("图标（fm_panel 参数条）", "ARTILLERY/弹幕模式 Point/Line/Walking",
      "manual.txt:463-465"),
-    ("随火任务（无独立键）", "ARTILLERY/超程自动进位", "manual.txt:471-474"),
-    # ── ABILITIES（manual.txt:476-539）──
-    ("Z", "ABILITIES/Sprint（冲刺）", "manual.txt:487-490,571-572"),
+    ("随火任务（无独立键）", "ARTILLERY/超程自动进位", "manual.txt:473-476"),
+    # ── ABILITIES（manual.txt:482-539）──
+    ("Z", "ABILITIES/Sprint（冲刺）", "manual.txt:487-490,577-578"),
     ("Z（飞机）", "ABILITIES/Afterburner（加力燃烧）", "manual.txt:492-497"),
-    ("X", "ABILITIES/Smoke（自卫烟幕）", "manual.txt:499-503,573"),
-    ("C", "ABILITIES/Decoy（诱饵）", "manual.txt:505-509,574"),
+    ("X", "ABILITIES/Smoke（自卫烟幕）", "manual.txt:499-503,580-581"),
+    ("C", "ABILITIES/Decoy（诱饵）", "manual.txt:505-509,583"),
     ("N", "ABILITIES/Laser Designation（激光指示）", "manual.txt:517-522"),
     ("P", "ABILITIES/Precision Strike（精确打击）", "manual.txt:528-532"),
     ("Z（高炮单位）", "ABILITIES/Radar（雷达）", "manual.txt:534-539,basics:327-335"),
     ("（无键——常驻装备属性）", "basics/被动对策（Passive countermeasures）",
      "basics:353-356"),
-    # ── HOTKEYS（manual.txt:543-580）＋basics 流程 ──
-    ("TAB", "HOTKEYS/TAB 子选择", "manual.txt:549,basics:59-60"),
-    ("SHIFT", "HOTKEYS/SHIFT 排队下令", "manual.txt:551"),
+    # ── HOTKEYS（manual.txt:543-596）＋basics 流程 ──
+    ("TAB", "HOTKEYS/TAB 子选择", "manual.txt:550,basics:59-60"),
+    ("SHIFT", "HOTKEYS/SHIFT 排队下令", "manual.txt:552"),
     ("CTRL+1-9", "HOTKEYS/CTRL+1-9 编组", "manual.txt:554"),
     ("Scroll 缩放 / WASD 平移 / MMB 旋转", "HOTKEYS/镜头控制（滚轮/WASD/MMB）",
-     "manual.txt:583-594"),
+     "manual.txt:591-596"),
     ("（无键——流程）", "basics/Deployment 部署暂停", "basics:158-160"),
     ("（无键——流程）", "basics/Deployment 逐个出生+幽灵表示", "basics:162-163"),
     ("增援菜单（无键）", "basics/Reinforcements 战中呼援", "basics:165-168"),
     ("增援菜单（无键）", "basics/Transports 运输呼叫两途", "basics:181-193"),
     ("补给卡点击/Ctrl+Click/Shift+Click", "basics/Supplies 补给购买三档",
      "basics:198-200——数值刻度 1000/4000/买满同复刻（终审修复块）"),
-    ("U+点地（卡车）", "basics/补给堆建立与四开关", "basics:202-213——卸货成堆"
+    ("U+点地（卡车）", "basics/补给堆建立与四开关", "basics:203-213——卸货成堆"
      "实体落地＋车载并存（终审修复块推翻 D065 单形态判）"),
-    ("（无键——规则）", "basics/飞机限制（补给/燃油/观地）", "basics:311-314"),
+    ("（无键——规则）", "basics/飞机限制（补给/燃油/观地）", "basics:310-315"),
     ("（无键——受击规则）", "basics/严重损伤四类暴击＋步兵轻AT必暴击",
      "basics:214-230＋manual.txt:339-341（终审修复块恢复并入登记面）"),
 )
@@ -149,7 +156,7 @@ SPEC_DEVIATED: tuple[tuple[str, str, str], ...] = (
 
 SPEC_DEFERRED: tuple[tuple[str, str, str], ...] = (
     ("随火任务（无独立键）", "ARTILLERY/弹道被遮拦红显告警",
-     "manual.txt:467-470——后置：引擎级 LOS/弹道遮拦可视化，宜与弹道检测同批"),
+     "manual.txt:467-471——后置：引擎级 LOS/弹道遮拦可视化，宜与弹道检测同批"),
     ("图标（全自动）", "ABILITIES/Active protection system（APS）",
      "manual.txt:511-515,basics:337-346——后置：现代装备，1944 题材无对应"),
     ("F1..F4（现 F1=帮助面板）", "HOTKEYS/通讯标记 F1..F4",
@@ -162,7 +169,8 @@ SPEC_DEFERRED: tuple[tuple[str, str, str], ...] = (
 
 SPEC_MANUAL_SILENT: tuple[tuple[str, str, str], ...] = (
     ("随时长档（无独立键）", "manual_silent/长弹幕遭反击脆弱",
-     "manual.txt:458-461——『more vulnerable to return fire』无数值（现=声测圈暴露近似）"),
+     "manual.txt:458-461——『more vulnerable to enemy return fire』无数值"
+     "（现=声测圈暴露近似；引文 2026-10-13 复审勘正补 enemy——原文 :461）"),
     ("Z", "manual_silent/Sprint 数值",
      "manual.txt:487-490——倍率/时长/冷却无数值（现=升1档钳5）"),
     ("X", "manual_silent/Smoke 数值", "manual.txt:499-503——发数/冷却/半径/持续无数值"),
@@ -172,6 +180,22 @@ SPEC_MANUAL_SILENT: tuple[tuple[str, str, str], ...] = (
      "manual.txt:413-418——弹型配属清单与导弹目标指定交互未写"),
     ("（手册未给）", "manual_silent/Force Fire 点地语义与键位",
      "manual.txt:383-388——ORDERS 节本条未给键位，点地语义无从判断"),
+    # ── 复审第 2 轮（2026-10-13）升入门禁：GP-02 §四原四项占位定标＋补给计价
+    #    （原仅 GP-02 §四/comment 级登记——升为清单常量防静默改值，改值先改这里）──
+    ("Z 加力（无独立值）", "manual_silent/燃油基数与油耗刻度",
+     "manual/basics 均无数值——现=不加力 13200t·加力油耗×2（tables air_fuel_ticks）"),
+    ("C 诱饵（无独立值）", "manual_silent/诱饵规避窗时长",
+     "manual 无数值——现=50t（tables decoy_evade_ticks 注「manual_silent 占位」）"),
+    ("O 空投（无独立值）", "manual_silent/空投作业费与自动延迟",
+     "manual 未载金额/延迟——现=5 点/100t（tables airdrop_fee_points/"
+     "airdrop_auto_delay_ticks）"),
+    ("随火任务（无独立值）", "manual_silent/弹幕时长档换算式",
+     "manual.txt:458-461 只说「更长=更多伤害更多弹药」——现=shots=N 炮×ammo_base"
+     "×mult（×1/×2/×3，行为锚=test_ammo_domain_gate_and_duration_formula）"),
+    ("补给卡购买（无键）", "manual_silent/补给计价（点数单价）",
+     "basics:200「limited by your money」半边——手册未给补给单价：现购补给零扣点、"
+     "买满仅受舱位钳制（行为锚=TestManualSilentPlaceholders.test_supply_purchase_"
+     "free_of_points）；定价待口径裁决"),
 )
 
 MANUAL_SPEC: tuple[tuple[str, str, str], ...] = (SPEC_DONE + SPEC_DEFERRED
@@ -412,16 +436,17 @@ class _SpyCmd:
 # ════════════════════════════════════════════════════════════════════
 
 class TestSpecRegistry(unittest.TestCase):
-    """规格分区在册：36 done／5 deferred／6 manual_silent／2 deviated（终审修复块
-    2026-10-13：crit 入 done 46→47＋走样分区 +2→49），零重名。"""
+    """规格分区在册：36 done／5 deferred／11 manual_silent／2 deviated（终审修复块
+    2026-10-13：crit 入 done 46→47＋走样分区 +2→49；复审第 2 轮同日：锚行号勘正
+    ＋manual_silent +5〔占位定标四项＋补给计价〕→54），零重名。"""
 
     def test_registry_partition_and_count(self):
-        self.assertEqual(len(MANUAL_SPEC), 49)              # 仲裁 46＋crit 补防＋2 走样
+        self.assertEqual(len(MANUAL_SPEC), 54)              # 仲裁 46＋crit＋2 走样＋5 manual_silent
         names = [n for _k, n, _r in MANUAL_SPEC]
         self.assertEqual(len(names), len(set(names)))       # 零重名（防增删互抵）
         self.assertEqual((len(SPEC_DONE), len(SPEC_DEFERRED),
                           len(SPEC_MANUAL_SILENT), len(SPEC_DEVIATED)),
-                         (36, 5, 6, 2))
+                         (36, 5, 11, 2))
 
     def test_deviated_registered_verbatim(self):
         # 防静默蒸发：走样分区逐名在册（题材/范围硬冲突显式登记——增删任一即红）
@@ -447,7 +472,12 @@ class TestSpecRegistry(unittest.TestCase):
              "manual_silent/Smoke 数值",
              "manual_silent/Fast Move『ignoring cover』行为定义",
              "manual_silent/低阻/高阻弹机型配属与导弹目标指定",
-             "manual_silent/Force Fire 点地语义与键位"})
+             "manual_silent/Force Fire 点地语义与键位",
+             "manual_silent/燃油基数与油耗刻度",
+             "manual_silent/诱饵规避窗时长",
+             "manual_silent/空投作业费与自动延迟",
+             "manual_silent/弹幕时长档换算式",
+             "manual_silent/补给计价（点数单价）"})
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -455,11 +485,11 @@ class TestSpecRegistry(unittest.TestCase):
 # ════════════════════════════════════════════════════════════════════
 
 class TestHotkeyTable(unittest.TestCase):
-    """手册 HOTKEYS 节键位 ↔ shell_fsm 键位表逐键对表（manual.txt:545-580）。"""
+    """手册 HOTKEYS 节键位 ↔ shell_fsm 键位表逐键对表（manual.txt:543-596）。"""
 
     def test_manual_letter_keys_in_combat_keys_and_a_retired(self):
-        # 手册全部战斗字母令在册；A 无手册战斗令→退役归相机（manual.txt:583-588
-        # Camera Controls「W, A, S, D    Camera movement」）。
+        # 手册全部战斗字母令在册；A 无手册战斗令→退役归相机（manual.txt:591-596
+        # Camera Controls——WASD 在 596 行）。
         for k in ("Q", "E", "H", "F", "R", "T", "U", "Z", "X", "C", "V",
                   "B", "N", "P"):
             self.assertIn(k, _fsm_mod.COMBAT_KEYS, k)
@@ -467,7 +497,7 @@ class TestHotkeyTable(unittest.TestCase):
 
     def test_arm_by_key_matches_manual(self):
         # 待令键→待令组与手册逐键对表（Q 攻击移动/T 炮击/R 倒车/F 行军/U 卸载
-        # ——manual.txt:560-570；N 照射/P 精密——manual.txt:517-532）。
+        # ——manual.txt:557-569；N 照射/P 精密——manual.txt:517-532）。
         self.assertEqual(_fsm_mod._ARM_BY_KEY, {
             "Q": "attack", "T": "fire_mission", "R": "reverse",
             "K": "strike", "O": "drop", "F": "march", "U": "unload",
@@ -501,7 +531,7 @@ class TestHotkeyTable(unittest.TestCase):
             self.assertIn(token, help_text, token)
 
     def test_fm_panel_buttons_mirror(self):
-        # 参数条按钮镜像：弹药三档含 PRECISION（manual.txt:456-458）＋时长
+        # 参数条按钮镜像：弹药三档含 PRECISION（manual.txt:452-457）＋时长
         # ×1/×2/×3＋形态 POINT/LINE/CREEP＋徐进速度档（fm_panel 源表——按钮键
         # 为 "fm_*_%s" 格式串＋值域字面量成对断言）。
         src = _src("sovs/ui/fm_panel.py")
@@ -519,7 +549,7 @@ class TestHotkeyTable(unittest.TestCase):
         self.assertEqual(_fsm_mod.CREEP_SPEEDS_CM, (10, 25, 50))
 
     def test_camera_wasd_arrows_scroll_and_mmb_rotation(self):
-        # manual.txt:583-594：滚轮缩放+WASD 平移＋「MMB + Move Camera rotation」
+        # manual.txt:591-596：滚轮缩放+WASD 平移＋「MMB + Move Camera rotation」
         # ——终审修复块 2026-10-13：MMB 旋转落地（2D 顶视=绕视口中心的视图旋转，
         # scene cm_to_px/px_to_cm 旋转对偶＋窗口 MIDDLE 拖拽）；源表断言三件套。
         scene = _src("sovs/ui/scene.py")
@@ -582,7 +612,7 @@ class TestOrdersQAttackMove(unittest.TestCase):
 
 
 class TestOrdersECancel(unittest.TestCase):
-    """E：取消全部命令——航点/队列/炮击任务体/RTB 在途位一并清（manual.txt:357-359）。"""
+    """E：取消全部命令——航点/队列/炮击任务体/RTB 在途位一并清（manual.txt:358-360）。"""
 
     def test_cancel_clears_everything(self):
         w = make_world(22)
@@ -708,7 +738,7 @@ class TestOrdersForceFire(unittest.TestCase):
 
 
 class TestOrdersBReturnToBase(unittest.TestCase):
-    """B：快移出生点→消失退款（损伤/耗弹扣减≥20%＋舱载连带）（manual.txt:390-400）。"""
+    """B：快移出生点→消失退款（损伤/耗弹扣减≥20%＋舱载连带）（manual.txt:394-400）。"""
 
     def test_arrival_refund_and_disappear(self):
         w = make_world(28)
@@ -750,7 +780,7 @@ class TestOrdersBReturnToBase(unittest.TestCase):
 
 
 class TestOrdersUUnload(unittest.TestCase):
-    """U：点地卸载/连按 U 就地立即卸载（manual.txt:402-407,567-568）。"""
+    """U：点地卸载/连按 U 就地立即卸载（manual.txt:402-406,566-567）。"""
 
     def _fsm(self):
         f = _fsm_mod.ShellFsm()
@@ -909,7 +939,7 @@ class TestAircraftOAirdrop(unittest.TestCase):
 
 class TestAircraftLimits(unittest.TestCase):
     """飞机限制：不能图上补给（弹尽自动 RTB）／燃油耗尽弹射／观地仅侦察
-    （basics:311-314）。"""
+    （basics:310-315）。"""
 
     def test_auto_rtb_when_payload_empty(self):
         w = make_world(33)
@@ -921,7 +951,7 @@ class TestAircraftLimits(unittest.TestCase):
         self.assertIs(a.state, AirState.RTB)               # 自动回基地
 
     def test_fuel_eject_on_burnout(self):
-        # basics:312-314：耗尽前不 RTB→被迫跳伞（air_downed 同链=冷却入账）
+        # basics:312-313：耗尽前不 RTB→被迫跳伞（air_downed 同链=冷却入账）
         w = make_world(33)
         a = _mk_air(w, _air_tpl(can_afterburner=True))
         a.fuel_ticks = 1
@@ -1002,7 +1032,7 @@ class TestArtilleryFireMission(unittest.TestCase):
         self.assertEqual(u.fire_mission.creep_speed_cm_tick, 25)
 
     def test_out_of_range_auto_approach(self):
-        # manual.txt:471-474：超程炮自动前移到最大射程处再开火
+        # manual.txt:473-476：超程炮自动前移到最大射程处再开火
         w = make_world(34)
         u = self._gun(w, (100000, 50000))                  # 距目标 40 万≫10 万
         self.assertFalse(u.move_path)
@@ -1185,7 +1215,7 @@ class TestBasicsCriticalEffects(unittest.TestCase):
         return UnitTemplate(**d)
 
     def test_four_slots_produced_and_upgrade_only_up(self):
-        # below(4) 四类等权产出＋NONE→MINOR→MAJOR 只升不降（basics:222-224）
+        # below(4) 四类等权产出＋NONE→MINOR→MAJOR 只升不降（basics:220）
         from sovs.sim.combat import roll_crit, upgrade_crit
         from sovs.sim.types import CritLevel, CritSlot
         w = make_world(47)
@@ -1247,7 +1277,7 @@ class TestBasicsCriticalEffects(unittest.TestCase):
         self.assertEqual(e.crit, {})                        # 暴击随之移除
 
     def test_mob_crit_slows_and_sticks(self):
-        # basics:229-230 Mobility：MINOR 减速/MAJOR 趴窝（速度链乘区恢复）
+        # basics:230 Mobility：MINOR 减速/MAJOR 趴窝（速度链乘区恢复）
         from sovs.sim.movement import move_speed_cm_tick
         from sovs.sim.types import CritLevel, CritSlot
         w = make_world(47)
@@ -1258,6 +1288,36 @@ class TestBasicsCriticalEffects(unittest.TestCase):
                          v0 * CONFIG.crit_mob_minor_mult_bp // 10000)
         u.elements[0].crit[CritSlot.MOB] = CritLevel.MAJOR
         self.assertEqual(move_speed_cm_tick(CONFIG, u, 0), 0)   # totally stuck
+
+
+class TestManualSilentPlaceholders(unittest.TestCase):
+    """manual_silent 占位定标锚（复审第 2 轮 2026-10-13 升入门禁）：手册未载数值
+    由本作定值的五个面——常量钉住（改值=有意推翻定标，先改登记面再改 CONFIG）＋
+    补给计价行为锁（零扣点自证「limited by your money」半边暂无载体）。"""
+
+    def test_placeholder_constants_pinned(self):
+        # 燃油基数 13200t／诱饵规避窗 50t／空投费 5 点·自动延迟 100t（tables 注
+        # 「manual 无数值/manual_silent 占位」——常量锚防静默改值）
+        self.assertEqual(CONFIG.air_fuel_ticks, 13200)
+        self.assertEqual(CONFIG.decoy_evade_ticks, 50)
+        self.assertEqual((CONFIG.airdrop_fee_points,
+                          CONFIG.airdrop_auto_delay_ticks), (5, 100))
+
+    def test_supply_purchase_free_of_points(self):
+        # 补给计价 manual_silent 行为锁：三档购买零扣点（定价口径裁决前，买满仅
+        # 受舱位钳制——basics:200「limited by your money」半边无载体的在册自证）
+        w = make_world(48)
+        u = add_unit(w, make_unit(w, _truck_tpl(flags=UnitFlag.HAS_SUPPLY),
+                                  0, 0, (500000, 500000)))
+        u.elements[0].mode = Mode.CARGO
+        bus = CmdBus(w, 0)
+        pts0 = w.players[0].points
+        for tier in ("t1", "t4", "max"):
+            bus.buy_supplies_tier([u.id], tier)
+        consume_commands(w)
+        self.assertEqual(u.elements[0].supply_weight_g,
+                         u.elements[0].template.cargo_rounds_max)  # 末档舱满落地
+        self.assertEqual(w.players[0].points, pts0)          # 零扣点（manual_silent 在册）
 
 
 class TestDeviatedRegistrations(unittest.TestCase):
@@ -1313,7 +1373,7 @@ class TestHotkeyTabSubSelection(unittest.TestCase):
 
 
 class TestHotkeyShiftQueue(unittest.TestCase):
-    """SHIFT=Queue orders：命令入单位级链尾排队、即发新令清链（manual.txt:551）。"""
+    """SHIFT=Queue orders：命令入单位级链尾排队、即发新令清链（manual.txt:552）。"""
 
     def test_move_queue_lands_in_command_queue(self):
         w = make_world(41)
@@ -1445,7 +1505,7 @@ class TestBasicsTransportsAndSupplies(unittest.TestCase):
                              (4000, 4000), key)
 
     def test_unload_creates_supply_dump(self):
-        # basics:202-204「Order your truck to unload somewhere to create a supply
+        # basics:203-204「Order your truck to unload somewhere to create a supply
         # dump」：满载卡车 U+点地 → CreateDumpCmd → 行至落点落堆（空投箱式堆
         # 实体：不可移动/拾取链/命中即爆全继承）＋卡车清载；E 撤令清在途位。
         w = make_world(44)

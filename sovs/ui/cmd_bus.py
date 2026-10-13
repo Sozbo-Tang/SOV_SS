@@ -410,7 +410,7 @@ class CmdBus:
         orders）；U 连按=cm=None 仅 DismountCmd 就地立即卸载（手册「Press U
         twice to unload immediately」——shell_fsm 双击检测）。
         〔终审修复块 2026-10-13：点地对满载补给卡车=CreateDumpCmd 卸货成堆
-        （basics:202-204「Order your truck to unload somewhere to create a
+        （basics:203-204「Order your truck to unload somewhere to create a
         supply dump」——处理体含驶向落点，故该类单位不再另发 move）。〕
         """
         cmds = []

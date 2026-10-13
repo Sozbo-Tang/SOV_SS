@@ -83,7 +83,7 @@ from .types import (AltTier, Building, FireMissionForm, FormationShape, Mode,
 # ── 版本与校验和标识（文件头契约）──
 
 SCHEMA_VERSION = "1.4"          # wire/回放文件头 schema 版本（非向后兼容变更时 bump）
-# 1.3→1.4＝2026-10-13 终审修复块：+CreateDumpCmd（卸货成堆——basics:202-204
+# 1.3→1.4＝2026-10-13 终审修复块：+CreateDumpCmd（卸货成堆——basics:203-204
 # 「Order your truck to unload somewhere to create a supply dump」）；新命令族入
 # 流＝非向后兼容，旧 1.3 回放文件在 load_replay schema_version 门 fail-fast 拒绝
 # （预期行为），黄金回放三条随本版重录（tools/record_golden.py）。
