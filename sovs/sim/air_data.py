@@ -101,7 +101,8 @@ CARD_OBJECTS: dict = {
 
 
 def _kwargs_from(t: AircraftTemplate) -> dict:
-    """自加载模板重建 CARD_KWARGS（§D.1 二十字段原样——测试④真实构造器对表面）。"""
+    """自加载模板重建 CARD_KWARGS（§D.1 二十字段原样——测试④真实构造器对表面；
+    P1 机制块 2026-10-13：+can_afterburner/decoy_charges/passive_evade_bp 三能力位）。"""
     return dict(
         template_id=t.template_id, name=t.name, role=t.role, cost_body=t.cost_body,
         hp_max=t.hp_max, armor_aa=t.armor_aa, speed_cm_tick=t.speed_cm_tick,
@@ -112,7 +113,9 @@ def _kwargs_from(t: AircraftTemplate) -> dict:
         payload_max_supply=t.payload_max_supply,
         paratroop_seats=t.paratroop_seats, turret_damage=t.turret_damage,
         can_engage_air=t.can_engage_air, has_dive=t.has_dive,
-        payload_price=t.payload_price)
+        payload_price=t.payload_price,
+        can_afterburner=t.can_afterburner, decoy_charges=t.decoy_charges,
+        passive_evade_bp=t.passive_evade_bp)
 
 
 #: 十机 kwargs（派生导出——原代码构造面；数值权威＝data/yaml/units/air_*.yaml）

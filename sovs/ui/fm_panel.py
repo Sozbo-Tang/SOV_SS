@@ -22,7 +22,7 @@ def fm_panel_geom(win):
     from .palette import MARGIN, MINIMAP_W
     x0 = MARGIN + MINIMAP_W + 52
     y0 = MARGIN + 146
-    return x0, y0, x0 + 760, y0 + _PANEL_H
+    return x0, y0, x0 + 880, y0 + _PANEL_H     # P1：+精确弹药位加宽（760→880）
 
 
 def layout_fm_panel(win) -> None:
@@ -37,7 +37,8 @@ def layout_fm_panel(win) -> None:
                                 tone="focus" if p["form"] == form else "normal"))
         x += 68
     x += 12
-    for ammo, label in (("HE", "高爆"), ("SMOKE", "烟幕")):
+    for ammo, label in (("HE", "高爆"), ("SMOKE", "烟幕"),
+                        ("PRECISION", "精确")):  # P1 第三弹药位（manual.txt:456-458）
         win._buttons.append(Btn(x, y, 52, 20, "fm_ammo_%s" % ammo, label,
                                 tone="focus" if p["ammo"] == ammo else "normal"))
         x += 56
@@ -65,9 +66,9 @@ def layout_fm_panel(win) -> None:
 
 
 def draw_fm_panel(win) -> None:
-    """参数条绘制（fire_mission 待令态；strike 画线态给提示条）。"""
+    """参数条绘制（fire_mission 待令态；strike 画线态/drop 画区态给提示条）。"""
     armed = win.fsm.armed_order
-    if armed not in ("fire_mission", "strike"):
+    if armed not in ("fire_mission", "strike", "drop"):
         return
     x0, y0, x1, y1 = fm_panel_geom(win)
     arcade.draw_lrbt_rectangle_filled(x0, x1, y0, y1, FM_PANEL_BG)
@@ -77,26 +78,34 @@ def draw_fm_panel(win) -> None:
         arcade.draw_text("炮击参数", x0 + 8, y0 + 8, ORDER_ARMED, 13)
         hint = "POINT=点地确认｜LINE/CREEP=拖拽画线（超程自动前移提示先行）"
         arcade.draw_text(hint, x0 + 8, y0 + 2, HUD_TEXT, 10)
-        note = ("精确档=校射收束映射（无激光制导——1944 题材明示）"
-                if p["ammo"] == "HE" else
-                "烟幕弹=落 SmokeZone 遮断（60s——断箭 1.1.1 标准）")
+        note = ("烟幕弹=落 SmokeZone 遮断（60s——断箭 1.1.1 标准）"
+                if p["ammo"] == "SMOKE" else
+                "精确弹=吸附最近本队激光位（N 照射——P1 manual.txt:456-458）"
+                if p["ammo"] == "PRECISION" else
+                "高爆=常规曲射（POINT 校射收束）")
         arcade.draw_text(note, x0 + 96, y0 + 30, HUD_TEXT, 10)
         for btn in win._buttons:
             if btn.key.startswith("fm_"):
                 draw_button(btn)
-    else:
+    elif armed == "strike":
         arcade.draw_text("空袭攻击轴：按住左键拖拽画线（位置+朝向）；单击=点目标",
+                         x0 + 10, y0 + 16, ORDER_ARMED, 13)
+    else:
+        arcade.draw_text("空投区：按住左键拖拽画矩形区（投点=区心）；单击=点投",
                          x0 + 10, y0 + 16, ORDER_ARMED, 13)
 
 
-# ── 画线收笔语义（GP-01 §3/§4——K 空袭攻击轴与 T LINE/CREEP 弹幕线）──
+# ── 画线/画区收笔语义（GP-01 §3/§4——K 空袭攻击轴与 T LINE/CREEP 弹幕线；
+#    P0 键位纠偏块 2026-10-13 +O 空投画区（手册拖拽画区同构）+shift 排队透传）──
 
 DRAG_LINE_PX = 14                   # 画线阈值（px——超过即判拖拽画线非点选）
 
 
-def finish_line_drag(win, p0, p1) -> bool:
-    """画线收笔：超阈值=线令（K 攻击轴/T 弹幕线）/短拖=点令（现行为）；
-    待令已撤（ESC/右键）=画线态作废。返回是否消费该收笔。"""
+def finish_line_drag(win, p0, p1, *, shift: bool = False) -> bool:
+    """画线/画区收笔：超阈值=线令（K 攻击轴/T 弹幕线/O 空投区）/短拖=点令
+    （现行为）；待令已撤（ESC/右键）=画线态作废。返回是否消费该收笔。
+    shift=命令排队透传（T LINE/CREEP 弹幕入队——手册 SHIFT=Queue orders；
+    K/O 飞机令无单位级队列不排队，留痕）。"""
     fsm = win.fsm
     if fsm.armed_order is None:
         return True                          # 已作废（窗口层负责清 _line_*）
@@ -109,13 +118,19 @@ def finish_line_drag(win, p0, p1) -> bool:
         else:                                # 短拖/单击=点目标（现行为）
             fsm.execute_armed_ground(c0, win.session.cmd)
         return True
+    if fsm.armed_order == "drop":
+        if dist >= DRAG_LINE_PX:             # O 拖拽=画矩形区（区心投放）
+            fsm.execute_armed_drop_area(c0, c1, win.session.cmd)
+        else:                                # 短拖/单击=点投（现行为）
+            fsm.execute_armed_ground(c0, win.session.cmd)
+        return True
     if fsm.armed_order == "fire_mission":
         if fsm.fm_params["form"] in ("LINE", "CREEP"):
             if dist >= DRAG_LINE_PX:
-                fsm.execute_armed_fm_line(c0, c1, win.session.cmd)
+                fsm.execute_armed_fm_line(c0, c1, win.session.cmd, shift=shift)
             else:
                 fsm.notify("线形/徐进弹幕需按住左键拖拽画线", tone="error")
             return True
-        fsm.execute_armed_ground(c0, win.session.cmd)
+        fsm.execute_armed_ground(c0, win.session.cmd, shift=shift)
         return True
     return False                             # 其余待令=回落点选路径（窗口层处理）

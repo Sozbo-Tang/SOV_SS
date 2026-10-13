@@ -1,15 +1,17 @@
 """命令 wire schema + 回放文件格式 v1（FE-T03）：网络包格式=回放文件格式，一次定死。
 
 结论先行：本模块是全命令族的唯一 wire 权威——encode_command/decode_command 双向
-互逆（35 类命令，闭合清单以 tick.py `_dispatch_command` 分派支枚举为准，AST 守卫
+互逆（41 类命令，闭合清单以 tick.py `_dispatch_command` 分派支枚举为准，AST 守卫
 见 tests/test_wire.py）；describe_command（AI 决策日志描述符）改由本 schema 生成
 （sovs/ai/decision_log.py 原实现退役、再出口本函数——消灭单向半覆盖）；回放文件
 v1=JSONL 三类记录（header/cmd/cksum），纯文本逐行 diff 是唯一审计面。
 
-命令族闭合清单（35 支/35 类，本会话 AST 实测 tick.py:2073-2251 逐支列出；FE-01
+命令族闭合清单（41 支/41 类，本会话 AST 实测 tick.py 分派支逐支列出；35 支为
+2026-10-12 现值，+6=P1 机制块 2026-10-13：GroundRTBCmd/LaserDesignateCmd/RadarCmd/
+SupplySwitchCmd/AirAfterburnerCmd/AirDecoyCmd。FE-01
 :278-279 原文「38 个分派支」系计数笔误——差异成因**推测**为另计入
-consume_unit_commands 三处单位级队列 isinstance 位（tick.py:2278 溯逃过滤/:2413
-队列分派/:2415，逐行核对；FE-01 原文未记载 38 的计数方式，无从确证），勘正结论
+consume_unit_commands 三处单位级队列 isinstance 位（tick.py 溯逃过滤/队列分派，
+逐行核对；FE-01 原文未记载 38 的计数方式，无从确证），勘正结论
 不依赖成因成立）。
 
 引用解析七类全覆盖（encode 侧出现七类外引用即报错、decode 侧解析失败 fail-fast）：
@@ -63,21 +65,37 @@ import os
 from .air import AircraftInstance
 from .air_data import AIR_CARDS
 from .tables import CONFIG
-from .tick import (AirAirdropCmd, AirAltCmd, AirCallCmd, AirDisengageCmd,
-                   AirEngageAirCmd, AirMoveCmd, AirPatrolCmd, AirRTBCmd,
-                   AirStrikeCmd, AttackCmd, BuySuppliesCmd, CancelCmd,
-                   CancelFireMissionCmd, DeployCmd, DismountCmd, FireMissionCmd,
-                   FormationCmd, GarrisonCmd, MountCmd, MoveCmd, PackCmd,
-                   PivotCmd, PurchaseCmd, ReverseCmd, SetAirdropBeaconCmd,
-                   SetModeCmd, SetSniperCoverCmd, SetStanceCmd, SmokeCmd,
-                   SprintCmd, StopCmd, ToggleAmbushCmd, TowCmd, UnGarrisonCmd,
-                   UntowCmd, queue_command, world_tick)
+from .tick import (AirAirdropCmd, AirAfterburnerCmd, AirAltCmd, AirCallCmd,
+                   AirDecoyCmd, AirDisengageCmd, AirEngageAirCmd, AirMoveCmd,
+                   AirPatrolCmd, AirRTBCmd, AirStrikeCmd, AttackCmd,
+                   BuySuppliesCmd, CancelCmd, CancelFireMissionCmd, CreateDumpCmd,
+                   DeployCmd,
+                   DismountCmd, FireMissionCmd, FormationCmd, GarrisonCmd,
+                   GroundRTBCmd, LaserDesignateCmd, MountCmd, MoveCmd, PackCmd,
+                   PivotCmd, PurchaseCmd, RadarCmd, ReverseCmd,
+                   SetAirdropBeaconCmd, SetModeCmd, SetSniperCoverCmd,
+                   SetStanceCmd, SmokeCmd, SprintCmd, StopCmd, SupplySwitchCmd,
+                   ToggleAmbushCmd, TowCmd, UnGarrisonCmd, UntowCmd,
+                   queue_command, world_tick)
 from .types import (AltTier, Building, FireMissionForm, FormationShape, Mode,
                     MoveMode, SalvoMode, Stance, UnitTemplate)
 
 # ── 版本与校验和标识（文件头契约）──
 
-SCHEMA_VERSION = "1.1"          # wire/回放文件头 schema 版本（非向后兼容变更时 bump）
+SCHEMA_VERSION = "1.4"          # wire/回放文件头 schema 版本（非向后兼容变更时 bump）
+# 1.3→1.4＝2026-10-13 终审修复块：+CreateDumpCmd（卸货成堆——basics:202-204
+# 「Order your truck to unload somewhere to create a supply dump」）；新命令族入
+# 流＝非向后兼容，旧 1.3 回放文件在 load_replay schema_version 门 fail-fast 拒绝
+# （预期行为），黄金回放三条随本版重录（tools/record_golden.py）。
+# 1.2→1.3＝2026-10-13 P1 机制块（GP-01 断箭手册 P1 补建）：+6 新命令族
+# （GroundRTBCmd/LaserDesignateCmd/RadarCmd/SupplySwitchCmd/AirAfterburnerCmd/
+# AirDecoyCmd）+FireMissionCmd.ammo 值域扩 "PRECISION"（第三弹药位——键面不变、
+# 值域变更按非向后兼容处理随版本升）；旧 1.2 回放文件在 load_replay
+# schema_version 门 fail-fast 拒绝（预期行为），黄金回放三条随本版重录
+# （tools/record_golden.py）。
+# 1.1→1.2＝2026-10-12 垂足出动拍板：PurchaseCmd +可选 dest_x/dest_y（缺省=1.1
+# 行为逐位不变——AI 购卡不带 dest）；旧 1.1 回放文件在 load_replay
+# schema_version 门 fail-fast 拒绝（预期行为），黄金回放随本版重录。
 # 1.0→1.1＝2026-10-12 GP-01 §3/§4 同批一次升版（防为单域分叉多版）：FireMissionCmd
 # +ammo（曲射弹药位 HE|SMOKE——炮击模式块）、AirStrikeCmd +axis（画线攻击轴——
 # 空中可控块）；两键均带缺省（缺省=1.0 行为逐位不变），旧 1.0 回放文件在
@@ -294,14 +312,19 @@ def _dec_set_mode(w, d):
 
 
 def _enc_purchase(c):
-    return {"cmd": "PurchaseCmd", "player_index": int(c.player.index),
-            "template_id": int(c.template.template_id)}
+    d = {"cmd": "PurchaseCmd", "player_index": int(c.player.index),
+         "template_id": int(c.template.template_id)}
+    if c.dest is not None:                             # v1.2 可选目的地（垂足出动）
+        d["dest_x"], d["dest_y"] = int(c.dest[0]), int(c.dest[1])
+    return d
 
 
 def _dec_purchase(w, d):
     pi, tid = int(d["player_index"]), int(d["template_id"])
+    dest = ((int(d["dest_x"]), int(d["dest_y"]))
+            if "dest_x" in d else None)
     return PurchaseCmd(player=_player(w, pi),
-                       template=_deck_template(w, pi, tid))
+                       template=_deck_template(w, pi, tid), dest=dest)
 
 
 def _enc_fire_mission(c):
@@ -434,6 +457,78 @@ def _dec_buy_supplies(w, d):
     uid, eid = d["element"]
     return BuySuppliesCmd(truck_element=_element(w, uid, eid),
                           rounds=int(d["rounds"]), medical=int(d["medical"]))
+
+
+# ── P1 机制块 6 命令（2026-10-13，wire 1.3——编解码互逆；schema 与理由见命令类注）──
+
+def _enc_ground_rtb(c):
+    return {"cmd": "GroundRTBCmd", "unit_id": _ref(c.unit, "unit")}
+
+
+def _dec_ground_rtb(w, d):
+    return GroundRTBCmd(unit=_unit(w, d["unit_id"]))
+
+
+def _enc_laser_designate(c):
+    return {"cmd": "LaserDesignateCmd",
+            "designator_unit_id": _ref(c.designator_unit, "unit"),
+            "target_unit_id": _ref(c.target_unit, "unit")}
+
+
+def _dec_laser_designate(w, d):
+    return LaserDesignateCmd(designator_unit=_unit(w, d["designator_unit_id"]),
+                             target_unit=_unit(w, d["target_unit_id"]))
+
+
+def _enc_radar(c):
+    return {"cmd": "RadarCmd", "unit_id": _ref(c.unit, "unit"),
+            "engage": bool(c.engage)}
+
+
+def _dec_radar(w, d):
+    return RadarCmd(unit=_unit(w, d["unit_id"]), engage=bool(d["engage"]))
+
+
+def _enc_supply_switch(c):
+    return {"cmd": "SupplySwitchCmd", "unit_id": _ref(c.unit, "unit"),
+            "switch": str(c.switch), "on": bool(c.on)}
+
+
+def _dec_supply_switch(w, d):
+    return SupplySwitchCmd(unit=_unit(w, d["unit_id"]),
+                           switch=str(d["switch"]), on=bool(d["on"]))
+
+
+def _enc_air_afterburner(c):
+    return {"cmd": "AirAfterburnerCmd", "aircraft_id": _ref(c.aircraft, "aircraft"),
+            "engage": bool(c.engage)}
+
+
+# ── 终审修复块命令（2026-10-13，wire 1.4——编解码互逆；schema 与理由见命令类注）──
+
+def _enc_create_dump(c):
+    return {"cmd": "CreateDumpCmd", "unit_id": _ref(c.unit, "unit"),
+            "pos": _pos(c.pos), "queue": bool(c.queue)}
+
+
+def _dec_create_dump(w, d):
+    return CreateDumpCmd(unit=_unit(w, d["unit_id"]),
+                         pos=tuple(d["pos"]), queue=bool(d["queue"]))
+
+
+def _dec_air_afterburner(w, d):
+    return AirAfterburnerCmd(aircraft=_aircraft(w, d["aircraft_id"]),
+                             engage=bool(d["engage"]))
+
+
+def _enc_air_decoy(c):
+    return {"cmd": "AirDecoyCmd", "aircraft_id": _ref(c.aircraft, "aircraft"),
+            "action": str(c.action)}
+
+
+def _dec_air_decoy(w, d):
+    return AirDecoyCmd(aircraft=_aircraft(w, d["aircraft_id"]),
+                       action=str(d["action"]))
 
 
 def _enc_air_call(c):
@@ -611,6 +706,13 @@ WIRE_CODECS: dict = {
     "AirEngageAirCmd": (_enc_air_engage, _dec_air_engage),
     "AirDisengageCmd": (_adisengage_enc, _adisengage_dec),
     "AirRTBCmd": (_artb_enc, _artb_dec),
+    "GroundRTBCmd": (_enc_ground_rtb, _dec_ground_rtb),
+    "LaserDesignateCmd": (_enc_laser_designate, _dec_laser_designate),
+    "RadarCmd": (_enc_radar, _dec_radar),
+    "SupplySwitchCmd": (_enc_supply_switch, _dec_supply_switch),
+    "AirAfterburnerCmd": (_enc_air_afterburner, _dec_air_afterburner),
+    "AirDecoyCmd": (_enc_air_decoy, _dec_air_decoy),
+    "CreateDumpCmd": (_enc_create_dump, _dec_create_dump),
 }
 
 WIRE_COMMANDS = frozenset(WIRE_CODECS)
@@ -673,8 +775,11 @@ def describe_command(cmd) -> dict:
                 "mode": d["mode"]}
     if name == "PurchaseCmd":
         t = cmd.template
-        return {"cmd": name, "player_index": d["player_index"],
-                "template_id": d["template_id"], "template": t.name, "cost": t.cost}
+        out = {"cmd": name, "player_index": d["player_index"],
+               "template_id": d["template_id"], "template": t.name, "cost": t.cost}
+        if cmd.dest is not None:                       # v1.2 垂足出动目的地
+            out["dest"] = [int(cmd.dest[0]), int(cmd.dest[1])]
+        return out
     if name == "FireMissionCmd":
         return {"cmd": name, "unit": d["unit_id"], "form": d["form"],
                 "point": d["point"], "line": d["line"],
@@ -744,6 +849,20 @@ def describe_command(cmd) -> dict:
         return {"cmd": name, "aircraft": d["aircraft_id"], "engage": d["engage"]}
     if name in ("AirDisengageCmd", "AirRTBCmd"):
         return {"cmd": name, "aircraft": d["aircraft_id"]}
+    if name == "GroundRTBCmd":                                # P1 机制块（wire 1.3）
+        return {"cmd": name, "unit": d["unit_id"]}
+    if name == "LaserDesignateCmd":
+        return {"cmd": name, "designator": d["designator_unit_id"],
+                "target": d["target_unit_id"]}
+    if name == "RadarCmd":
+        return {"cmd": name, "unit": d["unit_id"], "engage": d["engage"]}
+    if name == "SupplySwitchCmd":
+        return {"cmd": name, "unit": d["unit_id"], "switch": d["switch"],
+                "on": d["on"]}
+    if name == "AirAfterburnerCmd":
+        return {"cmd": name, "aircraft": d["aircraft_id"], "engage": d["engage"]}
+    if name == "AirDecoyCmd":
+        return {"cmd": name, "aircraft": d["aircraft_id"], "action": d["action"]}
     return {"cmd": name}
 
 

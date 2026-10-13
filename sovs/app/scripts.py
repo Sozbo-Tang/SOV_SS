@@ -1,6 +1,6 @@
 """标准玩法/脚本驾驶剧本（FE-T07 → GP-01 §5.3 自 tools/skirmish_shell.py 迁入＋扩）。
 
-结论先行：StandardPlay＝标准玩法剧本（框选→右键移动→A 攻击移动→烟幕→编组→
+结论先行：StandardPlay＝标准玩法剧本（框选→右键移动→Q 攻击移动→烟幕→编组→
 切组，经 ShellFsm 同一语义层发令——headless 可跑）；ScriptedPilot＝人类席
 脚本驾驶（--smoke/--screenshot 门禁用；全部经 CmdBus 发令与玩家同通道）。
 
@@ -31,7 +31,7 @@ _FM_MODE_QUEUE: tuple[tuple[str, dict], ...] = (
 
 class StandardPlay:
     """标准玩法剧本（交互重设计附加要求③）：模拟真实玩家路径——框选→右键移动
-    →A 攻击移动→烟幕→编组→切组——经 ShellFsm 同一语义层发令（窗口层只做 GL
+    →Q 攻击移动→烟幕→编组→切组——经 ShellFsm 同一语义层发令（窗口层只做 GL
     事件翻译，语义收敛 fsm——本剧本 headless 可跑，供 --smoke 与 pytest 复用），
     逐条断言状态变化（选中集合/已下命令进入队列/世界状态响应）。"""
 
@@ -80,7 +80,7 @@ class StandardPlay:
                    "groups[1]=%s" % (self.fsm.groups.get(1),))
 
     def battle_beat(self) -> None:
-        """实战期标准玩法：取组→右键移动→A 攻击移动→烟幕组合→切组。"""
+        """实战期标准玩法：取组→右键移动→Q 攻击移动→烟幕组合→切组。"""
         bus = self.session.cmd
         frame = self.sync_frame()
         if frame.get("phase") != "combat":
@@ -113,11 +113,12 @@ class StandardPlay:
         self.check("右键移动=命令入队",
                    bool(cmds) and len(self.world_queue()) > n_queue0,
                    "cmds=%d" % len(cmds))
-        # ③ A 攻击移动（两段式：A 待令→点地确认——MoveMode.ATTACK）
-        armed = self.fsm.key("A")
+        # ③ Q 攻击移动（两段式：Q 待令→点地确认——MoveMode.ATTACK；P0 键位
+        # 纠偏块 2026-10-13 A→Q——手册 HOTKEYS「Q Attack Move」manual.txt:560）
+        armed = self.fsm.key("Q")
         attack_moves = self.fsm.execute_armed_ground((100000, 55000), bus)
         trail_moves = [t for t in bus.trail if t["kind"] == "move"]
-        self.check("A+点地=攻击移动（mode=ATTACK）",
+        self.check("Q+点地=攻击移动（mode=ATTACK）",
                    armed == "arm:attack" and attack_moves
                    and trail_moves and trail_moves[-1].get("mode") == "ATTACK",
                    "armed=%s trail_tail=%s" % (armed, trail_moves[-1] if trail_moves
@@ -161,7 +162,7 @@ class ScriptedPilot:
     GP-01 扩面证据（--smoke 剧本扩展段消费）：
     - air_ctrl：{selected, commands, observed}——选中飞机→≥2 空令→任务体安装；
     - fm_modes：{form: seen}——LINE/CREEP 任务体逐型安装观测。
-    另嵌 StandardPlay 标准玩法剧本（框选→右键→A 攻击移动→烟幕→编组→切组
+    另嵌 StandardPlay 标准玩法剧本（框选→右键→Q 攻击移动→烟幕→编组→切组
     逐条断言——smoke 门禁一并核对）。
     """
 
@@ -178,6 +179,77 @@ class ScriptedPilot:
         self.air_ctrl = {"selected": False, "commands": 0, "observed": False}
         self.fm_modes: dict[str, bool] = {form: False
                                           for form, _kw in _FM_MODE_QUEUE}
+        # P1 机制证据（2026-10-13——地面 RTB 退款／诱饵／加力；激光→精密打击
+        # 在 qa._p1_mechanics_smoke 自制卡组段承载）
+        self.p1 = {"rtb_issued": False, "rtb_observed": False,
+                   "decoy_issued": False, "decoy_observed": False,
+                   "ab_issued": False, "ab_observed": False,
+                   "rtb_truck_id": None}
+
+    def _p1_beat(self, bus) -> None:
+        """P1 机制发令节拍（--smoke 判据面；一次性）：
+        - 地面 RTB：对一辆我方卡车下 B（到场退款——观测=单位消失+points 增加+
+          refund_log 落账）；
+        - 诱饵/加力：对在空战斗机各下一次（观测=decoy_left 减/afterburner 置位）。"""
+        w = self.session.world
+        mine = self._mine()
+        # 〔终审修复块 2026-10-13〕暴击恢复后软目标卡车在途损毁成为正常战果
+        # （crit 改写交战轨迹——首发卡车未必能活着到场）：首发卡车已亡且未观测
+        # 到退款时换下一辆可动卡车重发（证据采集重试面，非判据放宽）。
+        rtb_truck_gone = (self.p1["rtb_truck_id"] is not None
+                          and not any(u.id == self.p1["rtb_truck_id"]
+                                      and u.alive for u in w.units))
+        if not self.p1["rtb_issued"] or (rtb_truck_gone
+                                         and not self.p1["rtb_observed"]):
+            truck = next((u for u in mine
+                          if u.template.category == 4
+                          and u.template.speed_tier > 0
+                          and u.template.cost > 0
+                          and not u.rtb_pending
+                          and u.id != self.p1["rtb_truck_id"]), None)
+            # 卡车判定：category=4 后勤且可动（空投箱 cost=0 不可 RTB——引擎门同判）
+            if truck is None and self.p1["rtb_truck_id"] is not None:
+                # 卡片耗尽无卡车可换——退化为「离出生锚最近的存活己方单位」承载
+                # 证据（B 退款为全单位语义非卡车专属；旅程最短=生存概率最高）
+                from sovs.sim.geom import dist_cm
+                from sovs.sim.tick import _deploy_anchor
+                anchor = _deploy_anchor(self.session.world, 0)
+                cands = [u for u in mine if u.alive and not u.rtb_pending
+                         and not (u.elements
+                                  and all(e.mounted_in is not None
+                                          for e in u.elements))]
+                truck = (min(cands, key=lambda u: dist_cm(u.pos, anchor))
+                         if cands else None)
+            if truck is not None:
+                if bus.ground_rtb([truck.id]):
+                    self.p1["rtb_issued"] = True
+                    self.p1["rtb_truck_id"] = truck.id
+        fighter = next((a for a in w.aircraft if a.team == 0
+                        and (a.template.can_afterburner
+                             or a.template.decoy_charges > 0)
+                        and a.state not in (3, 4)), None)   # 非 RTB/DOGFIGHT
+        if fighter is not None:
+            if not self.p1["decoy_issued"] and fighter.decoy_left > 0:
+                if bus.air_decoy([fighter.id], "POP"):
+                    self.p1["decoy_issued"] = True
+            if not self.p1["ab_issued"] and fighter.template.can_afterburner \
+                    and not fighter.afterburner:
+                if bus.air_afterburner([fighter.id], True):
+                    self.p1["ab_issued"] = True
+
+    def _p1_observe(self) -> None:
+        """P1 机制生效观测（--smoke 判据）。"""
+        w = self.session.world
+        if self.p1["rtb_issued"] and not self.p1["rtb_observed"]:
+            if any(r.get("team") == 0 for r in w.refund_log):
+                self.p1["rtb_observed"] = True
+        for a in w.aircraft:
+            if a.team != 0:
+                continue
+            if a.decoy_left < a.template.decoy_charges:
+                self.p1["decoy_observed"] = True
+            if a.afterburner:
+                self.p1["ab_observed"] = True
 
     # ── 意图发令（经 CmdBus）──
 
@@ -230,7 +302,7 @@ class ScriptedPilot:
         mine = self._mine()
         if not mine:
             return
-        # 标准玩法：取组剪尸→右键移动→A 攻击移动→G 组合（逐条断言入 script）
+        # 标准玩法：取组剪尸→右键移动→Q 攻击移动→G 组合（逐条断言入 script）
         self.script.battle_beat()
         sel = list(self.script.fsm.selected) or [u.id for u in mine]
         # 移动族：未机动单位向中央占点推进
@@ -291,12 +363,22 @@ class ScriptedPilot:
                        and e["payload"]["BOMB"] > 0), None)
         troop = next((e for k, e in roster.items()
                       if e["payload"].get("PARATROOP")), None)
+        fighter = next((e for k, e in roster.items()
+                        if getattr(e["template"], "can_afterburner", False)
+                        or getattr(e["template"], "decoy_charges", 0) > 0), None)
         if self._air_beat == 1 and bomber is not None:
             self._issue("air", bus.air_call(bomber["template"], bomber["payload"]))
         elif self._air_beat == 4 and troop is not None:
             self._issue("air", bus.air_call(troop["template"], troop["payload"]))
+        elif self._air_beat == 7 and fighter is not None:
+            # P1 证据段：呼一架带加力/诱饵的战斗机（YAK9——数据侧 P1 配属）
+            self._issue("air", bus.air_call(fighter["template"], {}))
         # 空中可控链（GP-01 §4 --smoke 扩展）：我方飞机在空→双通道选中→两令
         self._air_ctrl_beat(bus)
+        # P1 机制证据（--smoke 判据：地面 RTB 退款一笔／诱饵+加力各一次——
+        # 激光→精密打击需狙击卡，su_min 无此卡，由 qa._p1_mechanics_smoke
+        # 自制卡组段承载）
+        self._p1_beat(bus)
         # 烟幕冲刺姿态：首个带自卫烟幕元素的单位三令一键（观测锚=该单位——A12）
         smoker = next((u for u in mine
                        if any(e.self_smoke_left > 0 for e in u.elements)), None)
@@ -332,6 +414,7 @@ class ScriptedPilot:
 
     def _observe(self) -> None:
         w = self.session.world
+        self._p1_observe()                     # P1 机制证据观测（2026-10-13）
         mine = self._mine()
         by_id = {u.id: u for u in mine}
         if self._move_probe is not None:

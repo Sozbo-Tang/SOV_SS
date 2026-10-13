@@ -12,12 +12,17 @@ session 鸭子面（sovs/app/session.SkirmishSession 实现）：frame/advance/c
 total_ticks/world_tick_count/air_roster/deck_info/deck_list/card_cost/
 pending_expands/queue_expand/new_game/deck_editor/cooldown_labels。
 
-键位（GP-01 §4/§3/§6 全集；证据三档溯源见 shell_fsm 头注与 docs/FE-03）：
-  SPACE=暂停  +/-=调速  方向键/贴边=平移  滚轮=缩放
-  左键=点选（单位∪飞机）/框选/Shift 加减选/点空地清选区
+键位（GP-01 §4/§3/§6 全集＋P0 键位纠偏块 2026-10-13 手册对齐——证据三档
+溯源见 shell_fsm 头注与 docs/FE-03；手册 HOTKEYS out/refs/manual.txt:547-580）：
+  SPACE=暂停  +/-=调速  方向键/WASD=平移（并存）  贴边=边缘滚动  滚轮=缩放
+  左键=点选（单位∪飞机）/框选/Shift 点己方=加减选/点空地清选区
   右键=移动（空选区=盘旋待命 CAP；Shift+右键=追加路径点/直飞航路）
-  A/S/E/R/F 待令族  T 炮击三段式（参数条+点地/画线）  K 空袭（点/画攻击轴）
-  O 空投  X 烟幕  G 组合  H 纪律  U 卸载  N 狙击  飞机 V/B(不可逆)/J/Y
+  Q/S/E/R/F 待令族（Q=攻击移动——手册 A→Q 纠偏，A 退役归相机）
+  T 炮击三段式（参数条+点地/画线）  K 空袭（点/画攻击轴）
+  O 空投（按住左键拖拽画区=区心投/单击点投）  X 烟幕  G 组合  H 纪律
+  U 卸载（点地/点楼；再按 U=就地立即卸载——手册双击语义）  N 狙击
+  Shift+待令确认=命令入队排队（移动/攻击/炮击/卸载四族；不清待令续令）
+  飞机 V/B(不可逆)/J/Y
   Ctrl+1..9=建组（单位∪飞机二元组） 1..9=取组  TAB=双通道子选  F1=帮助
   ESC=分层取消  config 页：Enter 开始/1·2 卡组/3 KEV 档/『编辑卡组』→deck_edit
   （本阶段零图片资源——一切视觉元素程序化绘制 glyphs/palette 矢量图元）
@@ -70,6 +75,8 @@ class ShellWindow(arcade.Window):
         self.cam_scale = 1.0
         self.cam_cx = 0.0
         self.cam_cy = 0.0
+        self.cam_rot = 0.0            # 视图旋转角（MMB+拖拽——manual.txt:594，
+                                      # 2026-10-13 终审修复块；0=北向上轴对齐）
         # 交互态
         self._box_p0 = None            # 框选拖拽起点（px）
         self._box_p1 = None
@@ -79,6 +86,7 @@ class ShellWindow(arcade.Window):
         self._info_uid: int | None = None
         self._buttons: list[Btn] = []
         self._cam_held: set = set()
+        self._mmb_drag = False        # MMB 旋转拖拽在途（中键按下期间）
         self._mouse_xy: tuple[float, float] | None = None
         self._fitted_page: str | None = None
         self._deck_catalog: list[dict] = []      # 编辑器卡池目录（deck_edit 页缓存）
@@ -169,6 +177,12 @@ class ShellWindow(arcade.Window):
                    arcade.key.RIGHT):
             self._cam_held.add(key)
             return
+        if key in (arcade.key.W, arcade.key.A, arcade.key.S, arcade.key.D):
+            # P0 键位纠偏块（2026-10-13）：WASD=相机平移（手册 Camera Controls
+            # 「W, A, S, D Camera movement」manual.txt:579-580；方向键保留并存）。
+            # 不 return：S 仍落 fsm 分发（S=停止为既有战斗令，未获拍板不移除——
+            # 按住 S=平移+按下即停双效，留痕）；W/A/D 无战斗绑定直落空。
+            self._cam_held.add(key)
         if key == arcade.key.F1:
             fsm.help_open = not fsm.help_open
             return
@@ -260,6 +274,9 @@ class ShellWindow(arcade.Window):
             return
         if page == "settle":
             return
+        if button == arcade.MOUSE_BUTTON_MIDDLE:
+            self._mmb_drag = True     # MMB+移动=相机旋转（manual.txt:594）
+            return
         if self.fsm.armed_order is None:
             self._line_p0 = self._line_p1 = None   # 撤令后的陈旧画线态清理
         if self._panel_click(x, y, button):
@@ -275,6 +292,9 @@ class ShellWindow(arcade.Window):
     def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
         if self.fsm.page not in ("deploy", "battle"):
             return
+        if self._mmb_drag and (buttons & arcade.MOUSE_BUTTON_MIDDLE):
+            scene.rotate_camera(self, dx)          # MMB 旋转跟手（594 行语义）
+            return
         if self._line_p0 is not None:              # K/T 画线态：跟手预览
             self._line_p1 = (x, y)
         elif self._box_p0 is not None:
@@ -283,10 +303,11 @@ class ShellWindow(arcade.Window):
     def on_mouse_release(self, x, y, button, modifiers):
         if (self.fsm.page in ("deploy", "battle")
                 and button == arcade.MOUSE_BUTTON_LEFT):
-            if self._line_p0 is not None:          # 画线收笔（语义在 fm_panel）
+            shift = bool(modifiers & arcade.key.MOD_SHIFT)
+            if self._line_p0 is not None:          # 画线/画区收笔（语义在 fm_panel）
                 p0, p1 = self._line_p0, self._line_p1 or self._line_p0
                 self._line_p0 = self._line_p1 = None
-                if not finish_line_drag(self, p0, p1):
+                if not finish_line_drag(self, p0, p1, shift=shift):
                     self._left_click_map(p0[0], p0[1], 0)  # 其余待令=点令回落
                 return
             if self._box_p0 is not None:
@@ -295,6 +316,8 @@ class ShellWindow(arcade.Window):
                 else:
                     self.fsm.clear_selection()     # 点空地=清选区（含空选区）
         self._box_p0 = self._box_p1 = None
+        if button == arcade.MOUSE_BUTTON_MIDDLE:
+            self._mmb_drag = False                 # MMB 旋转收笔
 
     # ── 点击处理 ──
 
@@ -353,17 +376,19 @@ class ShellWindow(arcade.Window):
         if fsm.armed_order is not None:
             if fsm.armed_order == "unload" and building is not None:
                 self.session.cmd.unload(list(fsm.selected),      # U+点楼=进楼
-                                        building_id=building["id"])
-                fsm.clear_order()
+                                        building_id=building["id"],
+                                        queue=shift)
+                if not shift:
+                    fsm.clear_order()
                 return
             if foe is not None and fsm.execute_armed_unit(
-                    foe["id"], self.session.cmd, enemy=True):
+                    foe["id"], self.session.cmd, enemy=True, shift=shift):
                 return
             if own is not None and fsm.execute_armed_ground(
-                    own["pos_cm"], self.session.cmd):
+                    own["pos_cm"], self.session.cmd, shift=shift):
                 return
             if air is not None and fsm.execute_armed_ground(
-                    air["pos_cm"], self.session.cmd):
+                    air["pos_cm"], self.session.cmd, shift=shift):
                 return
             if fsm.armed_order == "strike":
                 if not fsm.selected_air \
@@ -373,12 +398,22 @@ class ShellWindow(arcade.Window):
                 self._line_p0 = (x, y)             # K：落笔（拖拽=画轴/松手=点目标）
                 self._line_p1 = None
                 return
+            if fsm.armed_order == "drop":
+                # O：落笔画区（P0 键位纠偏块 2026-10-13——拖拽=矩形区/单击=点投；
+                # 与 K/T 画线态同构）。无载伞机=提前 toast（A9 口径），待令保留。
+                if not fsm.selected_air \
+                        and fsm._first_aircraft(bomber=False) is None:
+                    fsm.notify("无在空飞机，请先经底栏空呼", tone="error")
+                    return
+                self._line_p0 = (x, y)
+                self._line_p1 = None
+                return
             if fsm.armed_order == "fire_mission" \
                     and fsm.fm_params["form"] in ("LINE", "CREEP"):
                 self._line_p0 = (x, y)             # LINE/CREEP：落笔拖拽画线
                 self._line_p1 = None
                 return
-            fsm.execute_armed_ground(cm, self.session.cmd)
+            fsm.execute_armed_ground(cm, self.session.cmd, shift=shift)
             return
         # 无待令：点选（单位∪飞机双通道）/点空地=框选落笔
         if own is not None:
@@ -485,15 +520,20 @@ class ShellWindow(arcade.Window):
         draw_exit_confirm(self)
 
 
-# 键名映射表（arcade.key → fsm 键语义名；GP-01 §4/§6 扩容键位）
+# 键名映射表（arcade.key → fsm 键语义名；GP-01 §4/§6 扩容键位；P0 键位纠偏块
+# 2026-10-13：A 出表（退役归相机 WASD——手册无 A 战斗令）、Q 入表（Attack Move））
 def _build_key_names():
-    keys = {arcade.key.A: "A", arcade.key.S: "S", arcade.key.E: "E",
+    keys = {arcade.key.Q: "Q", arcade.key.S: "S", arcade.key.E: "E",
             arcade.key.Z: "Z", arcade.key.X: "X", arcade.key.R: "R",
             arcade.key.T: "T", arcade.key.G: "G", arcade.key.H: "H",
             arcade.key.K: "K", arcade.key.O: "O", arcade.key.F: "F",
             arcade.key.U: "U", arcade.key.N: "N", arcade.key.V: "V",
             arcade.key.B: "B", arcade.key.J: "J", arcade.key.Y: "Y",
-            arcade.key.TAB: "TAB"}
+            arcade.key.TAB: "TAB",
+            # P1 机制块（2026-10-13）：C 诱饵/L 狙击观测（N 让位照射）/
+            # M 登车/P 精密打击
+            arcade.key.C: "C", arcade.key.L: "L", arcade.key.M: "M",
+            arcade.key.P: "P"}
     for d in range(1, 10):
         keys[getattr(arcade.key, "KEY_%d" % d)] = str(d)
     return keys

@@ -147,7 +147,7 @@ class TestDeckEditPageFsm(unittest.TestCase):
 
     def test_combat_keys_blocked_with_toast(self):
         f = self._open()
-        for name in ("A", "T", "K", "V", "B", "TAB"):
+        for name in ("Q", "T", "K", "V", "B", "TAB"):
             f.notifications.clear()
             self.assertEqual(f.key(name, cmd=None), "blocked", name)
         self.assertTrue(any("编辑器" in n["text"] for n in f.notifications))

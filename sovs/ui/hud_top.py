@@ -97,7 +97,7 @@ def draw_top_bar(win) -> None:
     if win.fsm.page == "deploy":
         head = "盲部署｜点槽装弹→点地放卡（兵出场后自动开进）·右键撤回"
     else:
-        head = ("右键移动/盘旋·A攻·T炮击·K空袭·V高度·B返航·Ctrl+数字编组"
+        head = ("右键移动/盘旋·Q攻·T炮击·K空袭·V高度·B返航·Ctrl+数字编组"
                 "·选中卡在左")
     x0, x1 = flow_positions(MARGIN, (text_width(state, 13),
                                      text_width(phase.upper(), 13)))
@@ -132,18 +132,26 @@ def draw_toasts(win) -> None:
         arcade.draw_text(note["text"], cx, y, col, 13, anchor_x="center")
 
 
-# F1 帮助面板键位速查（两栏；核心键＋镜头/飞机族——GP-01 §4/§6 扩容后全集）
+# F1 帮助面板键位速查（两栏；核心键＋镜头/飞机族——GP-01 §4/§6 扩容后全集；
+# P0 键位纠偏块 2026-10-13：Q 攻/SHIFT 排队/U 双击/O 画区/WASD 平移——手册
+# HOTKEYS manual.txt:547-580）
 _HELP_KEYS_LEFT = (
     "左键：点选/框选（Shift 点己方=加减选）", "右键：移动（Shift=追加路径点）",
-    "A+左键：攻击移动/齐射   S：停止   E：取消", "R+左键：倒车   F+左键：行军",
-    "T+左键/拖拽：炮击（点/线/徐进）", "K+左键/拖拽：空袭（点目标/画攻击轴）",
-    "O+左键：空投   X：自卫烟幕   G：组合", "H：纪律   U：卸载   N：狙击观测",
+    "Q+左键：攻击移动/齐射   S：停止   E：取消", "R+左键：倒车   F+左键：行军",
+    "T+左键/拖拽：炮击（点/线/徐进/精确）", "K+左键/拖拽：空袭（点目标/画攻击轴）",
+    "O+左键拖拽：空投画区（单击=点投）", "X：自卫烟幕   G：组合",
+    "H：纪律（受击才还击·保持瞄准）   L：狙击观测", "U：卸载（再按=就地卸载）",
+    "N+点敌：激光照射   P+点地：精密打击（近激光位）",
+    "M+点己方载具：登车   B：回基地（到场退款≥20%）",
+    "C：诱饵（手动投放）   Z：冲刺/加力/雷达（按单位分派）",
+    "Shift+确认：命令入队（连续下令排队执行）",
 )
 _HELP_KEYS_RIGHT = (
-    "飞机：V 高度 B 返航(不可逆) J 对空 Y 脱离", "右键（空选区）：盘旋待命",
-    "SPACE：暂停（下令照收）   +/-：调速", "方向键：平移   贴边：边缘滚动",
+    "飞机：V 高度(toggle) B 返航 J 对空 Y 脱离", "Z（飞机）：加力 toggle   C：诱饵",
+    "左轨空援卡＋地面呼援卡（实战随时可呼）", "选中补给堆：买1t/4t/满+四开关",
+    "SPACE：暂停（下令照收）   +/-：调速", "方向键/WASD：平移   贴边：边缘滚动",
     "滚轮：缩放（下限=整图适配）", "小地图：左键跳转 / 右键下令",
-    "Ctrl+1..9：建组   1..9：取组   TAB：子选", "F1：本面板   ESC：分层取消",
+    "Ctrl+1..9：建组   1..9：取组   TAB：子选（下令只对焦点）", "F1：本面板   ESC：分层取消",
 )
 
 
@@ -235,7 +243,13 @@ _STATS_GROUP = {"move": "move", "stop": "move", "cancel": "move",
                 "unload": "support", "sniper_cover": "support",
                 "ambush": "support", "deploy": "support", "pack": "support",
                 "tow": "support", "untow": "support", "formation": "support",
-                "supply_dock": "support", "mount": "support"}
+                "supply_dock": "support", "mount": "support",
+                # ── P1 机制块（2026-10-13）──
+                "ground_rtb": "support", "laser_designate": "support",
+                "radar": "support", "supply_switch": "support",
+                "buy_supplies": "support",
+                "air_afterburner": "air", "air_decoy": "air",
+                "precision": "fire_mission"}
 
 
 def draw_command_stats(win) -> None:

@@ -122,10 +122,10 @@ class _AirCmdSpy:
     def fire_mission(self, uid, point, **kw):
         return self._log("fire_mission", uid, tuple(point), **kw)
 
-    def attack(self, uid, foe):
-        return self._log("attack", uid, foe)
+    def attack(self, uid, foe, queue=False):
+        return self._log("attack", uid, foe, queue=queue)
 
-    def unload(self, ids, cm=None, building_id=None):
+    def unload(self, ids, cm=None, building_id=None, queue=False):
         return self._log("unload", tuple(ids), cm, building_id)
 
     def sniper_cover(self, ids, foe):
@@ -239,10 +239,13 @@ class TestAirHotkeys(unittest.TestCase):
         self.assertEqual(tiers, ["MID", "LOW"])      # 逐机循环取帧内现值
 
     def test_B_rtb_with_irreversible_toast(self):
+        # 〔P1 机制块 2026-10-13：B 双通道（manual ORDERS/RTB 通用令）——返回动作
+        # 名 rtb；飞机通道走 air_rtb 令（地面支锚另见 test_p1_mechanics）。〕
         f = self._fsm(aircraft=[_air(1, 0, 0, 0)])
         f.select_aircraft([1])
         cmd = _AirCmdSpy()
-        self.assertEqual(f.key("B", cmd=cmd), "air_rtb")
+        self.assertEqual(f.key("B", cmd=cmd), "rtb")
+        self.assertTrue(any(c[0] == "air_rtb" for c in cmd.calls))
         self.assertTrue(any("不可逆" in n["text"] for n in f.notifications))
 
     def test_J_engage_toggle_from_frame(self):
@@ -331,8 +334,12 @@ class TestFireMissionParams(unittest.TestCase):
         self.assertEqual(f.fm_params["form"], "LINE")
         with self.assertRaises(ValueError):
             f.set_fm_param("form", "NUCLEAR")
+        # 〔P1 机制块 2026-10-13：PRECISION=第三弹药位（manual.txt:456-458）——
+        # 合法值不再拒；域外值照拒。〕
+        f.set_fm_param("ammo", "PRECISION")
+        self.assertEqual(f.fm_params["ammo"], "PRECISION")
         with self.assertRaises(ValueError):
-            f.set_fm_param("ammo", "PRECISION")      # 精确=校射映射，无新弹药位
+            f.set_fm_param("ammo", "NUCLEAR")
         with self.assertRaises(ValueError):
             f.set_fm_param("ammo_mult", 4)           # 1..3
         with self.assertRaises(ValueError):
@@ -396,9 +403,11 @@ class TestSection6Entries(unittest.TestCase):
         self.assertTrue(any(c[0] == "unload" for c in cmd.calls))
 
     def test_sniper_arm_requires_enemy_click(self):
+        # 〔P1 机制块 2026-10-13：狙击观测挪 L 键（N 让位给手册激光照射键，
+        # 留痕 shell_fsm.ORDER_GROUPS_ARMABLE 注）。〕
         f = self._fsm(units=[_unit(1, 0, 0, 0)])
         f.select_units([1])
-        self.assertEqual(f.key("N"), "arm:sniper")
+        self.assertEqual(f.key("L"), "arm:sniper")
         cmd = _AirCmdSpy()
         self.assertTrue(f.execute_armed_unit(8, cmd, enemy=True))
         self.assertTrue(any(c[0] == "sniper_cover" for c in cmd.calls))

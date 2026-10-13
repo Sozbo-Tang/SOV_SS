@@ -1428,15 +1428,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .air import (PHASE_COMBAT, PHASE_DEPLOY, PHASE_SETTLE, AircraftInstance,
-                  aircraft_tick, air_recon_step, cmd_air_airdrop, cmd_air_alt,
-                  cmd_air_call, cmd_air_disengage, cmd_air_engage_air,
-                  cmd_air_move, cmd_air_patrol, cmd_air_rtb, cmd_air_strike,
-                  is_aircraft_alive)
+                  aircraft_tick, air_recon_step, cmd_air_afterburner,
+                  cmd_air_airdrop, cmd_air_alt, cmd_air_call, cmd_air_decoy,
+                  cmd_air_disengage, cmd_air_engage_air, cmd_air_move,
+                  cmd_air_patrol, cmd_air_rtb, cmd_air_strike,
+                  is_aircraft_alive, missile_warning)
 from .combat import (COMBAT_STYLE_MELEE, COMBAT_STYLE_SNIPER, aim_factor_bp,
                      aura_bonus_bp, damage_mult_permille, inject_suppression_area,
                      mark_resupply_if_needed, morale_acc_factor_bp, needs_resupply,
                      penetration_at, release_tow_if_involved, reload_factor_bp,
-                     resolve_blast, resolve_hit, start_tow, stop_tow)
+                     resolve_blast, resolve_hit, start_tow, stop_tow,
+                     unregister_unit_refs)
 from .geom import approach_deg_of, angle_diff, dist_cm, step_toward
 from .movement import (auto_approach_waypoint, issue_move, nearest_on_segment,
                        rotate_step, system_move_dispatch)
@@ -1468,6 +1470,9 @@ class PlayerState:
     air_cooldowns: dict = field(default_factory=dict)
     deck_slots: list = field(default_factory=list)
     spawn_queue: list = field(default_factory=list)
+    spawn_dests: list = field(default_factory=list)   # 出动目的地并行 FIFO（与
+                                  # spawn_queue 同推同弹——2026-10-12 二次拍板：
+                                  # 单位在 dest 直接出场，见 _deploy_strip_clamp）
     spawn_serial: int = 0         # 出牌序记账（§D.6 未列；只增不减。2026-10-03 拍板：
                                   # 出生点不再随序偏移——纯计账槽保留）
 
@@ -1620,9 +1625,15 @@ class SetModeCmd:
 
 @dataclass(frozen=True)
 class PurchaseCmd:
-    """仅盲部署 phase（cmd_purchase 门，§F7 :1374）。"""
+    """仅盲部署 phase（cmd_purchase 门，§F7 :1374）。
+
+    dest=点击展开目的地（cm 整型二元组或 None）：2026-10-12 二次拍板（断箭 Basics
+    2.2 实据——幽灵挂点击点、到点直接 spawn）——单位在目的地处直接实体化出场
+    （spawn_step 经 _deploy_strip_clamp 钳入己方部署条带；None 退回己方底边中点
+    锚旧行为；AI 侧不传=锚点不动）。"""
     player: object
     template: object
+    dest: object = None
 
 
 @dataclass(frozen=True)
@@ -1641,6 +1652,9 @@ class FireMissionCmd:
     ammo: str = "HE"            # "HE"|"SMOKE"（GP-01 §3 弹药位）
     salvo_mode: object = None   # FULL|HALF
     creep_speed: int = 0
+    queue: bool = False         # P0 键位纠偏块（2026-10-13）：True=入 unit.command_queue
+                                # 排队（consume_unit_commands 空闲消费——手册 SHIFT=
+                                # Queue orders 通用化）；缺省 False=既有即发行为不变
 
 
 @dataclass(frozen=True)
@@ -1688,6 +1702,8 @@ class SprintCmd:
 class GarrisonCmd:
     unit: object
     building: object
+    queue: bool = False         # P0 键位纠偏块（2026-10-13）：U+Shift+点楼排队进楼
+                                # （须与 DismountCmd 同排队——先下车后进楼次序）
 
 
 @dataclass(frozen=True)
@@ -1705,6 +1721,7 @@ class MountCmd:
 @dataclass(frozen=True)
 class DismountCmd:
     squad_unit: object
+    queue: bool = False         # P0 键位纠偏块（2026-10-13）：U 卸载族 Shift 排队位
 
 
 @dataclass(frozen=True)
@@ -1724,6 +1741,9 @@ class AttackCmd:
     """直射指定目标（含建筑——审查#5；cmd_attack 见 §F4）。"""
     element: object
     target: object
+    queue: bool = False         # P0 键位纠偏块（2026-10-13）：Q+Shift+点敌 齐射排队位
+                                # （手册 SHIFT=Queue orders；queue=True 入 element.unit
+                                # .command_queue，consume_unit_commands 空闲消费）
 
 
 @dataclass(frozen=True)
@@ -1745,6 +1765,16 @@ class BuySuppliesCmd:
     truck_element: object
     rounds: int
     medical: int
+
+
+@dataclass(frozen=True)
+class CreateDumpCmd:
+    """卸货成堆（2026-10-13 终审修复块——basics:202-204「Order your truck to
+    unload somewhere to create a supply dump」；U+点地对满载补给卡车下发，
+    cmd_create_dump 承载）。"""
+    unit: object
+    pos: tuple
+    queue: bool = False
 
 
 # ── AIR_UNITS_PSEUDOCODE_IMPL_v1.4 §D.5 航空命令集（9；命令驱动——AI 虚拟玩家
@@ -1824,6 +1854,66 @@ class AirRTBCmd:
     aircraft: object
 
 
+# ── P1 机制块命令族（2026-10-13，GP-01 断箭手册 P1 补建——manual ORDERS/
+#    ABILITIES/ARTILLERY 节；wire 1.3 同批入表）──
+
+@dataclass(frozen=True)
+class GroundRTBCmd:
+    """地面 RTB（B 键——manual.txt:394-400「Fast Move to the nearest friendly spawn
+    point and disappear…reimbursed, less any deductions for damage and spent
+    ammo」）。处理体 cmd_ground_rtb：置 rtb_pending+MARCH 快移最近友方出生点；
+    到场 system_rtb→ground_recovery 按损伤/耗弹扣减退款（≥20% 下限）+移除。
+    卡组份不回补（一命制拍板优先——手册 hotkeys 节「can be recalled later」与
+    本项目一命制冲突，退款只入点数池，发起人可后续裁决改回补，头注留痕）。"""
+    unit: object
+
+
+@dataclass(frozen=True)
+class LaserDesignateCmd:
+    """N 激光照射（manual.txt:517-522「Press N and left click on any enemy unit,
+    building or area in line of sight. The laser will follow a moving target but
+    will break if it exits line of sight」）。照射跟随目标、断 LOS 失效
+    （prune_lasers）；资格位=CAN_SNIPER_COVER（basics:291「snipers are equipped
+    with target designators」——狙击组即照射器载体，原狙击观测令挪 L 键留痕）。"""
+    designator_unit: object
+    target_unit: object
+
+
+@dataclass(frozen=True)
+class RadarCmd:
+    """Z 高炮单位雷达开关（manual.txt:534-539、basics:327-336）：开=对空探测/射程
+    大增（高空×2/低空+25%——basics:328-330）+5s 启动延迟（basics:334）；再按关
+    （即刻）。SEAD 易损：1944 题材无反辐射导弹——只落「开机可视」易损标记（帧
+    radar_on 公开面=对方可见我雷达开机情报），无 SEAD 弹种消费点，头注登记。"""
+    unit: object
+    engage: bool
+
+
+@dataclass(frozen=True)
+class SupplySwitchCmd:
+    """补给堆四功能开关（basics:208-213：share/heal/repair/ammo——选中补给堆的
+    命令面板四位）。switch ∈ {"share","heal","repair","ammo"}。share 位在现引擎
+    （单位无玩家归属面、team 级拾取门）为呈现位——留痕可推翻。"""
+    unit: object
+    switch: str
+    on: bool
+
+
+@dataclass(frozen=True)
+class AirAfterburnerCmd:
+    """Z 飞机加力（manual.txt:492-497——速度×2/油耗×2 toggle）。"""
+    aircraft: object
+    engage: bool
+
+
+@dataclass(frozen=True)
+class AirDecoyCmd:
+    """C 诱饵（manual.txt:505-509＋basics:347-352：手动投放/自动模式开关）。
+    action ∈ {"POP","AUTO_ON","AUTO_OFF"}。"""
+    aircraft: object
+    action: str
+
+
 @dataclass
 class World:
     """§D.6 WORLD 最小容器（零渲染依赖；回调默认实现=记录桩/场外点，见 TODO 登记表）。"""
@@ -1877,6 +1967,14 @@ class World:
                                    # 实现适配；值=掩护者 unit 列表，消费=键存在性布尔；写侧 cmd_set_sniper_
                                    # cover 已接〔2026-10-06 PB-56 批③〕，注销 unregister_unit_refs 既有）
     result: object = None    # D031 结算裁决（§D.6 未列记账槽：迁入结算拍由 update_phase 写入）
+    laser_by_unit: dict = field(default_factory=dict)   # P1 激光照射旁表（N 键——
+                                 # 键=照射者 unit.id、值=(team, target_unit)——cover_by_
+                                 # target/beacon_by_unit 同款键型适配；写侧 cmd_laser_
+                                 # designate、清理侧 unregister_unit_refs+prune_lasers）
+    refund_log: list = field(default_factory=list)      # P1 地面 RTB 退款事件环形日志
+                                 # （{tick, unit_id, amount}——帧顶层 refunds 尾 8 条→
+                                 # fsm toast；不进 state_fingerprint_text（wire.py 显式
+                                 # 枚举字段面——回放校验和零扰动，rejection_log 同款））
 
     def air_entry_point(self, team: int) -> tuple[int, int]:
         """己方底边场外点（tests/test_air_behavior.py mkworld 惯例；air_map_margin_cm 缓冲带）。"""
@@ -2172,12 +2270,16 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
                                                                # 半清除；炮击任务令
                                                                # 双门的解锁钥匙）
     elif isinstance(cmd, PurchaseCmd):
-        _rej(world, cmd, cmd_purchase(world, cmd.player, cmd.template, cfg))          # §F7 :1374（仅盲部署 phase）
+        _rej(world, cmd, cmd_purchase(world, cmd.player, cmd.template,
+                                      cmd.dest, cfg))          # §F7 :1374（仅盲部署 phase）
     elif isinstance(cmd, FireMissionCmd):
-        _rej(world, cmd, cmd_fire_mission(
-            world, cmd.unit, cmd.form,
-            cmd.point if cmd.form is FireMissionForm.POINT else cmd.line,
-            cmd.ammo_mult, cmd.ammo, cmd.salvo_mode, cmd.creep_speed, cfg))  # §F4 :960（GP-01 §3 +ammo 位）
+        if cmd.queue:                # P0 键位纠偏块（2026-10-13）：Shift 排队路由
+            cmd.unit.command_queue.append(cmd)
+        else:
+            _rej(world, cmd, cmd_fire_mission(
+                world, cmd.unit, cmd.form,
+                cmd.point if cmd.form is FireMissionForm.POINT else cmd.line,
+                cmd.ammo_mult, cmd.ammo, cmd.salvo_mode, cmd.creep_speed, cfg))  # §F4 :960（GP-01 §3 +ammo 位）
     elif isinstance(cmd, CancelFireMissionCmd):
         _rej(world, cmd, cmd_cancel_fire_mission(world, cmd.unit))                # §F4 :972
     elif isinstance(cmd, SmokeCmd):
@@ -2201,7 +2303,10 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
     elif isinstance(cmd, SprintCmd):
         _rej(world, cmd, cmd_sprint(world, cmd.unit, cfg))                         # §D.0 :48/方案14（MOVEMENT §2.2）
     elif isinstance(cmd, GarrisonCmd):
-        _rej(world, cmd, cmd_garrison(world, cmd.unit, cmd.building))    # §F6 :1248（PB-57 驻楼命令块，
+        if cmd.queue:                # P0 键位纠偏块（2026-10-13）：Shift 排队路由
+            cmd.unit.command_queue.append(cmd)
+        else:
+            _rej(world, cmd, cmd_garrison(world, cmd.unit, cmd.building))    # §F6 :1248（PB-57 驻楼命令块，
                                                        # 2026-10-06——兵种/容量两门+塌楼收口，
                                                        # 接受=双向引用写入）
     elif isinstance(cmd, UnGarrisonCmd):
@@ -2219,7 +2324,10 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
                                                                # 可推翻拍板项见
                                                                # cmd_mount docstring）
     elif isinstance(cmd, DismountCmd):
-        _rej(world, cmd, cmd_dismount(world, cmd.squad_unit))               # §F6 :1131（PB-56 批②
+        if cmd.queue:                # P0 键位纠偏块（2026-10-13）：Shift 排队路由——
+            cmd.squad_unit.command_queue.append(cmd)   # 入单位级链尾待空闲消费
+        else:
+            _rej(world, cmd, cmd_dismount(world, cmd.squad_unit))               # §F6 :1131（PB-56 批②
                                                           # 机动链命令块·下车，
                                                           # 2026-10-06——旁落位
                                                           # 同点位+跨卡 cargo_units
@@ -2239,7 +2347,10 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
                                                         # stop_tow(VOLUNTARY)，
                                                         # GAP-24 元素级同构；无资格门）
     elif isinstance(cmd, AttackCmd):
-        _rej(world, cmd, cmd_attack(world, cmd.element, cmd.target, cfg))    # §F4 :848（PB-56 批① 作战链
+        if cmd.queue:                # P0 键位纠偏块（2026-10-13）：Shift 排队路由
+            cmd.element.unit.command_queue.append(cmd)
+        else:
+            _rej(world, cmd, cmd_attack(world, cmd.element, cmd.target, cfg))    # §F4 :848（PB-56 批① 作战链
                                                            # 命令块，2026-10-06——门序①-⑪
                                                            # 逐条+建筑资格门，玩家令直射
                                                            # 拆楼链可达性闭环）
@@ -2260,6 +2371,10 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
                                                           # 收口补落——22 类最后一支）
     elif isinstance(cmd, BuySuppliesCmd):
         _rej(world, cmd, buy_supplies(world, cmd.truck_element, cmd.rounds, cmd.medical, cfg))   # §F6 :1215
+    elif isinstance(cmd, CreateDumpCmd):
+        _rej(world, cmd, cmd_create_dump(world, cmd.unit, cmd.pos, cfg))    # 终审修复块
+                                                          # 2026-10-13：U+点地
+                                                          # 卸货成堆（basics:202-204）
                                                         # （PB-56 批③ 支援链
                                                         # 命令块，2026-10-06
                                                         #——hasSupply 载具门+
@@ -2307,6 +2422,22 @@ def _dispatch_command(world: World, cmd, cfg: BalanceConfig) -> None:
                                                         # 命令层自身零掷骰）
     elif isinstance(cmd, AirRTBCmd):
         _rej(world, cmd, cmd_air_rtb(world, cmd.aircraft))              # AIR §F2（B-22 不可逆）
+    elif isinstance(cmd, GroundRTBCmd):
+        _rej(world, cmd, cmd_ground_rtb(world, cmd.unit, cfg))          # P1：地面 RTB（B）
+    elif isinstance(cmd, LaserDesignateCmd):
+        _rej(world, cmd, cmd_laser_designate(world, cmd.designator_unit,
+                                             cmd.target_unit))          # P1：N 激光照射
+    elif isinstance(cmd, RadarCmd):
+        _rej(world, cmd, cmd_radar(world, cmd.unit, cmd.engage, cfg))   # P1：Z 高炮雷达
+    elif isinstance(cmd, SupplySwitchCmd):
+        _rej(world, cmd, cmd_supply_switch(world, cmd.unit, cmd.switch,
+                                           cmd.on))                     # P1：补给堆四开关
+    elif isinstance(cmd, AirAfterburnerCmd):
+        _rej(world, cmd, cmd_air_afterburner(world, cmd.aircraft,
+                                             cmd.engage, cfg))         # P1：Z 飞机加力
+    elif isinstance(cmd, AirDecoyCmd):
+        _rej(world, cmd, cmd_air_decoy(world, cmd.aircraft,
+                                       cmd.action, cfg))               # P1：C 诱饵
     else:
         raise TypeError("unknown command type: %s" % type(cmd).__name__)
 
@@ -2352,6 +2483,9 @@ def cmd_cancel(unit) -> None:
     unit.pivot_to = -1
     unit.command_queue = []
     unit.fire_mission = None
+    unit.rtb_pending = False     # P1（2026-10-13）：撤 RTB 在途位（E=全清变体的
+                                 # 「任务体」面——撤令后单位留场不再退款消失）
+    unit.dump_pending = None     # 终审修复块（2026-10-13）：撤卸货在途位（同 E=全清）
 
 
 def cmd_pivot(unit, facing_deg: int, cfg: BalanceConfig = CONFIG) -> bool:
@@ -2475,8 +2609,31 @@ def consume_unit_commands(world: World, cfg: BalanceConfig = CONFIG) -> None:
                                     # ReverseCmd 恒倒车令=恒交还控制）
             elif isinstance(cmd, SprintCmd):
                 cmd_sprint(world, cmd.unit, cfg)   # 动作令冻结入口（§2.2 ELSE 支示例）
+            # ── P0 键位纠偏块（2026-10-13）：动作令排队消费支（手册 SHIFT=Queue
+            #    orders 通用化——移动/攻击/炮击/卸载四族）。节奏拍板：动作令无
+            #    「到位」完成信号（攻击=开瞄即返、炮击=任务体安装即返、卸载=旁落
+            #    即返），排队语义=**每拍至多消费一条**（break 交还控制——与移动令
+            #    「到位才轮到下一条」同为顺序保证；不冒装「打到死/打完弹」完成
+            #    判据）；被门 REJECT 的队列头照移动令口径丢弃不回队首。──
+            elif isinstance(cmd, AttackCmd):
+                _rej(world, cmd, cmd_attack(world, cmd.element, cmd.target, cfg))
+                break
+            elif isinstance(cmd, FireMissionCmd):
+                _rej(world, cmd, cmd_fire_mission(
+                    world, cmd.unit, cmd.form,
+                    cmd.point if cmd.form is FireMissionForm.POINT else cmd.line,
+                    cmd.ammo_mult, cmd.ammo, cmd.salvo_mode, cmd.creep_speed, cfg))
+                break
+            elif isinstance(cmd, (DismountCmd, GarrisonCmd)):
+                if isinstance(cmd, DismountCmd):
+                    cmd_dismount(world, cmd.squad_unit)
+                else:
+                    _rej(world, cmd, cmd_garrison(world, cmd.unit, cmd.building))
+                break
             # 其余动作令（DeployCmd/MountCmd/…）入队路径随各自 cmd_* 处理体落地；
-            # 当前单位级队列仅 MoveCmd 可入（issue_move 排队支）——不冒充
+            # 单位级队列可入类=MoveCmd/ReverseCmd/SprintCmd/AttackCmd/FireMissionCmd/
+            # DismountCmd/GarrisonCmd（P0 块四合扩容——issue_move 排队支+分派支
+            # queue=True 路由），不冒充
 
 
 # ── §F8 system_timers（:1442-1462 最小集）──
@@ -2552,7 +2709,9 @@ def aa_try_engage(world: World, e, ws, cfg: BalanceConfig = CONFIG) -> None:
     cands = [a for a in world.aircraft
              if a.team != e.unit.team and (a.spotted_mask & team_bit)
              and a.alt_tier <= ceiling
-             and dist_cm(e.pos, a.pos) <= ws.template.max_range_cm]
+             and dist_cm(e.pos, a.pos)
+             <= ws.template.max_range_cm
+             * radar_range_mult(e.unit, world, a.alt_tier) // 10000]   # P1 雷达射程增幅
     if not cands:
         return
     best, best_d = cands[0], dist_cm(e.pos, cands[0].pos)
@@ -2564,7 +2723,8 @@ def aa_try_engage(world: World, e, ws, cfg: BalanceConfig = CONFIG) -> None:
 
 
 def fire_permitted(world: World, unit: UnitInstance, e, ws,
-                   cfg: BalanceConfig = CONFIG) -> bool:
+                   cfg: BalanceConfig = CONFIG, *,
+                   aim_phase: bool = False) -> bool:
     """§F4 :693-706 开火许可九门（逐条；①-⑥ v1.7 原文、⑦ D072、⑧ PB-51、⑨ PB-55 增量）：
     ① phase 门（实战外禁射）；② stance 门（HOLD_FIRE——不约束对空，对空走②分支）；
     ③ needs_deployed 展开门（R-05；v1.5 C3 元素粒度——被拖过的元素须 cmd_deploy 清
@@ -2581,10 +2741,21 @@ def fire_permitted(world: World, unit: UnitInstance, e, ws,
     不调本函数；炮击任务不清但逐炮走本门（process_fire_mission :1491 统一许可）
     ——PB-54 留待项⑤「不禁射」随之收口为「任务不清、射击拦」）。
     mounted_armament 身份判等（AMB-07：车载 MG 须同时配入
-    weapons[] 并以本字段标记）。"""
+    weapons[] 并以本字段标记）。
+    〔P0 键位纠偏块 2026-10-13：② 门语义按断箭手册改「受击才还击」——
+    manual.txt:364-368「Unit(s) will not fire unless fired upon. Unit(s) on
+    Hold Fire will still aim…」+ HOTKEYS 节「H Hold Fire. Units only fire when
+    fired upon」（manual.txt:575）：HOLD_FIRE 仅在受击还击窗
+    （unit.return_fire_until，apply_damage 写点）外拦发射。aim_phase=True 供
+    自动交战链的新 AIMING 门（ground_direct/indirect_role）跳过 ②——「still
+    aim」：HOLD_FIRE 单位照常选目标开瞄，发射出口仍由本门 ② 拦（保持瞄准态见
+    finish_aim ② hold 支）。手动指火（cmd_attack ⑧）不传 aim_phase：既有
+    「HOLD_FIRE 拦手动攻击」行为保持（test_fullgame_acceptance
+    TestCommandChainFullGame t6 锚）。〕"""
     if world.phase != PHASE_COMBAT:                                    # ①
         return False
-    if unit.stance is Stance.HOLD_FIRE:                                # ②
+    if not aim_phase and unit.stance is Stance.HOLD_FIRE \
+            and world.tick > unit.return_fire_until:                   # ②
         return False
     if ws.template.needs_deployed and not (                           # ③ R-05 + C3
             unit.deploy_state is DeployState.DEPLOYED and not e.redeploy_needed):
@@ -2680,8 +2851,9 @@ def ground_direct(world: World, unit: UnitInstance, e,
             continue
         if ws.state is not WState.READY or ws.ammo_left <= 0:
             continue
-        if not fire_permitted(world, unit, e, ws, cfg):
-            continue
+        if not fire_permitted(world, unit, e, ws, cfg, aim_phase=True):
+            continue                                   # ② 跳过（HOLD_FIRE 仍开瞄——保持
+                                                       # 瞄准，发射出口由 finish_aim ②拦）
         tgt = select_target(world, e, ws)
         if tgt is None:
             continue
@@ -2707,8 +2879,8 @@ def indirect_role(world: World, unit: UnitInstance, e,
         return
     if w_main.state is not WState.READY:
         return
-    if not fire_permitted(world, unit, e, w_main, cfg):
-        return
+    if not fire_permitted(world, unit, e, w_main, cfg, aim_phase=True):
+        return                          # ② 跳过（HOLD_FIRE 自卫瞄准照开——同 ground_direct）
     team_bit = 1 << unit.team
     near, near_d = None, None
     for u in world.units:
@@ -2760,6 +2932,16 @@ def finish_aim(world: World, e, ws, cfg: BalanceConfig = CONFIG) -> None:
     elif getattr(tgt, "unit", None) is None or tgt not in tgt.unit.elements:
         ws.state = WState.READY                                        # 地面失的（B9）
         return
+    if e.unit.stance is Stance.HOLD_FIRE \
+            and world.tick > e.unit.return_fire_until:
+        return            # ② hold 支（P0 键位纠偏块 2026-10-13）：HOLD_FIRE 且不在受击
+                          # 还击窗——**保持瞄准**（断箭手册 manual.txt:366-368「Unit(s)
+                          # on Hold Fire will still aim, allowing them to shoot
+                          # immediately if the Hold Fire order is canceled」）：
+                          # 不发射不耗弹也不转 READY，ws 停 AIMING/timer 0（system_
+                          # combat ① 逐拍重入本函数），姿态解除或受击（return_fire_
+                          # until 窗）次拍即发射。目标失的守卫已在上方先行（B9 支
+                          # 照常转 READY 换目标重瞄）。
     if not fire_permitted(world, e.unit, e, ws, cfg):                  # M4/G32 出口复核
         ws.state = WState.READY                                        # 不发射、不耗弹
         return
@@ -2775,14 +2957,27 @@ def fire_aa(world: World, e, ws, aircraft, cfg: BalanceConfig = CONFIG) -> None:
     见下方 acc_bp 三项式）+⑦⑧（疾跑/转向禁射）最小许可集先例（R-17——对空链不调
     fire_permitted，⑨ 溃逃禁射同款豁免）；行为=溃逃高炮仍对空开火（对空链士气态
     消费=登记表士气留待项⑫在册，2026-10-04 评审遗留④留痕改准）。
-    v1.7 AMB-14 拍板：直射链不喂声测——声事件不写。掷骰通道=HIT（命中）/SCATTER（散布）。"""
+    v1.7 AMB-14 拍板：直射链不喂声测——声事件不写。掷骰通道=HIT（命中）/SCATTER（散布）。
+    〔P1 机制块 2026-10-13：①导弹来袭事件口——对空弹发射拍对被瞄准飞机调
+    missile_warning（诱饵自动投放，manual.txt:507-508）；②诱饵规避乘区——目标
+    evade_until 窗内 acc×cfg.decoy_evade_factor_bp（manual.txt:505-509「Add a
+    chance to evade anti-air missiles」）；③被动对策乘区——目标模板
+    passive_evade_bp 常态削减命中（basics:353-356）；④雷达射程增幅——炮位雷达
+    生效时射程门按档乘（basics:328-330）。〕"""
     w = ws.template
-    if not is_aircraft_alive(aircraft, world) or dist_cm(e.pos, aircraft.pos) > w.max_range_cm:
+    mult = radar_range_mult(e.unit, world, aircraft.alt_tier)          # P1 ④ 雷达射程增幅
+    if not is_aircraft_alive(aircraft, world) \
+            or dist_cm(e.pos, aircraft.pos) > w.max_range_cm * mult // 10000:
         ws.state = WState.READY                                        # dist 检查（§F9 原文）
         return
+    missile_warning(world, aircraft)                                   # P1 ① 来袭事件（诱饵自动）
     acc_bp = (w.accuracy_base_bp
               * aim_factor_bp(e, cfg) // 10000
               * e.template.squad_quality_bp // 10000)
+    if world.tick < aircraft.evade_until:                              # P1 ② 诱饵规避窗
+        acc_bp = acc_bp * cfg.decoy_evade_factor_bp // 10000
+    if aircraft.template.passive_evade_bp > 0:                         # P1 ③ 被动对策
+        acc_bp = acc_bp * (10000 - aircraft.template.passive_evade_bp) // 10000
     ws.ammo_left -= 1
     ws.state = WState.RELOADING
     ws.timer = max(1, w.reload_time_ticks * reload_factor_bp(e, cfg) // 10000)
@@ -2990,7 +3185,9 @@ def _fm_ws(gun, ammo: str):
     """炮击任务武器档选择（GP-01 §3 表行5「查 SMOKE 武器档」，2026-10-12 炮击
     模式块）：HE=主武器（weapon_states[0]，既有口径）；SMOKE=首个
     damage_type==SMOKE 档（迫击炮 YAML 第二武器行，GDD-01「82mm/120mm 可打
-    烟雾弹」）；无档 None=该门不参与（cmd_fire_mission 门级 REJECT 判据同一
+    烟雾弹」）；PRECISION=主武器（第三弹药位——P1 机制块 2026-10-13：断箭
+    「Precision will hit a laser designation」的激光引导弹=HE 档案+激光位吸附，
+    无新武器档）；无档 None=该门不参与（cmd_fire_mission 门级 REJECT 判据同一
     谓词——单谓词两消费点）。"""
     if ammo == "SMOKE":
         return next((ws for ws in gun.weapon_states
@@ -3062,6 +3259,13 @@ def fire_at(world: World, gun, ws, fm, cfg: BalanceConfig = CONFIG) -> None:
     for c in world.intel_circles:
         if c.team == gun.unit.team and dist_cm(c.center, pt) <= c.radius_cm:
             extra = max(extra, c.radius_cm)
+    if fm.ammo == "PRECISION":                               # P1：激光位吸附（manual.txt:
+        best_d = cfg.laser_snap_radius_cm                    # 456-458「hit a laser designation
+        for pos, _tgt in laser_marks_of(world, gun.unit.team):   # close to the Fire Mission
+            d = dist_cm(pos, pt)                             # area」——落点换最近有效激光位，
+            if d <= best_d:                                  # 照射跟随目标=每批重取现位）
+                pt, best_d = pos, d                          # 激光丢失（无位在判距内）=该批
+                                                            # 无引导：落原目标点吃全散布（从简）
     if fm.ammo == "SMOKE":                                   # GP-01 §3：武器烟弹路径
         scatter_cm = w.dispersion_cm + extra                 # 烟弹无校射收束（见 docstring）
         rng_scatter = world.rng.scatter()
@@ -3081,17 +3285,20 @@ def fire_at(world: World, gun, ws, fm, cfg: BalanceConfig = CONFIG) -> None:
         if fm.shots_left <= 0:
             gun.unit.fire_mission = None                      # 任务体销毁（方案10）
         return
-    if fm.form is FireMissionForm.POINT:                      # R-16 连内共享校射（⑩A：仅 POINT）
-        _ffn, _sfn, _ = terrain_sensing_channels(world)       # 感知接线块 2026-10-07：
+    if fm.form is FireMissionForm.POINT and fm.ammo == "HE":     # R-16 连内共享校射（⑩A：仅
+        _ffn, _sfn, _ = terrain_sensing_channels(world)       # POINT×HE——PRECISION 无校射
         if point_in_friendly_vision(cfg, world, gun.unit.team, fm.target_point,  # 校射视线同
                                      forest_m_fn=_ffn, smoke_m_fn=_sfn):        # 吃穿林/穿烟衰减
             fm.calib_progress = min(100, fm.calib_progress + cfg.calib_per_shot)
         if fm.target_point != fm.calib_target:                # 换点重置
             fm.calib_target = fm.target_point
             fm.calib_progress = 0
-    scatter_cm = (w.dispersion_cm
-                  * (10000 - fm.calib_progress * cfg.calib_max_reduction_bp // 100) // 10000
-                  + extra)
+    if fm.ammo == "PRECISION":                                # P1：精密档紧散射
+        scatter_cm = w.dispersion_cm * cfg.precision_scatter_bp // 10000 + extra
+    else:
+        scatter_cm = (w.dispersion_cm
+                      * (10000 - fm.calib_progress * cfg.calib_max_reduction_bp // 100) // 10000
+                      + extra)
     if w.alt_profile is not None:                            # M8/A14：曲射档案
         prof = (DamageType.HE, w.alt_profile.damage, w.alt_profile.blast_radius_cm, 0)
     else:
@@ -3126,6 +3333,12 @@ def cmd_fire_mission(world: World, unit: UnitInstance, form, point_or_line,
     至少一门 INDIRECT 炮带烟弹档（damage_type==SMOKE，_fm_ws 谓词——无档 REJECT
     =「查 SMOKE 武器档」管线第一步）；③ 弹量基数与 §2.11 超程进位判距按弹药位
     取档：SMOKE=烟档 ammo_base/max_range（HE=主武器既有）。〕
+    〔P1 机制块 2026-10-13：ammo 值域 +「PRECISION」（第三弹药位——manual.txt:
+    456-458「Precision will hit a laser designation close to the Fire Mission
+    area」）：④ PRECISION 门=目标点 cfg.laser_snap_radius_cm 内有本队有效激光位
+    （laser_marks_of——照射须在令前已建立，manual_silent：吸附判距取 cfg 值），
+    无激光位 REJECT；武器档=HE 主档；fire_at PRECISION 支落点=激光位（跟随目标）
+    +紧散射（cfg.precision_scatter_bp）。〕
     §2.11 超射程自动进位（2026-10-06 速度链块；GAP-13 adopt/MV-B-21 炮击任务
     语境）：双门通过后、任务体安装时——目标在 INDIRECT 主武器最大射程（MAX）外
     → movement.auto_approach_waypoint 插"射程内侧 standoff 航点"（下界半射程
@@ -3145,13 +3358,20 @@ def cmd_fire_mission(world: World, unit: UnitInstance, form, point_or_line,
     增量不触 PCG32 通道——发射段掷骰属既有 SCATTER 纪律）。"""
     if not (unit.template.mode_set & (1 << Mode.INDIRECT)):
         return False
-    if ammo not in ("HE", "SMOKE"):                          # GP-01 §3 ① 值域门
+    if ammo not in ("HE", "SMOKE", "PRECISION"):              # GP-01 §3 ① 值域门（P1 +PRECISION）
         return False
     guns = [g for g in unit.elements if g.mode is Mode.INDIRECT]
     if not guns:
         return False
     if ammo == "SMOKE" and all(_fm_ws(g, "SMOKE") is None for g in guns):
         return False                                         # GP-01 §3 ② 烟档门
+    if ammo == "PRECISION":                                  # P1 ④ 激光位门（仅 POINT 形态）
+        is_pt0 = form is FireMissionForm.POINT
+        ref0 = point_or_line if is_pt0 else nearest_on_segment(
+            unit.elements[0].pos, point_or_line[0], point_or_line[1])
+        if not any(dist_cm(pos, ref0) <= CONFIG.laser_snap_radius_cm
+                   for pos, _tgt in laser_marks_of(world, unit.team)):
+            return False
     guns_max_range = 0                              # §2.11：任务炮弹药位对应武器档射程 MAX
     for g in guns:
         ws = _fm_ws(g, ammo)
@@ -4015,6 +4235,8 @@ def system_supply(world: World, cfg: BalanceConfig = CONFIG) -> None:
     修满清 crit（D016）并解除其牵涉的拖曳对（stop_tow REPAIRED——R-19 修好即归队；
     GAP-24 元素级，仅涉本元素）。"""
     for u in world.units:
+        if not supply_switch_on(u, "ammo"):                  # P1 四开关：补弹药位关
+            continue                                         # （basics:213「Refill ammunition」）
         for t in u.elements:
             if t.mode is not Mode.CARGO:
                 continue
@@ -4041,6 +4263,7 @@ def system_supply(world: World, cfg: BalanceConfig = CONFIG) -> None:
                         if ws.state is WState.EMPTY and ws.ammo_left > 0:
                             ws.state = WState.READY         # 方案19：EMPTY 补给转 READY
                     if (e.template.unit_type is UnitType.INFANTRY
+                            and supply_switch_on(u, "heal")       # P1 四开关：医疗位
                             and 0 < e.hp_current < e.template.hp_max):
                         deficit = e.template.hp_max - e.hp_current
                         heal = min(deficit,
@@ -4051,6 +4274,8 @@ def system_supply(world: World, cfg: BalanceConfig = CONFIG) -> None:
     world.await_resupply = [u for u in world.await_resupply
                             if u.alive and needs_resupply(u)]   # 方案19 集合自清理
     for rep_u in world.units:
+        if not supply_switch_on(rep_u, "repair"):             # P1 四开关：修载具位
+            continue
         power = rep_u.template.repair_power_hp_per_tick
         if power <= 0:
             continue
@@ -4107,16 +4332,24 @@ def mount_requests_step(world: World) -> None:
 
 # ── §F7 经济与部署（:1374-1405）+ §F8 ⑧ system_economy（:1476-1479）+ D031 裁决 ──
 
-def cmd_purchase(world: World, player, template, cfg: BalanceConfig = CONFIG) -> bool:
+def cmd_purchase(world: World, player, template, dest=None,
+                 cfg: BalanceConfig = CONFIG) -> bool:
     """§F7 :1374-1379 出牌命令（仅盲部署 phase；零掷骰）。REJECT 四门：非盲部署相位 /
     空降投送限定卡（空裁8 2026-10-07——DELIVERY_AIRDROP_ONLY 位即拒，GDD-01 :99/:174
     卡面「仅可经Li-2/Ju 52空投（D017）」购买门强制；门序=相位门后第一门：静态卡面
     属性先于 deck 余量/点数两道动态资源门——同一张空降卡的 REJECT 因由不随资源状态
     漂移，不论带卡与否/点数够否一律在此门拒）/ 卡组无此卡或余量尽（一命制：卡组
     余量不回补）/ 点数不足。REJECT 一律不扣点不扣 deck 份不入队。接受则扣点、扣
-    DeckSlot 份、卡入 spawn_queue（逐个间隔出牌）。deck_slots 查找按 template 身份
-    （air.py 装机扣份同口径——B-06/B-12 空投链扣份不经本门，不受扰）。"""
-    if world.phase != PHASE_DEPLOY:                    # 仅盲部署 phase
+    DeckSlot 份、卡入 spawn_queue（逐个间隔出牌）；dest（点击展开目的地 cm）入
+    spawn_dests 并行 FIFO——spawn_step 据此让单位在 dest 直接出场（2026-10-12
+    二次拍板，见 _deploy_strip_clamp；None=锚点旧行为）。deck_slots 查找按 template 身份
+    （air.py 装机扣份同口径——B-06/B-12 空投链扣份不经本门，不受扰）。
+    〔P1 机制块 2026-10-13：相位门放宽=盲部署**与实战**两相放行（basics:165-168
+    「战斗全程随时可呼」——黄值=点数储备、每次呼援即扣）。点数来源=开局一次性
+    储备池延用（收入机制已删——2026-10-03 拍板；战中购卡与部署购卡共用
+    PlayerState.points 单池，无第二轨）。实战期购卡出场走 spawn_step 既有链
+    （dest 钳己方部署条带——呼援入场口语义）。〕"""
+    if world.phase not in (PHASE_DEPLOY, PHASE_COMBAT):   # 部署+实战两相（P1 战中呼援）
         return False
     if template.flags & UnitFlag.DELIVERY_AIRDROP_ONLY:  # 空裁8 投送限定门（2026-10-07）
         return False
@@ -4128,6 +4361,8 @@ def cmd_purchase(world: World, player, template, cfg: BalanceConfig = CONFIG) ->
     player.points -= template.cost
     slot.copies_left -= 1
     player.spawn_queue.append(template)
+    player.spawn_dests.append(
+        None if dest is None else (int(dest[0]), int(dest[1])))
     return True
 
 
@@ -4136,6 +4371,22 @@ def _deploy_anchor(world: World, team: int) -> tuple[int, int]:
     （map_extent 推导；air_entry_point 同向约定：team0=南底边 y=0、team1=北底边
     y=h。见登记表 discrepancies）。"""
     return (world.map_center[0], 0 if team == 0 else world.map_extent[1])
+
+
+def _deploy_strip_clamp(world: World, team: int, dest) -> tuple[int, int]:
+    """出场钳位（2026-10-12 二次拍板·断箭 Basics 2.2 实据）：「At the end of this
+    delay the units that you have ordered will start to spawn…represented by a
+    ghost」——单位在**下单位置直接实体化出场**（幽灵挂点击点），不从地图边缘
+    开进（边缘进场仅属飞机/直升机）。本作同构：dest 落点钳入己方部署条带
+    （图高 1/5，lane_points/集结区扇区同口径）——防越区直放敌阵；x 钳图宽。
+    零掷骰。（同日一次拍板「垂足出动」就此废止——Basics 指南无边缘开进依据，
+    玩家实感亦证不似断箭。）"""
+    width, height = world.map_extent
+    strip = height // 5
+    x = min(max(int(dest[0]), 0), width)
+    y = min(max(int(dest[1]), 0), strip) if team == 0 \
+        else min(max(int(dest[1]), height - strip), height)
+    return (x, y)
 
 
 def _infiltrator_spawn_pos(world: World, team: int) -> tuple[int, int]:
@@ -4170,9 +4421,12 @@ def spawn_step(world: World, cfg: BalanceConfig = CONFIG) -> None:
         if not p.spawn_queue:
             continue
         card = p.spawn_queue.pop(0)
+        dest = p.spawn_dests.pop(0) if p.spawn_dests else None
         p.spawn_serial += 1                            # 出牌序计账（只增不减）
         if card.flags & UnitFlag.CAN_INFILTRATE:
             spawn_pos = _infiltrator_spawn_pos(world, p.team)
+        elif dest is not None:
+            spawn_pos = _deploy_strip_clamp(world, p.team, dest)  # 直接出场（拍板同日二次）
         else:
             spawn_pos = _deploy_anchor(world, p.team)  # 点单位可叠放（PB-16 拍板）
         unit = add_unit(world, make_unit(world, card, p.team, p.index, spawn_pos))
@@ -4251,6 +4505,277 @@ def resolve_settlement(world: World) -> Settlement:
                       unit_scores=unit_scores, hp_totals=hp_totals)
 
 
+# ── P1 机制块处理体（2026-10-13，GP-01 断箭手册 P1 补建：地面 RTB／激光照射／
+#    雷达／补给堆开关；诱饵/加力处理体在 air.py）──
+
+# 补给堆四功能开关位（basics:208-213——UnitInstance.supply_switches 的 bit 位）
+SUPPLY_SW_SHARE = 1
+SUPPLY_SW_HEAL = 2
+SUPPLY_SW_REPAIR = 4
+SUPPLY_SW_AMMO = 8
+_SUPPLY_SW_BITS = {"share": SUPPLY_SW_SHARE, "heal": SUPPLY_SW_HEAL,
+                   "repair": SUPPLY_SW_REPAIR, "ammo": SUPPLY_SW_AMMO}
+
+
+def supply_switch_on(u: UnitInstance, which: str) -> bool:
+    """补给堆开关读数（缺省全开——types.py supply_switches=0b1111）。"""
+    return bool(u.supply_switches & _SUPPLY_SW_BITS[which])
+
+
+def _player_of_team(world: World, team: int):
+    """队 → 退款收款玩家（UnitInstance 无玩家归属面——取该队首个玩家；
+    players_per_team=1 现役配置下无歧义，多玩家面留痕可推翻）。"""
+    return next((p for p in world.players if p.team == team), None)
+
+
+def unit_refund_points(u: UnitInstance, cfg: BalanceConfig = CONFIG) -> int:
+    """地面 RTB 退款额（manual.txt:396-398/basics:179-180）：造价 ×（1 − 损伤比例
+    − 耗弹折减），下限 20%。损伤比例=缺失 HP/满 HP（元素和）；耗弹折减=已耗弹量
+    比例（有弹药基数武器加权平均——手册未给折减权重，manual_silent 从简等权）。"""
+    cost = u.template.cost
+    hp = sum(e.hp_current for e in u.elements)
+    hp_max = sum(e.template.hp_max for e in u.elements)
+    dmg_bp = (hp_max - hp) * 10000 // hp_max if hp_max > 0 else 0
+    spent = total = 0
+    for e in u.elements:
+        for ws in e.weapon_states:
+            if ws.template.ammo_base > 0:
+                spent += ws.template.ammo_base - ws.ammo_left
+                total += ws.template.ammo_base
+    ammo_bp = spent * 10000 // total if total > 0 else 0
+    refund = cost * max(0, 10000 - dmg_bp - ammo_bp) // 10000
+    return max(cost * cfg.rtb_refund_floor_permille // 10000, refund)
+
+
+def ground_recovery(world: World, u: UnitInstance,
+                    cfg: BalanceConfig = CONFIG) -> int:
+    """地面单位回基地结算（P1 B 键到场）：退款（本体+跨卡舱载单位+车载补给重量）
+    →注销+移除。舱载跨卡单位=elements[].cargo_units 各 UnitInstance 逐个退款移除
+    （manual.txt:399-400「All units and supplies in a transport vehicle will also
+    disappear and be refunded」——同卡班元素在本体退款内，不双算）。返回退款总额
+    （含舱载）。"""
+    player = _player_of_team(world, u.team)
+    total = 0
+    # 跨卡舱载单位先行（引用挂在本体元素上——本体移除前收账）
+    for e in u.elements:
+        for cargo_u in list(e.cargo_units or ()):
+            if cargo_u.alive:
+                total += ground_recovery(world, cargo_u, cfg)
+    if player is not None:
+        amount = unit_refund_points(u, cfg)
+        for e in u.elements:                     # 车载补给连带退款（basics:399）
+            weight = e.supply_weight_g or 0
+            if weight > 0:
+                amount += weight * cfg.rtb_supply_points_per_100g // 100
+        player.points += amount
+        total += amount
+        world.refund_log.append({"tick": world.tick, "unit_id": u.id,
+                                 "team": u.team, "amount": amount})
+        if len(world.refund_log) > REJECTION_LOG_CAP:
+            del world.refund_log[0]
+    unregister_unit_refs(world, u)
+    u.rtb_pending = False
+    u.alive = False
+    if u in world.aa_roster:
+        world.aa_roster.remove(u)
+    return total
+
+
+def cmd_ground_rtb(world: World, unit: UnitInstance,
+                   cfg: BalanceConfig = CONFIG) -> bool:
+    """B 地面 RTB（manual.txt:394-400）：以最快模式（MARCH 快移）撤向最近友方出生
+    点（现役=己方底边中点锚点 _deploy_anchor——唯一出生点即最近）、抵达即消失退款。
+    门：非存活/已 在途/结算期 →REJECT；整班车载 →REJECT（载体 RTB 连带退款承载
+    ——舱内班随机毁损失退款，先下车再 RTB）。撤令=E（cmd_cancel 清 rtb_pending）。"""
+    if not unit.alive or unit.rtb_pending or world.phase == PHASE_SETTLE:
+        return False
+    if unit.elements and all(e.mounted_in is not None for e in unit.elements):
+        return False                                              # 整班车载（门3 同判）
+    unit.rtb_pending = True
+    anchor = _deploy_anchor(world, unit.team)
+    ok = issue_move(world, cfg,
+                    MoveCmd(unit=unit, path=[anchor], mode=MoveMode.MARCH))
+    if not ok:                                                    # 移动门拒（收装中/溃逃等）
+        unit.rtb_pending = False                                  # ——回滚在途位不留半挂态
+        return False
+    return True
+
+
+def system_rtb(world: World, cfg: BalanceConfig = CONFIG) -> None:
+    """地面 RTB 到场结算（每拍）：在途单位航路耗尽=抵达出生点→消失+退款。"""
+    for u in list(world.units):
+        if not u.rtb_pending:
+            continue
+        if not u.alive:                                           # 途中阵亡——尸体清扫收口
+            u.rtb_pending = False
+            continue
+        if not u.moving():
+            ground_recovery(world, u, cfg)
+
+
+def cmd_create_dump(world: World, unit: UnitInstance, pos,
+                    cfg: BalanceConfig = CONFIG) -> bool:
+    """卸货成堆处理体（2026-10-13 终审修复块——basics:202-204「Order your truck to
+    unload somewhere to create a supply dump where units can be rearmed and
+    repaired」；推翻 D065「卡车即移动堆、不建堆实体」的单形态判——车载制保留并存
+    （满载卡车=移动堆），堆实体经本令落地）。门序：
+      ① 非存活/结算期/已在途 → REJECT；
+      ② 无 HAS_SUPPLY 资格 → REJECT（非补给载具无堆可卸）；
+      ③ 无满载元素（supply_weight_g>0）→ REJECT（空车无堆可卸——手册语境=载货
+        卡车卸货成堆）。
+    接受：写 dump_pending=pos（在途位）；已在落点旁（≤dump_arrive_radius_cm）当拍
+    即卸（免空驶）；否则 issue_move 驶向落点、到场 system_dump_delivery 落堆。
+    移动门拒（收装中/溃逃等）→ 回滚在途位不留半挂态（cmd_ground_rtb 同款）。
+    撤令=E（cmd_cancel 清 dump_pending）。零掷骰。"""
+    if (not unit.alive or unit.dump_pending is not None
+            or world.phase == PHASE_SETTLE):
+        return False
+    if not (unit.template.flags & UnitFlag.HAS_SUPPLY):
+        return False
+    loaded = [e for e in unit.elements
+              if e.supply_weight_g is not None and e.supply_weight_g > 0]
+    if not loaded:
+        return False
+    pos = (int(pos[0]), int(pos[1]))
+    if dist_cm(unit.pos, pos) <= cfg.dump_arrive_radius_cm:
+        _deliver_dump(world, unit)                     # 已在落点旁——当拍即卸
+        return True
+    unit.dump_pending = pos
+    ok = issue_move(world, cfg, MoveCmd(unit=unit, path=[pos],
+                                        mode=MoveMode.NORMAL))
+    if not ok:
+        unit.dump_pending = None                       # 回滚（RTB 同款不留半挂态）
+        return False
+    return True
+
+
+def _deliver_dump(world: World, unit: UnitInstance) -> None:
+    """落堆唯一写点：满载元素的物资重量整转堆实体（spawn_airdrop_crate 同款
+    箱体：不可移动/命中即爆/四开关/system_supply 拾取链全继承），卡车清载。
+    零掷骰。"""
+    for e in unit.elements:
+        if e.supply_weight_g is not None and e.supply_weight_g > 0:
+            world.spawn_airdrop_crate(unit.team, unit.pos, e.supply_weight_g)
+            e.supply_weight_g = 0                      # 整转（卡车与堆不双记）
+    unit.dump_pending = None
+
+
+def system_dump_delivery(world: World) -> None:
+    """卸货成堆到场结算（每拍，system_rtb 同位）：在途卡车航路耗尽=抵落点→
+    落堆清载清位；途中亡/载失（物资被打爆清零）→ 清位不落堆。零掷骰。"""
+    for u in list(world.units):
+        if u.dump_pending is None:
+            continue
+        if not u.alive or not any(e.supply_weight_g is not None
+                                  and e.supply_weight_g > 0
+                                  for e in u.elements):
+            u.dump_pending = None                      # 途中亡/载失——尸体清扫收口
+            continue
+        if not u.moving():
+            _deliver_dump(world, u)
+
+
+def laser_los_ok(cfg: BalanceConfig, world: World, designator, target) -> bool:
+    """激光视线判定（manual.txt:520-522「will break if it exits line of sight」）：
+    复用地面探测链（光学×目标隐蔽档−穿林/穿烟衰减——detection_range_cm 同式，
+    目标视为移动中档的保守近似；点目标无 in_forest 通道，从简）。"""
+    from .sensing import detection_range_cm, terrain_sensing_channels
+    _ffn, _sfn, _ = terrain_sensing_channels(world)
+    forest_m = _ffn(designator.pos, target.pos) if _ffn else 0
+    smoke_m = _sfn(designator.pos, target.pos) if _sfn else 0
+    r = detection_range_cm(cfg, designator, target,
+                           forest_m=forest_m, smoke_m=smoke_m)
+    return dist_cm(designator.pos, target.pos) <= r
+
+
+def laser_marks_of(world: World, team: int) -> list:
+    """该队有效激光位清单（照射者/目标存活+LOS 在——失效条目顺手清理）。
+    返回 [(pos, target_unit)]——照射跟随目标=位=target 当前位（manual.txt:520）。"""
+    from .sensing import terrain_sensing_channels  # noqa: F401（LOS 内部消费）
+    out = []
+    for uid in list(world.laser_by_unit):
+        team_v, tgt = world.laser_by_unit[uid]
+        designator = next((u for u in world.units
+                           if u.id == uid and u.alive), None)
+        if (designator is None or team_v != team or not tgt.alive
+                or not tgt.elements
+                or not laser_los_ok(CONFIG, world, designator, tgt)):
+            del world.laser_by_unit[uid]                          # 失效清理（死亡/断 LOS）
+            continue
+        out.append((tgt.pos, tgt))
+    return out
+
+
+def prune_lasers(world: World, cfg: BalanceConfig = CONFIG) -> None:
+    """激光位周期维护（sensing 节拍同拍——laser_marks_of 顺带清理的消费面）。"""
+    for team in {p.team for p in world.players}:
+        laser_marks_of(world, team)
+
+
+def cmd_laser_designate(world: World, designator_unit, target_unit) -> bool:
+    """N 激光照射处理体：资格（CAN_SNIPER_COVER——basics:291 狙击组即照射器载体）
+    +目标敌方存活+非自身+LOS 在 → 写 laser_by_unit（1:1 替换——同照射者重指即换
+    目标）。断 LOS/死亡失效=laser_marks_of 消费侧清理（prune_lasers 周期兜底）。"""
+    if not (designator_unit.template.flags & UnitFlag.CAN_SNIPER_COVER):
+        return False
+    if target_unit.team == designator_unit.team:
+        return False
+    if not target_unit.alive or not target_unit.elements:
+        return False
+    if target_unit is designator_unit:
+        return False
+    if not laser_los_ok(CONFIG, world, designator_unit, target_unit):
+        return False
+    world.laser_by_unit[designator_unit.id] = (designator_unit.team, target_unit)
+    return True
+
+
+def radar_active(u: UnitInstance, world: World) -> bool:
+    """雷达生效判据（开关+5s 启动窗——basics:334「It takes 5 seconds to activate
+    … can be turned off immediately」）。"""
+    return u.radar_on and world.tick >= u.radar_ready_tick
+
+
+def radar_range_mult(u: UnitInstance, world: World, tgt_tier) -> int:
+    """雷达对空探测/射程增幅 bp（basics:328-330：高空×2、低空+25%；断箭无 MID
+    概念——MID 归高带 ×2，留痕可推翻；未生效=10000 恒等）。"""
+    if not radar_active(u, world):
+        return 10000
+    from .types import AltTier
+    if tgt_tier is AltTier.LOW:
+        return CONFIG.radar_mult_low_bp
+    return CONFIG.radar_mult_high_bp
+
+
+def cmd_radar(world: World, unit: UnitInstance, engage: bool,
+              cfg: BalanceConfig = CONFIG) -> bool:
+    """Z 高炮雷达开关处理体：资格=_aa_eligible（对空武器/对空光学任一）；开=写
+    radar_on+启动到期拍（关=即刻生效——basics:335「turned off immediately, in
+    which case the anti-radiation missiles will miss」；本作无 SEAD 弹种，关机仅
+    撤增益+撤可视标记，头注登记）。"""
+    if not _aa_eligible(unit.template):
+        return False
+    unit.radar_on = bool(engage)
+    if engage:
+        unit.radar_ready_tick = world.tick + cfg.radar_spinup_ticks
+    return True
+
+
+def cmd_supply_switch(world: World, unit: UnitInstance, switch: str,
+                      on: bool) -> bool:
+    """补给堆四功能开关处理体（basics:208-213）：资格=任一元素带物资槽（HAS_
+    SUPPLY 位——卡车/空投箱）；switch 值域 {_SUPPLY_SW_BITS}；on=开位/清位。
+    share 位呈现位留痕（见 SupplySwitchCmd 注）。"""
+    if switch not in _SUPPLY_SW_BITS:
+        return False
+    if not (unit.template.flags & UnitFlag.HAS_SUPPLY):
+        return False
+    bit = _SUPPLY_SW_BITS[switch]
+    unit.supply_switches = (unit.supply_switches | bit) if on \
+        else (unit.supply_switches & ~bit)
+    return True
+
+
 # ── §F8 world_tick（:1423-1440，固定步长 10Hz）──
 
 def world_tick(world: World, cfg: BalanceConfig = CONFIG) -> None:
@@ -4264,6 +4789,10 @@ def world_tick(world: World, cfg: BalanceConfig = CONFIG) -> None:
         system_move_dispatch(world, cfg, unit)       # ② 移动（含随动）——§2.4 dispatch 包装器
                                                      # （§9 :576：system_move 直调已替换；ATTACK
                                                      # 保持门/MARCH 道路门/瓦片注入/队形/复位）
+    system_rtb(world, cfg)                          # P1：地面 RTB 到场结算（② 后——
+                                                     # 当拍停步即当拍退款移除）
+    system_dump_delivery(world)                     # 终审修复块 2026-10-13：卸货成堆
+                                                     # 到场结算（RTB 同位同拍语义）
     if world.tick % cfg.sensing_period_ticks == 0:                     # ③ 节流扫描
         _ffn, _sfn, _ifn = terrain_sensing_channels(world)            #    感知接线块
         system_sensing(cfg, world, forest_m_fn=_ffn,                   #    （2026-10-07：
@@ -4271,6 +4800,7 @@ def world_tick(world: World, cfg: BalanceConfig = CONFIG) -> None:
                                                                        #    穿林/穿烟/林内
                                                                        #    三通道喂入；含
                                                                        #    sense_air 对空分支）
+        prune_lasers(world, cfg)                    # P1：激光位失效清理（死亡/断 LOS）
         sonar_step(world, cfg)  # GP-01 §3 表行13（2026-10-12）：R-03 声测圈
                                                                        #    （IMPL §F3 system_
                                                                        #    sensing 尾位同款

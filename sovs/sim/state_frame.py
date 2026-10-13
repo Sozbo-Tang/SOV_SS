@@ -30,6 +30,7 @@ from __future__ import annotations
 
 from .air import (PHASE_COMBAT, PHASE_DEPLOY, PHASE_SETTLE, AltTier,
                   TaskKind)
+from .tables import CONFIG as CONFIG_FUEL_REF  # P1：燃油百分比基数（air_fuel_ticks）
 from .types import UnitFlag
 
 # 帧契约版本（FE-T03 wire/回放文件头同源节奏：字段档非向后兼容变更时 bump）。
@@ -41,6 +42,13 @@ from .types import UnitFlag
 SCHEMA_VERSION = "1.1"
 
 _PHASE_NAME = {PHASE_DEPLOY: "deploy", PHASE_COMBAT: "combat", PHASE_SETTLE: "settle"}
+
+
+def _laser_marks(world, team: int) -> list:
+    """该队有效激光位（P1——tick.laser_marks_of 惰性代理：失效清理/LOS 判定单点
+    在 tick 侧，帧侧只读）。"""
+    from .tick import laser_marks_of
+    return laser_marks_of(world, team)
 
 
 def _fm_summary(u) -> dict | None:
@@ -95,6 +103,17 @@ def _unit_entry(u, view: int | None) -> dict:
         "smoke_left": sum(e.self_smoke_left for e in u.elements),  # 自卫烟幕余发（AI 摘要档消费面）
         "fire_mission": (_fm_summary(u)
                          if view is None or u.team == view else None),
+        # ── P1 机制块加键（2026-10-13，帧 1.1 加键不 bump——battle.png 复检①口径；
+        #    旧消费者忽略未知键即向后兼容）──
+        "radar_on": bool(u.radar_on),    # 雷达开关位（SEAD 易损标记=对方可见我雷达
+        # 开机情报——basics:331-333「Activating the radar makes you a target for
+        # anti-radiation missiles」；本作无 SEAD 弹种，标记位即全部。5s 启动窗内
+        # 增益未生效但标记已亮=「开机即暴露」的字面承载）
+        "rtb": bool(u.rtb_pending),      # 地面 RTB 在途（B 键——HUD 状态面）
+        "supply_gates": {"share": bool(u.supply_switches & 1),    # 补给堆四开关
+                         "heal": bool(u.supply_switches & 2),     # （basics:208-213）
+                         "repair": bool(u.supply_switches & 4),
+                         "ammo": bool(u.supply_switches & 8)},
     }
 
 
@@ -113,7 +132,7 @@ def _task_summary(a) -> dict | None:
     return {"kind": "airdrop", "drop": [t.drop[0], t.drop[1]]}
 
 
-def _aircraft_entry(a) -> dict:
+def _aircraft_entry(a, world) -> dict:
     """飞机条目（ammo 弹舱整拷——BOMB/STRAFE/SUPPLY；spotted=被对方任一队
     发现（`a.spotted_mask & ~(1 << a.team)`，与观察视角无关的自身状态，
     断箭/Wargame 系玩家可见自身被探测状态的同款 UX，非视角泄露）。
@@ -141,6 +160,17 @@ def _aircraft_entry(a) -> dict:
         "alt_pending": (None if ap is None else
                         {"tier": AltTier(ap[0]).name.lower(),
                          "ticks_left": ap[1]}),  # 换层中；None=无在途换层
+        # ── P1 机制块加键（2026-10-13——加力/燃油/诱饵/被动对策/空降份数）──
+        "afterburner": bool(a.afterburner),   # 加力在开（Z toggle）
+        "fuel_pct": (100 if a.fuel_ticks < 0
+                     else a.fuel_ticks * 100 // max(1, CONFIG_FUEL_REF.air_fuel_ticks)),
+        # （-1=未初始化哨兵=直构实例——按满油呈现；正常 cmd_air_call 路径恒初始化）
+        "decoy_left": int(a.decoy_left),      # 诱饵余发（C）
+        "evade_active": bool(world.tick < a.evade_until),   # 诱饵规避窗在途
+        "evade_pct": a.template.passive_evade_bp // 100,    # 被动对策规避 %
+        # （basics:353-356「indicated as a % … in the statistics panel」）
+        "paratroop_count": (a.paratroop_left
+                            if a.paratroop_cargo is not None else 0),  # 舱内份数
     }
 
 
@@ -204,6 +234,20 @@ def state_frame(world, player_index: int | None) -> dict:
         visible_ids = ({u.id for u in units} | {a.id for a in aircraft})
         rejections = [r for r in world.rejection_log[-8:]
                       if r["ref_id"] in visible_ids]
+    # P1 激光位（N 键）：己方全量导出（view=None 裁判全知）；敌方照射目标=对方
+    # 私有情报不导出（fire_mission 摘要同款边界）。
+    if view is None:
+        lasers = [{"pos_cm": [pos[0], pos[1]], "team": team}
+                  for team in {p.team for p in world.players}
+                  for pos, _tgt in _laser_marks(world, team)]
+    else:
+        lasers = [{"pos_cm": [pos[0], pos[1]], "team": view}
+                  for pos, _tgt in _laser_marks(world, view)]
+    # P1 RTB 退款事件（尾 8 条→fsm toast）：视角过滤=本队（裁判全知）。
+    if view is None:
+        refunds = list(world.refund_log[-8:])
+    else:
+        refunds = [r for r in world.refund_log[-8:] if r.get("team") == view]
     return {
         # ── 帧头（契约③：FE-T06 按帧对齐依赖）──
         "schema_version": SCHEMA_VERSION,
@@ -213,7 +257,7 @@ def state_frame(world, player_index: int | None) -> dict:
         "map_cm": [world.map_extent[0], world.map_extent[1]],
         # ── 实体全量档 ──
         "units": [_unit_entry(u, view) for u in units],
-        "aircraft": [_aircraft_entry(a) for a in aircraft],
+        "aircraft": [_aircraft_entry(a, world) for a in aircraft],
         "objectives": [{
             "id": o.id,
             "pos_cm": [o.pos[0], o.pos[1]],
@@ -222,6 +266,8 @@ def state_frame(world, player_index: int | None) -> dict:
         } for o in world.objectives],
         "players": [_player_entry(p) for p in players],
         "rejections": rejections,             # 命令拒绝尾 8 条（GP-01 §4 ④段——fsm toast）
+        "lasers": lasers,                     # P1 激光位（己方——精密弹药/标记可视化）
+        "refunds": refunds,                   # P1 RTB 退款事件尾 8 条（fsm toast）
         "smoke_zones": [{
             "pos_cm": [z.center[0], z.center[1]],
             "radius_cm": z.radius_cm,

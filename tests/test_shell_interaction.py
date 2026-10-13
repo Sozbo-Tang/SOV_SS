@@ -11,7 +11,7 @@
 - A9 无效操作反馈（曲射资格/无在空飞机 toast+trail 不变；空呼点数预判）；
 - A10 ESC 分层链；A14 页面门（config/deploy 拦截+toast 文案）；
 - Shift 排队（MoveCmd queue 透传）；
-- StandardPlay 标准玩法剧本（框选→右键移动→A 攻击移动→烟幕→编组→切组）。
+- StandardPlay 标准玩法剧本（框选→右键移动→Q 攻击移动→烟幕→编组→切组）。
 """
 from __future__ import annotations
 
@@ -77,6 +77,9 @@ class _FakeCmd:
     def sprint(self, ids):
         return self._log("sprint", tuple(ids))
 
+    def radar(self, ids, engage):
+        return self._log("radar", tuple(ids), engage=engage)
+
     def smoke(self, ids):
         return self._log("smoke", tuple(ids))
 
@@ -86,11 +89,16 @@ class _FakeCmd:
     def smoke_sprint_stance(self, ids, stance="HOLD_FIRE"):
         return self._log("smoke_sprint_stance", tuple(ids))
 
-    def attack(self, uid, foe):
-        return self._log("attack", uid, foe)
+    def attack(self, uid, foe, queue=False):
+        return self._log("attack", uid, foe, queue=queue)
 
-    def fire_mission(self, uid, point):
-        return self._log("fire_mission", uid, tuple(point))
+    def fire_mission(self, uid, point, **kw):
+        return self._log("fire_mission", uid, tuple(point), **kw)
+
+    def unload(self, ids, cm=None, building_id=None, queue=False):
+        return self._log("unload", tuple(ids),
+                         None if cm is None else tuple(cm),
+                         building_id=building_id, queue=queue)
 
     def air_strike(self, aid, point):
         return self._log("air_strike", aid, tuple(point))
@@ -125,7 +133,7 @@ class TestPageGates(unittest.TestCase):
     def test_config_blocks_all_combat_keys_with_toast(self):
         f = ShellFsm()                              # config 页
         cmd = _FakeCmd()
-        for name in ("A", "S", "E", "Z", "X", "R", "T", "G", "H", "K", "O", "TAB"):
+        for name in ("Q", "S", "E", "Z", "X", "R", "T", "G", "H", "K", "O", "TAB"):
             f.notifications.clear()
             cmd.calls.clear()
             self.assertEqual(f.key(name, cmd=cmd), "blocked", name)
@@ -139,14 +147,17 @@ class TestPageGates(unittest.TestCase):
         f.select_units([1])
         self.assertEqual(f.key("S", cmd=cmd), "stop")
         self.assertEqual(f.key("E", cmd=cmd), "cancel")
-        self.assertEqual(f.key("Z", cmd=cmd), "sprint")
+        # 〔P1 2026-10-13：Z 地面分流——雷达令先行（无对空资格由引擎门拒）+
+        # 冲刺；返回动作名 z_dispatch（radar/sprint 双发）。〕
+        self.assertEqual(f.key("Z", cmd=cmd), "z_dispatch")
+        self.assertIn("sprint", [c[0] for c in cmd.calls])
         self.assertEqual(f.key("R", cmd=cmd), "arm:reverse")
         self.assertTrue(cmd.calls)
 
     def test_deploy_blocks_attack_family_with_toast(self):
         f = self._deploy_fsm()
         cmd = _FakeCmd()
-        for name in ("A", "T", "K", "O", "H", "X"):
+        for name in ("Q", "T", "K", "O", "H", "X"):
             f.notifications.clear()
             cmd.calls.clear()
             self.assertEqual(f.key(name, cmd=cmd), "blocked", name)
@@ -165,7 +176,9 @@ class TestPageGates(unittest.TestCase):
         f.on_frame(_frame("combat", 700))
         cmd = _FakeCmd()
         f.select_units([1])
-        expect = {"A": "arm:attack", "S": "stop", "E": "cancel", "Z": "sprint",
+        # 〔P1 2026-10-13：Z=z_dispatch（雷达+冲刺分流）；+C/L/M/N/P 新键锚另见
+        # test_p1_mechanics。〕
+        expect = {"Q": "arm:attack", "S": "stop", "E": "cancel", "Z": "z_dispatch",
                   "X": "smoke", "R": "arm:reverse", "T": "arm:fire_mission",
                   "G": "combo", "H": "stance", "K": "arm:strike", "O": "arm:drop"}
         for name, action in expect.items():
@@ -175,7 +188,7 @@ class TestPageGates(unittest.TestCase):
         f = self._deploy_fsm()
         f.on_frame(_frame("settle", 13800, result={"winner": 0}))
         cmd = _FakeCmd()
-        for name in ("A", "S", "G", "1"):
+        for name in ("Q", "S", "G", "1"):
             self.assertIsNone(f.key(name, cmd=cmd), name)
         self.assertFalse(cmd.calls)
         self.assertFalse(f.notifications)
@@ -432,6 +445,104 @@ class TestArmedExecution(unittest.TestCase):
         self.assertTrue(cmds[0].queue)               # MoveCmd queue 形参透传
 
 
+class TestP0ManualAlignment(unittest.TestCase):
+    """P0 键位纠偏块（2026-10-13）——手册 HOTKEYS/Hold Fire/SHIFT 语义锚：
+    - Q=Attack Move（manual.txt:560-562，A 退役）；
+    - U 双击=就地立即卸载（manual.txt:566-568「(Press U twice to unload
+      immediately)」）；
+    - SHIFT=Queue orders（manual.txt:551）：待令态 Shift+确认=入队不清待令；
+    - O 空投拖拽画区：区心投放（与 T/K 画线态同构）。"""
+
+    def setUp(self):
+        self.w = make_world(31, phase=PHASE_COMBAT, size_cm=(200000, 100000))
+        for key, copies in (("SU_RIFLE", 2), ("SU_ZIS3", 1)):
+            self.w.players[0].deck_slots.append(DeckSlot(_TPL[key], copies))
+        self.r1 = add_unit(self.w, make_unit(self.w, _TPL["SU_RIFLE"], 0, 0,
+                                             (50000, 50000)))
+        self.gun = add_unit(self.w, make_unit(self.w, _TPL["SU_ZIS3"], 0, 0,
+                                              (56000, 50000)))
+        self.foe = add_unit(self.w, make_unit(self.w, _TPL["SU_RIFLE"], 1, 1,
+                                              (60000, 50000)))
+        self.foe.spotted_mask |= 1
+        self.bus = CmdBus(self.w, 0)
+        self.fsm = ShellFsm()
+        self.fsm.start_deploy()
+        self.fsm.on_frame(_frame("combat", 700))
+        self.fsm.select_units([self.r1.id, self.gun.id])
+
+    def test_Q_arms_attack_A_is_retired(self):
+        # 手册 Q=Attack Move；A 无战斗语义（WASD 相机占用——manual.txt:579-580）
+        self.assertEqual(self.fsm.key("Q", cmd=self.bus), "arm:attack")
+        self.assertIsNone(self.fsm.key("A", cmd=self.bus))   # A 退役（无别名）
+
+    def test_U_double_press_unloads_in_place(self):
+        self.assertEqual(self.fsm.key("U", cmd=self.bus), "arm:unload")
+        self.assertEqual(self.fsm.armed_order, "unload")
+        moves0 = len([t for t in self.bus.trail if t["kind"] == "move"])
+        self.assertEqual(self.fsm.key("U", cmd=self.bus), "unload_now")
+        self.assertIsNone(self.fsm.armed_order)               # 就地卸载后清待令
+        unloads = [t for t in self.bus.trail if t["kind"] == "unload"]
+        self.assertTrue(unloads)
+        self.assertIsNone(unloads[-1]["point_cm"])            # 无目标点=就地
+        self.assertEqual(                                      # 未附带开进移动令
+            len([t for t in self.bus.trail if t["kind"] == "move"]), moves0)
+
+    def test_shift_confirm_queues_and_keeps_armed(self):
+        # 手册 SHIFT=Queue orders：待令态 Shift+确认=入队不清待令（移动/攻击/
+        # 炮击/卸载四族）；非 Shift 确认=即发清待令
+        self.fsm.arm_order("attack")
+        self.assertTrue(self.fsm.execute_armed_ground((70000, 50000),
+                                                     self.bus, shift=True))
+        self.assertEqual(self.fsm.armed_order, "attack")      # 不清待令
+        mv = next(c for c in self.w.command_queue
+                  if type(c).__name__ == "MoveCmd")
+        self.assertTrue(mv.queue)                             # 引擎排队位生效
+        self.assertIs(mv.mode, MoveMode.ATTACK)
+        # 卸载族：DismountCmd+MoveCmd 全排队
+        self.fsm.arm_order("unload")
+        self.assertTrue(self.fsm.execute_armed_ground((70000, 50000),
+                                                     self.bus, shift=True))
+        self.assertEqual(self.fsm.armed_order, "unload")
+        dis = [c for c in self.w.command_queue
+               if type(c).__name__ == "DismountCmd"]
+        self.assertTrue(dis and all(c.queue for c in dis))
+        # 炮击族：FireMissionCmd 排队、待令保留
+        self.fsm.arm_order("fire_mission")
+        self.assertTrue(self.fsm.execute_armed_ground((100000, 50000),
+                                                     self.bus, shift=True))
+        self.assertEqual(self.fsm.armed_order, "fire_mission")
+        fm = next(c for c in self.w.command_queue
+                  if type(c).__name__ == "FireMissionCmd")
+        self.assertTrue(fm.queue)
+        # 攻击族（点敌齐射）：AttackCmd 排队、待令保留
+        self.fsm.arm_order("attack")
+        self.assertTrue(self.fsm.execute_armed_unit(self.foe.id, self.bus,
+                                                   enemy=True, shift=True))
+        self.assertEqual(self.fsm.armed_order, "attack")
+        atk = [c for c in self.w.command_queue
+               if type(c).__name__ == "AttackCmd"]
+        self.assertTrue(atk and all(c.queue for c in atk))
+        # 非 Shift 收尾确认=即发清待令（旧行为不变）
+        self.assertTrue(self.fsm.execute_armed_ground((70000, 50000),
+                                                     self.bus))
+        self.assertIsNone(self.fsm.armed_order)
+
+    def test_drop_area_center_and_short_drag_point(self):
+        # O 拖拽画区=区心投放（AirAirdropCmd 点 API——区=区心单点留痕）；
+        # 短拖回落点投（finish_line_drag 阈值语义在 fm_panel 测）
+        frame = _frame("combat", 700, aircraft=[
+            {"id": 5, "team": 0, "state": "patrol", "ammo": {},
+             "paratroop": {"n": 4}}])
+        self.fsm.on_frame(frame)
+        self.fsm.arm_order("drop")
+        cmd = _FakeCmd()
+        self.assertTrue(self.fsm.execute_armed_drop_area((60000, 40000),
+                                                         (80000, 60000), cmd))
+        drops = [c for c in cmd.calls if c[0] == "air_airdrop"]
+        self.assertEqual(drops, [("air_airdrop", (5, (70000, 50000)), {})])
+        self.assertIsNone(self.fsm.armed_order)               # 投放后清待令
+
+
 class TestHStanceToggle(unittest.TestCase):
     """H 交战纪律切换：逐单位按帧内当前姿态取反（SetStanceCmd 包装）。"""
 
@@ -511,7 +622,7 @@ class TestAirRosterAffordability(unittest.TestCase):
 
 
 class TestStandardPlayScript(unittest.TestCase):
-    """附加要求③/④：标准玩法剧本（框选→右键移动→A 攻击移动→烟幕→编组→切组）
+    """附加要求③/④：标准玩法剧本（框选→右键移动→Q 攻击移动→烟幕→编组→切组）
     逐条断言（选中集合/入队/世界响应）——headless 复用同一 fsm 语义层。"""
 
     def test_script_checks_all_pass_on_full_game(self):
@@ -538,7 +649,7 @@ class TestStandardPlayScript(unittest.TestCase):
             session.advance(1)
         self.assertGreater(n_battle, 0, "battle_beat 零执行（未真正进入实战段）")
         names = {c[0] for c in script.checks}
-        self.assertIn("A+点地=攻击移动（mode=ATTACK）", names,
+        self.assertIn("Q+点地=攻击移动（mode=ATTACK）", names,
                       "实战段剧本断言未产生（仅部署期断言）")
         self.assertTrue(script.checks, "剧本断言未产生")
         bad = [c for c in script.checks if not c[1]]

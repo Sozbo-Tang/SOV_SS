@@ -297,9 +297,43 @@ class TestCmdPurchase(unittest.TestCase):
         self.assertIs(p.spawn_queue[0], LINE_TPL)
         self.assertEqual([r.state for r in w.rng._rngs], rng0)
 
+    def test_dest_entry_foot_spawn(self):
+        """2026-10-12 二次拍板·直接出场（断箭 Basics 2.2：幽灵挂点击点→到点
+        spawn）：dest 落点钳入己方部署条带（图高 1/5，x 钳图宽）；dest=None 退回
+        底边中点锚旧行为；并行 FIFO 与 spawn_queue 同拍弹。"""
+        from sovs.sim.tables import CONFIG
+        w = self._world()
+        p = w.players[0]
+        w.players[0].points = 1000
+        w.players[0].deck_slots = [DeckSlot(template=LINE_TPL, copies_left=3)]
+        self.assertTrue(cmd_purchase(w, p, LINE_TPL, dest=(60000, 30000)))
+        self.assertTrue(cmd_purchase(w, p, LINE_TPL,
+                                     dest=(1_200_000, 400000)))   # 双向越界钳位
+        self.assertTrue(cmd_purchase(w, p, LINE_TPL))               # 无 dest=锚
+        w.players[1].points = 1000
+        w.players[1].deck_slots = [DeckSlot(template=LINE_TPL, copies_left=1)]
+        self.assertTrue(cmd_purchase(w, w.players[1], LINE_TPL,
+                                     dest=(30000, 470000)))         # 北军钳入北条带
+        strip = w.map_extent[1] // 5
+        w.tick = CONFIG.spawn_interval_ticks            # 节流门对齐（首个出牌拍）
+        spawn_step(w)                                   # 每拍逐玩家各弹一张：
+        self.assertEqual(w.units[0].pos, (60000, 30000))    # 南军=点击点直落
+        self.assertEqual(w.units[1].pos,
+                         (30000, w.map_extent[1] - strip))  # 北军 y 钳入北条带
+        w.tick += CONFIG.spawn_interval_ticks
+        spawn_step(w)
+        self.assertEqual(w.units[2].pos,
+                         (w.map_extent[0], strip))       # x 钳东界+y 钳入南条带
+        w.tick += CONFIG.spawn_interval_ticks
+        spawn_step(w)
+        self.assertEqual(w.units[3].pos,
+                         (w.map_center[0], 0))          # None=锚点旧行为
+
     def test_reject_outside_deploy_phase(self):
-        # §F7 :1374 "仅盲部署 phase"：实战期出牌 REJECT，零副作用
-        w = make_world(7)                               # 默认 phase=COMBAT
+        # §F7 :1374 相位门。〔P1 机制块 2026-10-13 批注：门放宽=盲部署+实战两相
+        # 放行（basics:165-168「战斗全程随时可呼」——战中呼援），REJECT 面改锚
+        # 结算期；战中放行锚（扣点入队）另见 tests/test_p1_mechanics。〕
+        w = make_world(7, phase=PHASE_SETTLE)            # 结算期出牌 REJECT，零副作用
         p = w.players[0]
         p.points = 100
         p.deck_slots = [DeckSlot(template=LINE_TPL, copies_left=2)]

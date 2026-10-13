@@ -2,7 +2,7 @@
 # CARD_KWARGS 冻结现值逐字平移，〔待定 P-01~P-12〕随 air_data.PENDING_NUMERIC_ITEMS）。
 # 苏德镜像对（air_data.MIRROR_PAIRS）：PO2↔FW189/PE2↔JU88/IL2M↔JU87D/YAK9↔FW190A/LI2↔JU52
 # ——镜像=同型结构一致，数值按阵营差分（苏皮厚消耗/德精准精密，v1.9 :339）。
-schema_version: "1.4"
+schema_version: "1.6"
 cards:
   - card_key: FW189
     template_id: 11
@@ -89,6 +89,9 @@ cards:
     can_engage_air: true           # 〔冻结〕硬要求⑦
     has_dive: false
     payload_price: {}
+    can_afterburner: true          # 〔P1 2026-10-13 manual_silent〕manual.txt:492-497
+    decoy_charges: 2               # 〔P1 manual_silent〕manual.txt:505-509 无据占位
+    passive_evade_bp: 2000         # 〔P1 manual_silent〕basics:353-356 20% 占位
   - card_key: JU52
     template_id: 15
     name: Ju 52运输机

@@ -17,5 +17,5 @@
   "faction": 1,
   "points_main_cap": 4000,
   "points_reserve_cap": 2000,
-  "schema_version": "1.4"
+  "schema_version": "1.6"
 }

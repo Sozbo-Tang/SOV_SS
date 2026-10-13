@@ -106,7 +106,7 @@ class TestShellWindow(unittest.TestCase):
                                           _text_width)
         total = self.session.total_ticks
         worst = "t%d/%d || 命令照收 x16" % (total, total)
-        head = "框选/点选 右键移动 A+点地=攻击移动 G组合 X烟幕 H纪律 Ctrl+数字编组"
+        head = "框选/点选 右键移动 Q+点地=攻击移动 G组合 X烟幕 H纪律 Ctrl+数字编组"
         widths = [_text_width(worst, 13), _text_width("COMBAT", 13),
                   _text_width(head, 12)]
         self.assertGreater(widths[0], 190)          # 徽标拉长段（旧固定 x=200 必叠）
@@ -230,7 +230,8 @@ class TestRedesignWindow(unittest.TestCase):
             self.assertTrue(any("无在空飞机" in n["text"]    # A9 反馈不静默
                                 for n in win.fsm.notifications))
             self.assertEqual(win.fsm.armed_order, group)
-        # A6：A+点地=攻击移动（真实事件层，trail mode=ATTACK）
+        # A6：Q+点地=攻击移动（真实事件层，trail mode=ATTACK——P0 键位纠偏
+        # 块 2026-10-13 A→Q，手册 manual.txt:560-562）
         win.fsm.clear_order()                          # strike/drop 待令保留→先清
         mine = [u for u in win.frame["units"] if u["team"] == 0]
         self.assertTrue(mine)
@@ -242,7 +243,7 @@ class TestRedesignWindow(unittest.TestCase):
         win.on_mouse_drag(bx1, by1, 0, 0, L, 0)
         win.on_mouse_release(bx1, by1, L, 0)
         self.assertTrue(win.fsm.selected)
-        win.on_key_press(self.arcade.key.A, 0)
+        win.on_key_press(self.arcade.key.Q, 0)
         ax, ay = win.cm_to_px(100000, 55000)
         win.on_mouse_press(ax, ay, L, 0)
         moves = [t for t in self.session.cmd.trail if t["kind"] == "move"]
@@ -282,14 +283,14 @@ class TestRedesignWindow(unittest.TestCase):
         """待令态 ESC=清待令且窗口未关闭；F1>待令分层；退出确认态可撤销。"""
         import unittest.mock as mock
         win = self.win
-        win.on_key_press(self.arcade.key.A, 0)
+        win.on_key_press(self.arcade.key.Q, 0)
         with mock.patch.object(win, "close") as close_spy:
             win.on_key_press(self.arcade.key.ESCAPE, 0)
         close_spy.assert_not_called()                    # 不丢整局
         self.assertIsNone(win.fsm.armed_order)
         # F1 首层：面板开→ESC 只关面板
         win.on_key_press(self.arcade.key.F1, 0)
-        win.on_key_press(self.arcade.key.A, 0)
+        win.on_key_press(self.arcade.key.Q, 0)
         with mock.patch.object(win, "close") as close_spy:
             win.on_key_press(self.arcade.key.ESCAPE, 0)
         self.assertFalse(win.fsm.help_open)
@@ -314,7 +315,7 @@ class TestRedesignWindow(unittest.TestCase):
         win.refresh()
         self.assertEqual(win.fsm.page, "config")
         n0 = len(self.session.cmd.trail)
-        for key in (self.arcade.key.A, self.arcade.key.S, self.arcade.key.E,
+        for key in (self.arcade.key.Q, self.arcade.key.S, self.arcade.key.E,
                     self.arcade.key.Z, self.arcade.key.X, self.arcade.key.R,
                     self.arcade.key.T, self.arcade.key.G, self.arcade.key.H,
                     self.arcade.key.K, self.arcade.key.O):
@@ -394,6 +395,58 @@ class TestRedesignWindow(unittest.TestCase):
         win.on_mouse_motion((btn.x0 + btn.x1) / 2, (btn.yb + btn.yt) / 2, 0, 0)
         win._edge_scroll(0.1)
         self.assertEqual(win.cam_cx, cx1)                # UI 命中优先于镜头
+
+    def test_12_WASD_camera_pan_with_arrow_coexistence(self):
+        """P0 键位纠偏块：WASD=相机平移（手册 manual.txt:579-580「W, A, S, D
+        Camera movement」），方向键并存；A 键不再承载攻击移动（Q 接管）。
+        断言口径=方向+等距（共享窗缩放态不定，不锚具体步长值）。"""
+        from sovs.ui import scene
+        win, arc = self.win, self.arcade
+        win._cam_held.clear()                       # 共享窗：前序用例遗留 held 清空
+        mw, mh = win.frame["map_cm"]
+        guard = 0                                     # 缩放至视口<图幅（横纵皆入
+        while guard < 60:                             # 可平移域——否则钳心 pan 无效）
+            l_, b_, r_, t_ = win._viewport_px()
+            if (r_ - l_) / win.cam_scale < mw and (t_ - b_) / win.cam_scale < mh:
+                break
+            win.on_mouse_scroll(win.width / 2, win.height / 2, 0, 1)
+            guard += 1
+        win.cam_cx, win.cam_cy = mw / 2, mh / 2          # 图心起测（夹持零干扰）
+        win._clamp_camera()
+
+        def _pan():
+            cx, cy = win.cam_cx, win.cam_cy
+            scene.pan_camera(win, 0.1)
+            return win.cam_cx - cx, win.cam_cy - cy
+
+        # A=左移（A 退役归相机）；松键即停
+        win.on_key_press(arc.key.A, 0)
+        dax, _ = _pan()
+        self.assertLess(dax, 0)
+        win.on_key_release(arc.key.A, 0)
+        self.assertEqual(_pan(), (0.0, 0.0))
+        # D=右移（等距对称——同轴同 step）
+        win.on_key_press(arc.key.D, 0)
+        ddx, _ = _pan()
+        win.on_key_release(arc.key.D, 0)
+        self.assertAlmostEqual(ddx, -dax, places=6)
+        # W=上移 / S=下移（S 双职：相机+停止令并存——on_key_press 不炸即证）
+        win.on_key_press(arc.key.W, 0)
+        _, dwy = _pan()
+        win.on_key_release(arc.key.W, 0)
+        self.assertGreater(dwy, 0)
+        win.on_key_press(arc.key.S, 0)
+        _, dsy = _pan()
+        win.on_key_release(arc.key.S, 0)
+        self.assertAlmostEqual(dsy, -dwy, places=6)
+        # 方向键并存（LEFT 与 A 同向合流=单步——同轴不叠加增速，方向键保留）
+        win.on_key_press(arc.key.LEFT, 0)
+        dl, _ = _pan()
+        self.assertAlmostEqual(dl, dax, places=6)
+        win.on_key_release(arc.key.LEFT, 0)
+        win.on_key_press(arc.key.A, 0)                   # A 单独同效（并存非替换）
+        self.assertAlmostEqual(_pan()[0], dax, places=6)
+        win.on_key_release(arc.key.A, 0)
 
 
 if __name__ == "__main__":

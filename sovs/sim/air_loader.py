@@ -41,7 +41,7 @@ class AirLoaderError(ValueError):
 
 
 # ── 版本门（与 card_loader/card_schema 同值双写——tests 锁死互检）──
-SUPPORTED_CARD_SCHEMA: dict[int, int] = {1: 4}
+SUPPORTED_CARD_SCHEMA: dict[int, int] = {1: 6}
 
 
 def schema_version_supported(version: str) -> bool:
@@ -216,6 +216,12 @@ def _build_aircraft(ad: dict, path: str, archive: dict[str, WeaponTemplate]
                              default=False),
         has_dive=_bool(ad, "has_dive", path, required=False, default=False),
         payload_price=payload_price,
+        can_afterburner=_bool(ad, "can_afterburner", path, required=False,
+                              default=False),          # P1 机制块（schema 1.5）
+        decoy_charges=_int(ad, "decoy_charges", path, required=False,
+                           default=0),
+        passive_evade_bp=_int(ad, "passive_evade_bp", path, required=False,
+                              default=0),
     )
 
 

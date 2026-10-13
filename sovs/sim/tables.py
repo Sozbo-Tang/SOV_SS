@@ -45,10 +45,11 @@ class BalanceConfig:
     #    本块补出 crippled_threshold_bp/crippled_speed_mult_bp（§2.3 增量③）与
     #    auto_approach_standoff_cm（§2.11）；**删除登记 1 条**（§4：crit_mob_
     #    minor_mult_bp=5000——GAP-14 拆除 MOB 读取后零消费，随 D071 连锁一并
-    #    删除，本块已执行**）── **删除登记再 +1 条（2026-10-07 D071 全拆）**：
-    #    crit_per_hp_bp=1200（原交战段）随 roll_crit 整删一并删除——唯一消费者
-    #    已拆、零消费死常数；恢复路径=重启暴击时随 roll_crit 一并出表（combat.py
-    #    头部拆除留痕）──
+    #    删除，本块已执行）── **删除登记再 +1 条（2026-10-07 D071 全拆）**：
+    #    crit_per_hp_bp=1200（原交战段）随 roll_crit 整删一并删除──〔**两条删除
+    #    登记 2026-10-13 终审修复块撤销**：严重损伤四类暴击恢复（basics:214-230/
+    #    manual.txt:339-341）——crit_per_hp_bp 原值 1200 回表、crit_mob_minor_
+    #    mult_bp 原值 5000 回表（见下方暴击段）〕──
     reverse_speed_bp: tuple[int, int, int, int] = (0, 2500, 3000, 0)
     # 倒车速度乘区（FOOT/WHEEL/TRACK/HORSE 序——GAP-03/MV-B-13）：FOOT/HORSE=0 且
     # issue_move 门 4 据此拒令（§2.2/§2.7——AMB-9）；速度乘区消费者（§2.3 增量②）
@@ -65,6 +66,13 @@ class BalanceConfig:
                                              # stand=MAX(max_range−此值, max_range//2)——AMB-4 半射程
                                              # 下界；2000cm 固定余量在 max_range≤196,000cm 时独立
                                              # 覆盖 DIR8 近似误差 ≈1.015%）
+    dump_arrive_radius_cm: int = 2000        # 卸货成堆落点半径（basics:202-204「unload
+                                            # somewhere」——落点旁 20m 内视为到场即卸；
+                                            # 占位待定标，与 auto_approach_standoff_cm 同量级）
+    return_fire_window_ticks: int = 50       # 受击还击窗（断箭手册 Hold Fire「Unit(s) will
+                                             # not fire unless fired upon」——手册无数值，实现
+                                             # 选值 5s@10Hz 留痕可调；写点=apply_damage、
+                                             # 消费=fire_permitted ②）
 
     # ── PB-51 原地转向速率（2026-10-04 拍板纳入——断箭 N17 neutral steering，映射 §五.9；
     #    推翻 MOVEMENT_PSEUDOCODE_v1.2 §2.13 reject 的静止分支，见 movement.pivot_step）──
@@ -164,7 +172,18 @@ class BalanceConfig:
     #    ——5/s 随同源规格一并不采；「断箭数值不直接迁移」P-120 先例）；③士气
     #    整局验收手推链全建立在 decay=1/tick（回落拍 626/645/715/1015/1016 序列）。
     #    SUPP_DECAY_X2 旗标档（近卫恢复加倍·方案18）= 本值×2=20/s 语义留痕 ──
-    # crit_per_hp_bp=1200 已随 D071 全拆删除（2026-10-07——见上方移动段删除登记）
+    # crit_per_hp_bp=1200 已随 D071 全拆删除（2026-10-07）→ **2026-10-13 终审修复
+    # 块恢复**：严重损伤四类暴击（basics:214-230/manual.txt:339-341）两常数回表
+    # （原值）——
+    crit_per_hp_bp: int = 1200          # 每 1 点伤害暴击概率基（bp/HP）：prob=MIN(10000,
+                                       # dmg×本值×武器 crit_mod_permille//1000)——basics:216
+                                       # 「概率与伤害量成正比」（dmg≥9 饱和必暴=RPG 近身
+                                       # 威胁面；crit_mod_permille>1000=RPG/集束类放大，
+                                       # basics:218）
+    crit_mob_minor_mult_bp: int = 5000  # Mobility 轻伤减速 ×0.5（原值回表；basics:229-230
+                                       # 「moves slower」——MAJOR 趴窝 0 速在 movement.
+                                       # move_speed_cm_tick 判 0 承载「can even be totally
+                                       # stuck」字面；HP≤25% 重伤减速单阈值 D068 并存）
     front_arc: int = 45
     side_arc: int = 135
 
@@ -317,6 +336,44 @@ class BalanceConfig:
     recon_optics_alt_bp: tuple[int, int, int] = (6000, 10000, 14000)   # R-23 观察半径（低小/高大）
     recon_mark_alt_bp: tuple[int, int, int] = (12000, 9000, 6000)      # R-23 标记概率（低高/高低）
     cloud_air_recon_mult_bp: tuple[int, int, int] = (10000, 6000, 3000)  # D026 低云削高空侦察（B-11）
+
+    # ── P1 机制块（2026-10-13，GP-01 断箭手册 P1 补建——数值手册未给者一律
+    #    manual_silent 从简出表，头注/登记见各消费点）──
+    rtb_refund_floor_permille: int = 2000   # 地面 RTB 退款下限 20%（basics:180「never
+                                            # below 20% of the initial price」——手册唯一定量锚）
+    rtb_supply_points_per_100g: int = 1     # 车载补给连带退款率（basics:399「supplies …
+                                            # refunded」无地面单价——manual_silent 从简：每 100g
+                                            # 退 1 点，数值章节可调）
+    alt_low_speed_mult_bp: int = 8000       # 低空降速 ×0.8（manual.txt:423-426「reducing
+                                            # their speed」无数值——manual_silent 占位）
+    air_fuel_ticks: int = 13200             # 燃油基数（manual 无数值；取实战全长=不加力时
+                                            # 燃油非 binding、加力 ×2 才见底——basics:312-314
+                                            # 「run out of fuel … forced to eject」的从简承载）
+    afterburner_speed_mult_bp: int = 20000  # 加力速度 ×2（manual.txt:495「flies twice as fast」）
+    afterburner_fuel_mult_bp: int = 20000   # 加力油耗 ×2（manual.txt:496「consumes fuel
+                                            # twice as fast」）
+    decoy_evade_ticks: int = 50             # 诱饵规避窗 5s（manual 无数值——manual_silent 占位）
+    decoy_evade_factor_bp: int = 5000       # 诱饵规避乘区 ×0.5（basics:353-356 仅定性「Add a
+                                            # chance to evade」——manual_silent 占位）
+    radar_spinup_ticks: int = 50            # 雷达启动 5s（basics:334「It takes 5 seconds to
+                                            # activate the radar」——basics 唯一定量锚）
+    radar_mult_high_bp: int = 20000         # 雷达对高空探测/射程 ×2（basics:328-329「doubles
+                                            # … against planes flying high」；MID 无断箭概念——
+                                            # 归高带，留痕可推翻）
+    radar_mult_low_bp: int = 12500          # 雷达对低空 +25%（basics:329「+25% against
+                                            # helicopters and planes flying low」）
+    laser_snap_radius_cm: int = 10000       # 精密弹药吸附激光位的判距（manual.txt:530「close
+                                            # to a laser position」无数值——manual_silent 占位）
+    precision_scatter_bp: int = 2500        # 精密弹药散布 ×0.25（manual.txt:456-458「will hit a
+                                            # laser designation」无数值——manual_silent 占位）
+    airdrop_stick_interval_ticks: int = 20  # 空降「逐一跳伞」节拍（manual.txt:432「jump out
+                                            # one by one」无数值——manual_silent 占位）
+    airdrop_auto_delay_ticks: int = 100     # 无令货机到场后自动空投延迟窗（manual.txt:434-440
+                                            # 「given no other orders … automatically airdrop」
+                                            # 无数值——manual_silent 占位，玩家改令窗口）
+    supply_dump_blast_cm: int = 4000        # 补给堆被打爆溅射半径（basics:206-207「explode as
+                                            # soon as something hits them」无数值——manual_silent）
+    supply_dump_damage: int = 40            # 补给堆爆炸伤害（同上 manual_silent）
 
     def speed_cm_tick(self, tier: int) -> int:
         return self.speed_table_cm_tick[tier]

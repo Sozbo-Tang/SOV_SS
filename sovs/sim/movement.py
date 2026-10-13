@@ -78,7 +78,7 @@ from __future__ import annotations
 from .air import DIR8, PERP8, scale
 from .geom import angle_diff, dist_cm, octant_deg, round_div, step_toward
 from .tables import BalanceConfig
-from .types import (DeployState, FormationShape,
+from .types import (CritLevel, CritSlot, DeployState, FormationShape,
                     MoraleState, MovementClass, Mode, MoveCmd, MoveMode,
                     ReverseCmd, TargetDomain, TowState)
 
@@ -96,10 +96,16 @@ def move_speed_cm_tick(cfg: BalanceConfig, unit, now: int, *,
                        on_road: bool = False, terrain_bp: int | None = None) -> int:
     if not unit.elements:
         return 0
-    # ── 拆除行（GAP-14/契约⑩；2026-10-06 速度链块）：原 movement.py:22-24 的
-    #    CritSlot.MOB MAJOR 早退（趴窝等拖曳）删除——重伤≠瘫痪：HP≤25% 仅减速
-    #    不减停（增量③），MOB MAJOR=0 的"等拖曳"语义由 D068 单阈值规则取代；
-    #    拖曳承载（锁 1 档+随动）不动 ──
+    # ── 〔2026-10-13 终审恢复〕MOB 暴击乘区回贴（basics:229-230 Mobility「moves
+    #    slower and can even be totally stuck」——2026-10-06 速度链块拆除行
+    #    （GAP-14/契约⑩「重伤≠瘫痪」）被终审按手册推翻：MAJOR=趴窝 0 速（等拖曳
+    #    语义复活）、MINOR=×crit_mob_minor_mult_bp；D068 HP≤25% 重伤减速单阈值
+    #    （增量③ crippled_*）保留并存——两乘区叠乘（重伤+MOB 轻伤可同车并存）。
+    #    消费位在 v 求值后（§2.3 v2 冻结序：地形→倒车→重伤→**MOB**→PINNED）──
+    mob = max((e.crit.get(CritSlot.MOB, CritLevel.NONE) for e in unit.elements),
+              default=CritLevel.NONE)
+    if mob is CritLevel.MAJOR:
+        return 0                       # 趴窝：0 速（拖曳承载锁 1 档+随动不动）
     tier = unit.template.speed_tier
     if unit.group_speed_cap > 0:
         tier = min(tier, unit.group_speed_cap)   # §2.3 增量①（GAP-16/MV-B-15）：编组
@@ -132,6 +138,8 @@ def move_speed_cm_tick(cfg: BalanceConfig, unit, now: int, *,
     if any(e.hp_current * 10000 <= e.template.hp_max * cfg.crippled_threshold_bp
            for e in unit.elements):
         v = v * cfg.crippled_speed_mult_bp // 10000
+    if mob is CritLevel.MINOR:
+        v = v * cfg.crit_mob_minor_mult_bp // 10000   # MOB 轻伤减速（终审恢复）
         # §2.3 增量③（GAP-14 替换：HP≤25% 单阈值，MV-B-14；2026-10-06 速度链块）：
         # 原位替换 movement.py:33-34 的 MOB MINOR 乘区（该乘区随拆除行删除）；
         # 边界含等号（hp×10000 ≤ hp_max×2500——16HP 车 4HP 恰触发）；判 ANY
@@ -543,7 +551,11 @@ def auto_approach_waypoint(unit, target, max_range_cm: int,
                            cfg: BalanceConfig):
     """§2.11 超射程自动进位（GAP-13 adopt；2026-10-06 速度链块）：炮兵对超射程
     目标下令时自动插入"最大射程内侧 standoff"航点（断箭 ARTILLERY 节官方语义的
-    QoL 等效）。d=单位首元素 pos×目标 ≤ max_range → None（射程内不插航点，行为
+    QoL 等效；P0 键位纠偏块 2026-10-13 复核留痕：manual.txt:471-474「Artillery
+    units out of range will move into range (at maximum distance) and then
+    fire」——standoff=2000cm 即「最大射程内侧 20m」量化余量（DIR8 近似误差
+    ≤1.015% 恒覆盖；现役最短曲射武器 82mm 迫击炮 max_range=32000cm≫4000cm，
+    AMB-4 半射程下界对真实曲射武器恒失活——行为即手册「前移至最大射程再打」）。d=单位首元素 pos×目标 ≤ max_range → None（射程内不插航点，行为
     不变）；否则 k=目标方位 DIR8 索引（octant_deg//45），stand=MAX(max_range−
     cfg.auto_approach_standoff_cm, max_range//2)（AMB-4 修复：半射程下界——
     max_range<standoff 常数的短程武器不再得负 stand 反向越过目标；比例余量

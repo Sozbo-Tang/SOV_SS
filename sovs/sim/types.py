@@ -63,17 +63,15 @@ class WState(IntEnum):
 
 
 class CritSlot(IntEnum):
-    """〔口子①·预留 2026-10-07 D071 全拆〕四值全保留（含 MOB 值位=重启用先例锚
-    ——MOB 生产端 2026-10-06 先拆、FC/SEN/RLD 2026-10-07 随拍板全拆）：生产端
-    roll_crit/upgrade_crit 已删、四槽无产出者——elem.crit 恒空 dict（make_unit
-    初始化空 dict 不变）。值位保留为重启用锚：重启=恢复 roll_crit+crit_per_hp_bp
-    +resolve_hit/resolve_blast 两生产块，消费端零改动（test_curves 三锚/
-    test_sensing SEN 锚手写槽位即生效，恰证口子活着）。"""
+    """严重损伤四类暴击槽（basics:220-230 四型左→右序；D071 全拆〔2026-10-07〕
+    →**2026-10-13 终审修复块恢复**：roll_crit/roll_guaranteed_crit/upgrade_crit
+    生产端回贴、四槽重新有产出者——消费端（aim/reload/optics 乘区族＋movement
+    MOB 速度链＋system_supply 恢复门）零改动即活=口子设计的兑现）。"""
 
-    FC = 0
-    SEN = 1
-    RLD = 2
-    MOB = 3
+    FC = 0    # Targeting：瞄准时长增加/精度下降（aim_factor_bp）
+    SEN = 1   # Detection：探测力下降（optics_factor_bp）
+    RLD = 2   # Reloading：装填变慢（reload_factor_bp）
+    MOB = 3   # Mobility：减速乃至趴窝（movement.move_speed_cm_tick）
 
 
 class CritLevel(IntEnum):
@@ -252,9 +250,13 @@ class WeaponTemplate:
     projectile_speed_cm_tick: int = 0
     trajectory: Trajectory = Trajectory.DIRECT
     suppression_power: int = 0
-    crit_mod_permille: int = 1000  # 〔口子·预留 2026-10-07 D071 全拆〕暴击伤害倍率——暴击
-                              # 系统已退役零消费，字段保留为恢复口子（schema 冻结 D.3#20
-                              # 不破/数据列不动/两测试零改动——与 CritSlot 枚举预留同款）
+    crit_mod_permille: int = 1000  # 暴击概率倍率（basics:218「infantry RPGs and cluster
+                              # munitions have a bigger chance」——>1000 放大；D071 全拆期间
+                              # 零消费，2026-10-13 终审恢复后重新有消费者）
+    crit_guaranteed: bool = False  # 步兵轻 AT 必暴击位（manual.txt:339-341「will
+                              # always inflict a critical hit…even if they don't have
+                              # enough penetration」——1944 题材=巴祖卡/铁拳/坦克杀手类
+                              # 步兵破甲发射器；跳弹 0 伤亦触发）
     vs_fort_mult_permille: int = 1000
     needs_deployed: bool = False
     combat_style: int = 0  # 0=NORMAL 1=MELEE 2=SNIPER（v1.2 方案1 档案化）
@@ -408,6 +410,13 @@ class UnitInstance:
     deploy_state: DeployState = DeployState.MOBILE
     deploy_timer: int = 0
     stance: Stance = Stance.WEAPONS_FREE
+    return_fire_until: int = -1  # 受击还击窗到期拍（-1=从未受击哨兵，pivot_to 同款
+                                 # 风格）。写点=combat.apply_damage（任一元素吃到伤害
+                                 # 即拍 now+cfg.return_fire_window_ticks）；消费=
+                                 # tick.fire_permitted ②——HOLD_FIRE 期内仅本窗内放行
+                                 # 发射（断箭官方手册 Hold Fire：「Unit(s) will not fire
+                                 # unless fired upon」）。不进 state_fingerprint_text
+                                 # （回放校验面零扰动——行为经弹药/弹丸位自然入指纹）
     mark_level: MarkLevel = MarkLevel.NONE
     spotted_mask: int = 0
     fire_mission: "FireMission | None" = None  # §D.4#10 R-13 炮击任务（校射两槽下沉任务体——方案10）
@@ -447,6 +456,23 @@ class UnitInstance:
     routed_until: int = -1  # 溃逃重整到期拍（-1=非溃逃哨兵，pivot_to 同款风格）。
                             # 写点=system_morale 进入/再溃逃拍（now+morale_rally_ticks），
                             # 重整拍复位 -1
+    # ── P1 机制块 +3 槽（2026-10-13，GP-01 断箭手册 P1 补建）──
+    rtb_pending: bool = False        # 地面 RTB 在途（B 键——cmd_ground_rtb 写点；到场
+                                     # system_rtb 结算退款移除。写点另有 cmd_cancel 撤令清位）
+    dump_pending: tuple | None = None  # 卸货成堆在途位（U+点地——cmd_create_dump 写
+                                     # 点；2026-10-13 终审修复块 basics:202--204「Order
+                                     # your truck to unload somewhere to create a supply
+                                     # dump」：到场 system_dump_delivery 落堆清位；E 撤令清）
+    radar_on: bool = False           # 雷达开关（Z 高炮单位——cmd_radar 写点；缺省关，
+                                     # basics:336「Radar is off by default」）
+    radar_ready_tick: int = 0        # 雷达启动到期拍（cmd_radar 开=now+radar_spinup_ticks
+                                     # （basics:334 5s）；关=即刻生效不写此槽。生效判据=
+                                     # radar_on and world.tick>=radar_ready_tick）
+    supply_switches: int = 0b1111    # 补给堆四功能开关位（basics:208-213；bit 位见
+                                     # tick.py SUPPLY_SW_* 常量——缺省全开。share 位在
+                                     # 单位无玩家归属面的现引擎下为呈现位（team 级拾取
+                                     # 门恒同队），heal/repair/ammo 三位为 system_supply
+                                     # 实门）
 
     def moving(self) -> bool:
         return bool(self.move_path)

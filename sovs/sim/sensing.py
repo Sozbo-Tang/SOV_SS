@@ -189,6 +189,7 @@ def sense_air(cfg: BalanceConfig, world) -> None:
     原文清位判据不带暴击因子）。air_ceiling=None（§D.1#8 不可及）视为探测不到。
     spotted_mask 唯一写者（air.py AircraftInstance 注释约定）。"""
     roster = getattr(world, "aa_roster", ())
+    from .tick import radar_range_mult              # P1：雷达对空探测增幅（惰性防环）
     for a in world.aircraft:
         # ① 防空体系探测——仅名单（方案2）
         for g in world.units:
@@ -198,6 +199,7 @@ def sense_air(cfg: BalanceConfig, world) -> None:
             if ceiling is None or a.alt_tier > ceiling or not g.elements:
                 continue
             r = g.template.optics_air_cm * optics_factor_bp(g.elements[0]) // 10000
+            r = r * radar_range_mult(g, world, a.alt_tier) // 10000   # P1 雷达（高空×2/低空+25%）
             if dist_cm(g.pos, a.pos) <= r:
                 a.spotted_mask |= 1 << g.team
         # ② 低空目视分支保留不动（方案2）
@@ -217,8 +219,10 @@ def sense_air(cfg: BalanceConfig, world) -> None:
                     if not g.alive or g.team != team:
                         continue
                     ceiling = g.template.air_ceiling
+                    rr = g.template.optics_air_cm * radar_range_mult(
+                        g, world, a.alt_tier) // 10000       # P1 与①支同乘（防自挂自清）
                     if ((g in roster and ceiling is not None and a.alt_tier <= ceiling
-                         and dist_cm(g.pos, a.pos) <= g.template.optics_air_cm)
+                         and dist_cm(g.pos, a.pos) <= rr)
                             or (a.alt_tier is AltTier.LOW
                                 and dist_cm(g.pos, a.pos) <= g.template.optics_ground_cm)):
                         keep = True

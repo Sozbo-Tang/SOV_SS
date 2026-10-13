@@ -41,7 +41,7 @@ class CardLoaderError(ValueError):
 
 # ── 版本门（与 card_schema.SUPPORTED_CARD_SCHEMA 同值双写——tests 锁死互检；
 #    1.3→1.4＝2026-10-12 GP-01 §1.3 航空入库 minor，card_schema.py:48 同步）──
-SUPPORTED_CARD_SCHEMA: dict[int, int] = {1: 4}
+SUPPORTED_CARD_SCHEMA: dict[int, int] = {1: 6}
 
 
 def schema_version_supported(version: str) -> bool:
@@ -226,6 +226,7 @@ def _build_weapon(wd: dict, path: str) -> WeaponTemplate:
                          required=False, default=0),
         suppression_power=_int(wd, "suppression_power", path, required=False, default=0),
         crit_mod_permille=_int(wd, "crit_mod_permille", path, required=False, default=1000),
+        crit_guaranteed=_bool(wd, "crit_guaranteed", path, required=False, default=False),
         vs_fort_mult_permille=_int(wd, "vs_fort_mult_permille", path,
                                    required=False, default=1000),
         needs_deployed=_bool(wd, "needs_deployed", path, required=False, default=False),

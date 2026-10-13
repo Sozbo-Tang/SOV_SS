@@ -4,7 +4,7 @@
 # 其余〔待定 P-07/P-08〕）。档身份谓词（air.py weapon_slot 复检①）：STRAFE=DIRECT+KE+GROUND、
 # BOMB=HE+BALLISTIC+GROUND。crit_mod_permille=0 硬要求⑥（AMB2-08）。
 # 机型按 weapon_key 引用（air_su/air_ger weapons.ref）——编译期解引用校验。
-schema_version: "1.4"
+schema_version: "1.6"
 weapons:
   - weapon_key: W_BOMB_FAB100
     name: BOMB

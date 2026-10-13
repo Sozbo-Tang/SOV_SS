@@ -56,7 +56,13 @@ class TestMoraleSlots(unittest.TestCase):
         names = [f.name for f in dataclasses.fields(UnitInstance)]
         self.assertIn("morale", names)
         self.assertIn("routed_until", names)
-        self.assertEqual(len(names), 25)              # 23→25（士气 +2 槽）
+        self.assertEqual(len(names), 31)              # 23→25（士气 +2）→26（还击窗）
+                                                       # →30（P1 机制块 2026-10-13
+                                                       # +rtb_pending/radar_on/
+                                                       # radar_ready_tick/supply_switches）
+                                                       # →31（终审修复块 2026-10-13
+                                                       # +dump_pending 卸货成堆在途位）
+        # （P0 键位纠偏块 2026-10-13 +return_fire_until 受击还击窗槽）
 
 
 class TestTierTransitions(unittest.TestCase):

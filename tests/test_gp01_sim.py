@@ -429,7 +429,10 @@ class TestWire11(unittest.TestCase):
                                                 form=FireMissionForm.POINT,
                                                 point=(1, 2)))
             header, _records = load_replay(path)              # 现版本自读通过
-            self.assertEqual(header["schema_version"], "1.1")
+            self.assertEqual(header["schema_version"], "1.4")  # 终审修复块升版
+            #（1.3→1.4＝+CreateDumpCmd 卸货成堆——basics:202-204）
+                                                                # （1.2→1.3 非向后
+                                                                # 兼容——六新命令族）
             lines = path.read_text(encoding="utf-8").splitlines()
             old = json.loads(lines[0])
             old["schema_version"] = "1.0"                     # 篡改回旧版

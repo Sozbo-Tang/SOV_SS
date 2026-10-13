@@ -29,16 +29,19 @@ import unittest
 
 from sovs.sim.air import cmd_air_call
 from sovs.sim.air_data import CARD_OBJECTS
-from sovs.sim.tick import (AirAirdropCmd, AirAltCmd, AirCallCmd, add_unit,
-                           AirDisengageCmd, AirEngageAirCmd, AirMoveCmd,
-                           AirPatrolCmd, AirRTBCmd, AirStrikeCmd, AttackCmd,
-                           BuySuppliesCmd, CancelCmd, CancelFireMissionCmd,
-                           DeployCmd, DismountCmd, FireMissionCmd, FormationCmd,
-                           GarrisonCmd, make_unit, MountCmd, MoveCmd, PackCmd,
-                           PivotCmd, PurchaseCmd, queue_command, ReverseCmd,
-                           SetAirdropBeaconCmd, SetModeCmd, SetSniperCoverCmd,
-                           SetStanceCmd, SmokeCmd, SprintCmd, StopCmd,
-                           ToggleAmbushCmd, TowCmd, UnGarrisonCmd, UntowCmd)
+from sovs.sim.tick import (AirAirdropCmd, AirAfterburnerCmd, AirAltCmd,
+                           AirCallCmd, AirDecoyCmd, add_unit, AirDisengageCmd,
+                           AirEngageAirCmd, AirMoveCmd, AirPatrolCmd, AirRTBCmd,
+                           AirStrikeCmd, AttackCmd, BuySuppliesCmd, CancelCmd,
+                           CancelFireMissionCmd, CreateDumpCmd, DeployCmd,
+                           DismountCmd,
+                           FireMissionCmd, FormationCmd, GarrisonCmd,
+                           GroundRTBCmd, LaserDesignateCmd, make_unit, MountCmd,
+                           MoveCmd, PackCmd, PivotCmd, PurchaseCmd, queue_command,
+                           RadarCmd, ReverseCmd, SetAirdropBeaconCmd, SetModeCmd,
+                           SetSniperCoverCmd, SetStanceCmd, SmokeCmd, SprintCmd,
+                           StopCmd, SupplySwitchCmd, ToggleAmbushCmd, TowCmd,
+                           UnGarrisonCmd, UntowCmd)
 from sovs.sim.types import (AltTier, Building, FireMissionForm, FormationShape,
                             Mode, MoveMode, SalvoMode, Stance)
 from sovs.sim import wire
@@ -97,6 +100,8 @@ def representative_commands(fx) -> list:
         PackCmd(unit=fx["gun0"]),
         SetModeCmd(element=fx["gun0"].elements[0], mode=Mode.INDIRECT),
         PurchaseCmd(player=p1, template=TANK_TPL),        # deck_slots 身份解析
+        PurchaseCmd(player=p1, template=TANK_TPL,
+                    dest=(60000, 30000)),                 # v1.2 垂足出动目的地
         FireMissionCmd(unit=fx["gun0"], form=FireMissionForm.POINT,
                        point=(50000, 40000)),
         FireMissionCmd(unit=fx["gun0"], form=FireMissionForm.LINE,
@@ -125,6 +130,7 @@ def representative_commands(fx) -> list:
         SetAirdropBeaconCmd(unit=fx["rifle0"], pos=None),
         BuySuppliesCmd(truck_element=fx["truck0"].elements[0], rounds=10,
                        medical=5),
+        CreateDumpCmd(unit=fx["truck0"], pos=(140000, 90000)),   # 终审修复块 1.4
         AirCallCmd(player=p0, template=CARD_OBJECTS["IL2M"],
                    payload={"BOMB": 2}),                    # 不带 PARATROOP
         AirCallCmd(player=p0, template=CARD_OBJECTS["LI2"],
@@ -139,6 +145,13 @@ def representative_commands(fx) -> list:
         AirEngageAirCmd(aircraft=fx["fighter"], engage=True),
         AirDisengageCmd(aircraft=fx["fighter"]),
         AirRTBCmd(aircraft=fx["transport"]),
+        # ── P1 机制块 6 类（2026-10-13，wire 1.3）──
+        GroundRTBCmd(unit=fx["rifle0"]),
+        LaserDesignateCmd(designator_unit=fx["rifle0"], target_unit=fx["rifle1"]),
+        RadarCmd(unit=fx["gun0"], engage=True),
+        SupplySwitchCmd(unit=fx["truck0"], switch="heal", on=False),
+        AirAfterburnerCmd(aircraft=fx["fighter"], engage=True),
+        AirDecoyCmd(aircraft=fx["fighter"], action="POP"),
     ]
 
 
@@ -150,7 +163,7 @@ class TestRoundtripAllCommandTypes(unittest.TestCase):
         w = fx["w"]
         cmds = representative_commands(fx)
         seen = {type(c).__name__ for c in cmds}
-        self.assertEqual(seen, set(wire.WIRE_COMMANDS))    # 35 类无一遗漏
+        self.assertEqual(seen, set(wire.WIRE_COMMANDS))    # 41 类无一遗漏（P1 +6）
         for c in cmds:
             with self.subTest(cmd=type(c).__name__):
                 wire_dict = encode_command(c)
@@ -250,7 +263,8 @@ class TestDispatchAstromGuard(unittest.TestCase):
 
     def test_dispatch_branches_equal_wire_registry(self):
         classes = self._dispatch_classes()
-        self.assertEqual(len(classes), 35)                # 35 支（AST 实测）
+        self.assertEqual(len(classes), 42)                # 42 支（AST 实测；P1 +6→
+                                                       # 终审修复块 2026-10-13 +CreateDumpCmd）
         self.assertEqual(classes, set(wire.WIRE_COMMANDS))
 
 
@@ -419,7 +433,7 @@ class TestReplayFileRoundtrip(unittest.TestCase):
             path = pathlib.Path(td) / "scripted.jsonl"
             header, records = self._record_scripted(path)
             # 文件头契约逐字段（v1）
-            self.assertEqual(header["schema_version"], "1.1")  # GP-01 §3/§4 同批升版（1.0→1.1）
+            self.assertEqual(header["schema_version"], "1.4")  # 终审修复块升版（1.3→1.4 +CreateDumpCmd）
             self.assertEqual(header["checksum_fn"], CHECKSUM_FN_ID)
             self.assertEqual(header["scenario"], "kev_game_demo.v1")
             self.assertEqual(header["seed"], 99)

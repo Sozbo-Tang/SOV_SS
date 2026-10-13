@@ -433,10 +433,11 @@ class TestMoraleColumnsPipeline(unittest.TestCase):
         self.assertIn("morale_pin_th", cs.UnitCardModel.model_fields)
         self.assertIn("morale_rout_th", cs.UnitCardModel.model_fields)
         self.assertEqual(len(cs.UnitCardModel.model_fields), 39)  # 36→39（PB-55 +3）
-        self.assertEqual(cs.SCHEMA_VERSION, "1.4")  # minor 演进锁当前值（PB-55 1.3→航空入库 1.4）
-        self.assertEqual(cs.SUPPORTED_CARD_SCHEMA, {1: 4})
+        self.assertEqual(cs.SCHEMA_VERSION, "1.6")  # minor 演进锁当前值（终审修复块
+        # 1.5→1.6 武器行 +crit_guaranteed 步兵轻 AT 必暴击位——manual.txt:339-341）
+        self.assertEqual(cs.SUPPORTED_CARD_SCHEMA, {1: 6})
         self.assertTrue(cs.schema_version_supported("1.2"))   # 旧版本仍受支持
-        self.assertFalse(cs.schema_version_supported("1.5"))
+        self.assertFalse(cs.schema_version_supported("1.7"))  # 上界 1.6
 
 
 if __name__ == "__main__":

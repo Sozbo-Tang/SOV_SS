@@ -119,7 +119,8 @@ MINIMAP_W, MINIMAP_H = 220, 150       # 小地图（断箭位：左下角，近�
 SEL_PANEL_W = 216        # 选中卡宽（px——断箭位：左侧，小地图上方）
 ORDER_GRID_BTN_W = 92    # 右下命令格按钮宽（px——短标签紧凑，断箭图标密度）
 ORDER_GRID_BTN_H = 24    # 命令格按钮高（px）
-ORDER_GRID_COLS = 5      # 命令格列数
+ORDER_GRID_COLS = 8      # 命令格列数（P1 2026-10-13：5→8——加力/诱饵/
+                                 # 照射/精确/登车/补给组入格后最宽行 7 键）
 RAIL_W = 216             # 左缘呼援轨宽（px——容纳「呼XX机×N弹（在空N）」全宽）
 BTN_FONT = 12            # 按钮字号
 

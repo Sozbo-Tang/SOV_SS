@@ -1163,9 +1163,11 @@ class TestFullGameMultiSeedSmoke(unittest.TestCase):
             self.assertEqual(st["command_residue_ticks"], 0)
             # 通道纪律：+SNIPER（狙击 R-02 概率掷）+ECONOMY（渗透卡沿边随机出生
             # 2026-10-03 拍板——每张两掷）；SPOT/SONAR/AIR 零消费
-            # 〔D071 全拆 2026-10-07 重锚：CRIT 随暴击掷骰退役归零消费〕
+            # 〔2026-10-13 终审恢复重锚：严重损伤四类暴击恢复（MIXED 卡载具受击
+            # 掷 CRIT）——CRIT 重新入消费面；结局锚 3:(1,(0,2),(0,180),(0,48))/
+            # 11:(0,(2,0),(450,0),(71,0)) 实测不变（暴击乘区未改写本双 seed 裁决）〕
             self.assertEqual(channels_used(w, rng0),
-                             {"HIT", "SCATTER", "SNIPER", "ECONOMY"})
+                             {"HIT", "SCATTER", "CRIT", "SNIPER", "ECONOMY"})
             # 渗透计时自然耗尽（实战起 600 拍 << 13200）
             self.assertTrue(all(u.infiltration_timer == 0 for u in w.units))
             # 混编卡开局车载形态（迁实战拍快照：MIXED 单位 2 班 1 车 → 恰 1 班挂载）
@@ -2322,15 +2324,18 @@ class TestAirFullGame(unittest.TestCase):
         self.assertEqual(st["first_air_dogfight_tick"], 851)
         self.assertEqual(st["first_air_projectile_tick"], 1030)
         self.assertGreater(st["dogfight_ticks"], 0)
-        # 击落 3 架（seed 42 定锚：Yak-9 咬落 Fw 190A#1@910；重呼 Fw 190A#2
-        # 咬落 Yak-9@10644 与 Il-2M#5@11311）
+        # 击落 2 架（seed 42 定锚〔P1 机制块 2026-10-13 再定锚：扫射改沿全航道
+        # 无差别落点（manual.txt:413-416）+FIGHTER 出场即 HIGH（manual.txt:426-428）
+        # ——AIR 通道掷骰消费序改变，Il-2M#5@11311 不再被咬落、终其自然回收——
+        # 击落对与首拍锚不变〕：Yak-9 咬落 Fw 190A#1@910；重呼 Fw 190A#2 咬落
+        # Yak-9@10644）
         self.assertEqual(st["air_downed"],
-                         [(910, 1, 14), (10644, 0, 4), (11311, 0, 3)])
+                         [(910, 1, 14), (10644, 0, 4)])
         # 冷却公式精确锚：击落=(600+hp_max×30)×3（FW190A(600+2400)×3=9000→
-        # 910+9000=9910；Yak-9(600+2100)×3=8100→10644+8100=18744；Il-2M
-        # (600+3900)×3=13500→11311+13500=24811）；回收=600+损血×0（满血 Pe-2
-        # 末次回收 13788+600=14388）
-        self.assertEqual(dict(w.players[0].air_cooldowns), {3: 24811, 4: 18744})
+        # 910+9000=9910；Yak-9(600+2100)×3=8100→10644+8100=18744；Il-2M#5 未落
+        # ——末次回收 12513+600=13113）；回收=600+损血×0（满血 Pe-2 末次回收
+        # 13788+600=14388）
+        self.assertEqual(dict(w.players[0].air_cooldowns), {3: 13113, 4: 18744})
         self.assertEqual(dict(w.players[1].air_cooldowns), {14: 9910, 2: 14388})
         # 经济恒等式（D015 租借闭环——实现无关不变量）：
         #   750 − Σ呼叫(本体+载荷) + Σ回收(本体) = 终值
@@ -2353,12 +2358,12 @@ class TestAirFullGame(unittest.TestCase):
                     refunded += (CARD_OBJECTS["IL2M"] if tid == 3 else
                                  CARD_OBJECTS["PE2"]).cost_body
             self.assertEqual(w.players[pi].air_points, 750 - spent + refunded)
-        self.assertEqual([p.air_points for p in w.players], [560, 422])
+        self.assertEqual([p.air_points for p in w.players], [554, 422])  # P1 再定锚
         self.assertEqual(st["air_recoveries"],
                          [(1800, 1, 2), (2117, 0, 3), (3788, 1, 2), (4713, 0, 3),
                           (5788, 1, 2), (7313, 0, 3), (7788, 1, 2),
                           (9788, 1, 2), (9913, 0, 3), (11788, 1, 2),
-                          (13788, 1, 2)])
+                          (12513, 0, 3), (13788, 1, 2)])  # P1 再定锚：+Il-2M#5 回收
         # 通道纪律：纯航空只消费 AIR（轰炸散布/缠斗掷骰；无地面单位——
         # HIT/SCATTER/SPOT/SONAR/ECONOMY/SNIPER 全零）
         self.assertEqual(channels_used(w, rng0), {"AIR"})
@@ -2388,8 +2393,8 @@ class TestAirFullGame(unittest.TestCase):
             world_tick(w2)
             self.assertEqual(full_fingerprint(w1), full_fingerprint(w2))
         # 末态与单跑一致（队0 终值 560/422——双跑同构自证）
-        self.assertEqual([p.air_points for p in w1.players], [560, 422])
-        self.assertEqual([p.air_points for p in w2.players], [560, 422])
+        self.assertEqual([p.air_points for p in w1.players], [554, 422])  # P1 再定锚
+        self.assertEqual([p.air_points for p in w2.players], [554, 422])  # P1 再定锚
 
 
 # ── 空中闭环·块3（2026-10-07）：跨域整局——航空支援地面/地面防空打航空/空投
@@ -2421,8 +2426,10 @@ class TestCombinedAirGround(unittest.TestCase):
                          [(601, PHASE_DEPLOY, PHASE_COMBAT),
                           (13801, PHASE_COMBAT, PHASE_SETTLE)])
         # 防空链：防炮 1013 首发对空（航空器入 25km 火力圈）→斯图卡 1101 击落
+        # 〔P1 机制块 2026-10-13 再定锚：扫射无差别落点改变 AIR 通道消费序——
+        # 追加 Ju 87D#11@13310 被咬落（seed 42 现值）〕
         self.assertEqual(st["first_projectile_tick"], 1013)
-        self.assertEqual(st["air_downed"], [(1101, 1, 13)])
+        self.assertEqual(st["air_downed"], [(1101, 1, 13), (13310, 1, 11)])
         # 支援链：651 首攻击令（实战首 %50 拍）→1162 空射弹丸（FAB100×2，释放门
         # =越线判据 dist≤机速——临空投放、散布点距投放位 ≤~2100cm→弹道 1-2 步）
         # →1163 弹着 resolve_blast 不分敌我；1301 首个 RTB=Il-2M 手动弃权
@@ -2433,26 +2440,30 @@ class TestCombinedAirGround(unittest.TestCase):
         self.assertEqual(st["elimination"], {0: 1163})
         self.assertEqual(st["first_air_rtb_tick"], 1301)
         self.assertEqual(st["max_suppression"], 0)   # 受压制者同拍全灭（观测面注）
-        # 空投链：伞兵两批+补给箱落地存活（template 305/0；整局实投 4 箱——
-        # 3 箱毁于后续近锚爆破、1 箱存活，末态断 1）；南点被伞兵翻转
+        # 空投链：伞兵两批+补给箱落地（template 305/0）。〔P1 机制块 2026-10-13
+        # 再定锚：扫射无差别落点+逐一跳伞 stick 几何改变 AIR 消费序——第二伞兵
+        # 排落地后毁于南锚近爆破（旧值两排存活），末态 1 伞兵+2 箱；南点仍被
+        # 伞兵翻转。〕
         self.assertEqual([(u.team, u.template.template_id, u.alive)
                           for u in w.units],
-                         [(1, 305, True), (1, 305, True), (1, 0, True)])
+                         [(1, 305, True), (1, 0, True), (1, 0, True)])
         self.assertEqual([o.owner for o in w.objectives], [1, None])
-        # 裁决：空降兵占点改写胜负——队1 占点 1:0 胜（分值 60:0=两伞兵排、
-        # 血量 20:0；队0 全灭零占点）
+        # 裁决：空降兵占点改写胜负——队1 占点 1:0 胜（P1 再定锚：1 伞兵排
+        # 分值 30:0、血量 10:0；队0 全灭零占点）
         self.assertEqual((w.result.winner, w.result.obj_counts,
                           w.result.unit_scores, w.result.hp_totals),
-                         (1, (0, 1), (0, 60), (0, 20)))
+                         (1, (0, 1), (0, 30), (0, 10)))
         # 航空经济：15 呼叫/12 回收/1 击落——冷却末值=各型最后事件+600
         # （JU87D 击落 1101+7200=8301 被后续回收 10263+600=10863 MAX 合并——B-25）
         self.assertEqual(len(st["air_calls"]), 15)
         self.assertEqual(len(st["air_recoveries"]), 12)
         self.assertEqual(dict(w.players[1].air_cooldowns),
-                         {13: 10863, 3: 13219, 15: 14009})
-        # 末态在空：Fw 189 盘旋（侦察无 RTB 规则）+斯图卡末次出击 RTB 在途
+                         {13: 10863, 3: 13219, 15: 14009, 11: 21410})
+        # 末态在空：斯图卡末次出击 RTB 在途。〔P1 再定锚 2026-10-13：Fw 189
+        # （t111 呼叫、整局盘旋无 RTB 规则）于燃油耗尽拍被迫弹射移除
+        # （basics:312-314——cd1[11]=弹射击落冷却），末态仅斯图卡在空。〕
         self.assertEqual([(a.template.template_id, int(a.state), a.hp_current)
-                          for a in w.aircraft], [(11, 1, 70), (13, 3, 60)])
+                          for a in w.aircraft], [(13, 3, 60)])
         # 双域通道：AIR（投弹/空投散布）+HIT/SCATTER（防炮对空/地面无交战——
         # 防空与航空独占）；ECONOMY 零消费（hold_purchases→无渗透购卡掷）
         self.assertEqual(channels_used(w, rng0), {"AIR", "HIT", "SCATTER"})

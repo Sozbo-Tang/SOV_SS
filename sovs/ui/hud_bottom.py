@@ -16,34 +16,51 @@ from .palette import (BOTTOM_H, BTN_FONT, GROUP_DEAD, GROUP_SLOT, HUD_TEXT,  # n
                       ORDER_GRID_BTN_W, ORDER_GRID_COLS, ORDER_PANEL,
                       ORDER_TEXT, RAIL_W, TOP_H)
 
-# 底栏按钮 → fsm 键位语义（热键一一镜像：按钮=按键同门同令；GP-01 §4/§6 扩容）
+# 底栏按钮 → fsm 键位语义（热键一一镜像：按钮=按键同门同令；GP-01 §4/§6 扩容；
+# P0 键位纠偏块 2026-10-13：attack A→Q——手册 HOTKEYS「Q Attack Move」；
+# P1 机制块 2026-10-13 +air_ab/decoy/laser/precision/mount_z 分派键（镜像 fsm.key））
 PANEL_KEY_MIRROR = {"stop": "S", "cancel": "E", "reverse": "R", "sprint": "Z",
-                    "smoke_x": "X", "stance_h": "H", "attack": "A", "fm": "T",
+                    "smoke_x": "X", "stance_h": "H", "attack": "Q", "fm": "T",
                     "strike": "K", "drop": "O", "march": "F", "unload": "U",
-                    "sniper": "N", "air_alt": "V", "air_rtb": "B",
-                    "air_engage": "J", "air_disengage": "Y"}
+                    "sniper": "L", "air_alt": "V", "air_rtb": "B",
+                    "air_engage": "J", "air_disengage": "Y",
+                    "air_ab": "Z", "decoy": "C", "laser": "N", "precision": "P",
+                    "mount": "M"}
 
 # 待令组按钮 → fsm 待令组（armed 高亮映射；移动族右键直达无按钮）
 ARM_KEYMAP = {"reverse": "reverse", "attack": "attack", "fm": "fire_mission",
               "strike": "strike", "drop": "drop", "march": "march",
-              "unload": "unload", "sniper": "sniper", "supply": "supply"}
+              "unload": "unload", "sniper": "sniper", "supply": "supply",
+              "laser": "laser", "mount": "mount", "precision": "precision"}
 
 LANE_NAMES = ("西翼", "中央", "东翼")
 
 # 战斗页右下命令格（§11：行序=航空上下文（置顶）/作战/机动/支援/杂项——短标签
 # 对齐断箭图标菜单密度；热键字母随标签保留，帮助面板 F1 仍载全文）
+# 〔P1 机制块 2026-10-13：air 行 +加力(Z)/诱饵(C)；作战行 +照射(N)/精确(P)；
+# 支援行狙击挪 L、+登车(M)；+补给行（选中补给载具浮出——购买三档+四开关，
+# basics:198-213）。〕
 _ORDER_ROW_AIR = (("air_alt", "高度(V)"), ("air_rtb", "返航(B)"),
-                  ("air_engage", "对空(J)"), ("air_disengage", "脱离(Y)"))
-_ORDER_ROW_COMBAT = (("attack", "攻击(A)"), ("fm", "炮击(T)"), ("strike", "空袭(K)"),
-                     ("drop", "空投(O)"), ("smoke_x", "烟幕(X)"))
+                  ("air_engage", "对空(J)"), ("air_disengage", "脱离(Y)"),
+                  ("air_ab", "加力(Z)"), ("decoy", "诱饵(C)"))
+_ORDER_ROW_COMBAT = (("attack", "攻击(Q)"), ("fm", "炮击(T)"), ("strike", "空袭(K)"),
+                     ("drop", "空投(O)"), ("smoke_x", "烟幕(X)"),
+                     ("laser", "照射(N)"), ("precision", "精确(P)"))
 _ORDER_ROW_MANEUVER = (("stop", "停止(S)"), ("cancel", "取消(E)"),
                        ("reverse", "倒车(R)"), ("sprint", "冲刺(Z)"),
                        ("march", "行军(F)"))
 _ORDER_ROW_SUPPORT = (("stance_h", "纪律(H)"), ("smoke_sprint", "烟冲(G)"),
-                      ("unload", "卸载(U)"), ("sniper", "狙击(N)"), ("supply", "补给"))
+                      ("unload", "卸载(U)"), ("sniper", "狙击(L)"), ("supply", "补给"),
+                      ("mount", "登车(M)"))
 _ORDER_ROW_AUX = (("ambush", "伏击"), ("deploy_gun", "展开"), ("pack_gun", "收炮"),
                   ("tow", "拖曳"), ("untow", "解拖"), ("formation", "队形"),
                   ("fm_cancel", "撤炮"))
+# 补给行（P1——选中带物资槽的己方单位时浮出；购买三档 basics:198-200 +
+# 四开关 basics:208-213，开关标签带 ●=开）
+_ORDER_ROW_SUPPLY = (("sup_buy1", "买1t"), ("sup_buy4", "买4t"),
+                     ("sup_buymax", "买满"), ("sup_share", "共享"),
+                     ("sup_heal", "医疗"), ("sup_repair", "维修"),
+                     ("sup_ammo", "弹药"))
 
 
 class Btn:
@@ -73,12 +90,25 @@ def order_grid_rect(win, rows: int):
     return (x1 - w, MARGIN, x1, MARGIN + h)
 
 
+def _supply_selected(win) -> bool:
+    """选中面含带物资槽的己方单位（帧 supply_gates 键存在即补给堆/卡车——
+    P1 补给行浮出条件）。"""
+    for u in win.frame.get("units", ()):
+        if u["id"] in win.fsm.selected and u.get("team") == win.frame.get("view") \
+                and "supply_gates" in u:
+            return True
+    return False
+
+
 def layout_battle_buttons(win) -> None:
     """右下命令格＋左缘呼援轨（§11）：格行=航空上下文（置顶）/作战/机动/支援/
-    杂项；轨=空援卡竖排（断箭呼援轨同位）。"""
+    杂项＋补给行（P1——选中补给载具浮出）；轨=空援卡+地面呼援卡竖排（P1 战中
+    呼援 basics:165-168——战斗页同轨追加地面卡）。"""
     rows = [r for r in (_ORDER_ROW_AIR if win.fsm.selected_air else None,
                         _ORDER_ROW_COMBAT, _ORDER_ROW_MANEUVER,
-                        _ORDER_ROW_SUPPORT, _ORDER_ROW_AUX) if r]
+                        _ORDER_ROW_SUPPORT,
+                        _ORDER_ROW_SUPPLY if _supply_selected(win) else None,
+                        _ORDER_ROW_AUX) if r]
     gx0, _gy0, _gx1, gy1 = order_grid_rect(win, len(rows))
     for ri, row in enumerate(rows):                     # 行自顶向下
         y = gy1 - 8 - ORDER_GRID_BTN_H - ri * (ORDER_GRID_BTN_H + 6)
@@ -91,7 +121,10 @@ def layout_battle_buttons(win) -> None:
 
 
 def layout_air_rail(win) -> None:
-    """左缘呼援轨（§11 断箭位）：空援卡竖排（顶部对齐呼援点数下沿）。"""
+    """左缘呼援轨（§11 断箭位）：空援卡竖排（顶部对齐呼援点数下沿）。
+    〔P1 机制块 2026-10-13：battle 页在空援轨下方续排**地面呼援卡**（basics:
+    165-168「战斗全程随时可呼」——deploy 页左栏卡轨的实战页同构；两段式点击
+    （点槽装弹→点地确认）与部署期共用 handle_confirm_purchase。〕"""
     y = win.height - TOP_H - 34
     for entry in win.session.air_roster():
         affordable = entry.get("affordable", True)
@@ -104,6 +137,19 @@ def layout_air_rail(win) -> None:
                                 label,
                                 tone="normal" if affordable else "disabled"))
         y -= 28
+    if win.fsm.page == "battle":                     # P1：实战期地面呼援轨
+        y -= 20
+        for p in win.frame.get("players", ()):
+            for slot in p.get("deck", ()):
+                if slot.get("airdrop"):
+                    continue                          # 空降限定卡仍只经空投
+                win._buttons.append(
+                    Btn(MARGIN, y, RAIL_W, 24,
+                        "buy:%d|%s" % (slot["template_id"], slot["name"]),
+                        "%s ×%d" % (slot["name"], slot["copies_left"]),
+                        tone="normal" if slot.get("copies_left", 0) > 0
+                        else "disabled"))
+                y -= 28
 
 
 def layout_deploy_panel(win) -> None:
@@ -144,8 +190,10 @@ def layout_group_bar(win) -> None:
 
 
 def draw_order_panel(win) -> None:
-    """右下命令格底板＋按钮（armed 高亮）＋待令提示＋左缘呼援轨（§11）。"""
-    rows = 4 + (1 if win.fsm.selected_air else 0)
+    """右下命令格底板＋按钮（armed 高亮）＋待令提示＋左缘呼援轨（§11）。
+    〔P1：rows 动态化——补给行随选中补给载具浮出（layout_battle_buttons 同判）。〕"""
+    rows = 4 + (1 if win.fsm.selected_air else 0) \
+        + (1 if _supply_selected(win) else 0)
     gx0, gy0, gx1, gy1 = order_grid_rect(win, rows)
     arcade.draw_lrbt_rectangle_filled(gx0, gx1, gy0, gy1, ORDER_PANEL)
     arcade.draw_lrbt_rectangle_outline(gx0, gx1, gy0, gy1, ORDER_TEXT, 1)
@@ -158,13 +206,18 @@ def draw_order_panel(win) -> None:
             draw_button(btn, armed=mapkey is not None and mapkey == armed)
     label = {None: None, "reverse": "倒车→点地", "attack": "攻击→点敌单位/点地=攻击移动",
              "fire_mission": "炮击→点地（LINE/CREEP=拖拽画线）",
-             "strike": "空袭→点目标/拖拽画攻击轴", "drop": "空投→点地",
-             "march": "行军→点地（沿路提速）", "unload": "卸载→点地/点楼进楼",
-             "sniper": "狙击观测→点敌方目标",
-             "supply": "补给停靠→点己方补给卡车"}.get(armed)
+             "strike": "空袭→点目标/拖拽画攻击轴", "drop": "空投→按住左键拖拽画区/单击点投",
+             "march": "行军→点地（沿路提速）",
+             "unload": "卸载→点地/点楼进楼（再按 U=就地卸载）",
+             "sniper": "狙击观测→点敌方目标（L）",
+             "supply": "补给停靠→点己方补给卡车",
+             # ── P1 待令组（2026-10-13）──
+             "laser": "激光照射→点敌方目标（N——断 LOS 失效）",
+             "mount": "登车→点己方载具（M）",
+             "precision": "精密打击→点地（靠近激光位；Shift 排队）"}.get(armed)
     if label:
-        arcade.draw_text("待令：%s（右键/ESC 取消）" % label, gx1,
-                         gy1 + 8, ORDER_ARMED, BTN_FONT, anchor_x="right")
+        arcade.draw_text("待令：%s（右键/ESC 取消｜Shift+确认=入队续令）" % label,
+                         gx1, gy1 + 8, ORDER_ARMED, BTN_FONT, anchor_x="right")
     draw_air_rail(win)
 
 
@@ -260,6 +313,23 @@ def handle_panel_button(win, key: str) -> None:
         fsm.notify("队形：%s" % nxt)
     elif key == "supply":
         fsm.arm_order("supply")
+    elif key in ("sup_buy1", "sup_buy4", "sup_buymax"):   # P1 补给购买三档
+        tier = {"sup_buy1": "t1", "sup_buy4": "t4",
+                "sup_buymax": "max"}[key]
+        sel = [u["id"] for u in win.frame.get("units", ())
+               if u["id"] in fsm.selected and "supply_gates" in u]
+        if cmd.buy_supplies_tier(sel, tier):
+            fsm.notify("补给购买：%s（重量入池——装填进度见弹药/医疗位）"
+                       % {"t1": "小档", "t4": "中档", "max": "买满"}[tier])
+        else:
+            fsm.notify("购买被拒（非补给模式/舱位门）", tone="error")
+    elif key.startswith("sup_"):                    # P1 四开关（share/heal/repair/ammo）
+        which = key[4:]
+        for u in win.frame.get("units", ()):
+            if u["id"] in fsm.selected and "supply_gates" in u:
+                on = not u["supply_gates"].get(which, True)
+                cmd.supply_switch([u["id"]], which, on)
+                fsm.notify("补给堆 %s=%s" % (which, "开" if on else "关"))
     elif key.startswith("lane"):
         handle_lane_move(win, int(key[4:]))
     elif key.startswith("air:"):
@@ -376,14 +446,17 @@ def handle_arm_purchase_card(win, template_id: int, name: str) -> None:
 
 
 def handle_confirm_purchase(win, cm) -> None:
-    """点地放卡确认：购卡（引擎门裁决）+ 胶水层 pending 展开队列登记。"""
+    """点地放卡确认：购卡（引擎门裁决）+ 胶水层 pending 展开队列登记。
+    〔P1 机制块 2026-10-13：deploy+battle 两页放行（basics:165-168 战斗全程
+    随时可呼——战中呼援出场走 spawn_step 既有链，dest 钳己方部署条带）。〕"""
     fsm = win.fsm
     tid, name = fsm.armed_purchase
-    if fsm.page != "deploy":
-        fsm.notify("购卡仅部署期可用", tone="error")
+    if fsm.page not in ("deploy", "battle"):
+        fsm.notify("购卡在部署/实战页可用", tone="error")
         fsm.cancel_purchase()
         return
-    cmd_obj = win.session.cmd.purchase(tid)
+    cmd_obj = win.session.cmd.purchase(
+        tid, (int(cm[0]), int(cm[1])))      # dest=点击点→垂足出动（2026-10-12 拍板）
     if cmd_obj is None:
         fsm.notify("购卡被拒：%s（空降限定/未知卡）" % name, tone="error")
         return

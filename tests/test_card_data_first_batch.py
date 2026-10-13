@@ -79,6 +79,13 @@ class FirstBatchData(unittest.TestCase):
         rebuilt = json.loads(self.lib_path.read_text(encoding="utf-8"))
         self.assertEqual(archived["schema_version"], "1.3")   # 归档冻结
         self.assertEqual(rebuilt["schema_version"], cs.SCHEMA_VERSION)
+        # 〔终审修复块 2026-10-13〕schema 1.6 武器行 +crit_guaranteed（model_dump
+        # 全字段序列化→重建产物多一键）——归档冻结于 1.3 无此键；比较前从重建侧
+        # 剥除该默认键（False≡缺省，值面无漂移），CSV 审计管线语义保持。
+        for c in rebuilt["cards"]:
+            for e in c["elements"]:
+                for w in e.get("weapons", ()):
+                    w.pop("crit_guaranteed", None)
         self.assertEqual(rebuilt["cards"], archived["cards"])
         self.assertEqual(rebuilt["pending"], archived["pending"])
 
@@ -216,7 +223,8 @@ class FirstBatchData(unittest.TestCase):
         同值。行为面：cmd_smoke 玩家令入口，HeadlessAI 不发 SmokeCmd=整局零扰动。"""
         doc = json.loads(self.lib_path.read_text(encoding="utf-8"))
         self.assertEqual(doc["schema_version"], cs.SCHEMA_VERSION)  # minor 演进锁当前值（PB-55 1.3→航空入库 1.4）
-        self.assertEqual(cs.SUPPORTED_CARD_SCHEMA, {1: 4})
+        self.assertEqual(cs.SUPPORTED_CARD_SCHEMA, {1: 6})  # 终审修复块 1.5→1.6 武器行
+        # crit_guaranteed（manual.txt:339-341 步兵轻 AT 必暴击位）
         self.assertEqual(cl.SUPPORTED_CARD_SCHEMA, cs.SUPPORTED_CARD_SCHEMA)
         for key in FIRST_BATCH:
             expect = 2 if key in ("SU_TRUCK", "SU_T3485") else 0   # v1 定标两卡配属

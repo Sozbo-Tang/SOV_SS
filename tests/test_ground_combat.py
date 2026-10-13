@@ -13,10 +13,12 @@ apply_damage/destroy_element 完整体（R-07 连带/带伤登记）、system_pr
 直射=HIT+SCATTER、曲射=SCATTER only（AIR/CRIT/SNIPER/SPOT/SONAR/ECONOMY 不触碰）；
 确定性双跑：同 seed 两 world 逐 tick 比指纹（fingerprint 范式同 test_integration）。"""
 import unittest
+from dataclasses import replace
 
 from sovs.sim.air import AircraftInstance, AltTier
-from sovs.sim.combat import (aura_bonus_bp, hit_building, resolve_blast,
-                             resolve_hit, resolve_melee_hit, resolve_sniper_hit)
+from sovs.sim.combat import (apply_damage, aura_bonus_bp, hit_building,
+                             resolve_blast, resolve_hit, resolve_melee_hit,
+                             resolve_sniper_hit)
 from sovs.sim.geom import approach_deg_of, angle_diff
 from sovs.sim.movement import rotate_step
 from sovs.sim.sensing import (detection_range_cm, effective_stealth_x10)
@@ -689,6 +691,9 @@ class TestGroundDirectFlow(unittest.TestCase):
         self.assertIn(tank, w.await_resupply)                           # :811 弹药缺口登记
 
     def test_hold_fire_blocks_engagement(self):
+        # P0 键位纠偏块（2026-10-13）语义更新——手册 manual.txt:364-368：HOLD_FIRE
+        # =不发射（除非受击）但**保持瞄准**：整链 6 tick 后武器停 AIMING（已瞄
+        # 定、发射被 ② hold 支拦）、弹未耗、无弹丸
         w = make_world(7)
         tank = add_unit(w, make_unit(w, TANK_TPL, 0, 0, (100000, 100000)))
         inf = add_unit(w, make_unit(w, INF_TPL, 1, 1, (130000, 100000)))
@@ -697,7 +702,7 @@ class TestGroundDirectFlow(unittest.TestCase):
         ws = tank.elements[0].weapon_states[0]
         for _ in range(6):
             world_tick(w)
-        self.assertIs(ws.state, WState.READY)
+        self.assertIs(ws.state, WState.AIMING)      # 保持瞄准（旧断言 READY 随手册废止）
         self.assertEqual(ws.ammo_left, 10)
         self.assertEqual(w.projectiles, [])
 
@@ -1458,21 +1463,56 @@ class TestCmdSetStance(unittest.TestCase):
         self.assertIs(u.stance, Stance.WEAPONS_FREE)
 
     def test_hold_fire_blocks_auto_and_manual_ground_fire(self):
-        # 消费侧：fire_permitted ② 同时拦自动链（ground_direct 经 system_combat）
-        # 与手动链（cmd_attack ⑧ 同门）；切回恢复
+        # 消费侧（P0 键位纠偏块 2026-10-13 语义更新——手册 manual.txt:364-368
+        # 「Unit(s) will not fire unless fired upon. Unit(s) on Hold Fire will
+        # still aim…」）：自动链（ground_direct 经 system_combat）照常开瞄
+        # （aim_phase 跳 ②——保持瞄准），发射由 finish_aim ②拦；手动链
+        # （cmd_attack ⑧ 同门不跳 ②）仍整拦 READY；切回 WEAPONS_FREE 恢复
         w = make_world(7)
         shooter = add_unit(w, make_unit(w, TANK_TPL, 0, 0, (100000, 100000)))
         foe = add_unit(w, make_unit(w, INF_TPL, 1, 1, (130000, 100000)))
         foe.spotted_mask = 1
         e, ws = shooter.elements[0], shooter.elements[0].weapon_states[0]
         shooter.stance = Stance.HOLD_FIRE
-        system_combat(w, shooter)                         # 自动链
-        self.assertIs(ws.state, WState.READY)
-        cmd_attack(w, e, foe.elements[0], CONFIG)         # 手动链（⑧）
+        system_combat(w, shooter)                         # 自动链：开瞄（保持瞄准）
+        self.assertIs(ws.state, WState.AIMING)
+        ws.timer = 0                                      # 瞄准到期 → finish_aim ② hold 支
+        system_combat(w, shooter)                         # （不发射不转 READY——停 AIMING）
+        self.assertIs(ws.state, WState.AIMING)
+        self.assertEqual(ws.ammo_left, ws.template.ammo_base)   # 不耗弹
+        self.assertEqual(w.projectiles, [])                     # 不发射
+        ws.state = WState.READY                            # 手动链（⑧ 不跳 ②）
+        cmd_attack(w, e, foe.elements[0], CONFIG)
         self.assertIs(ws.state, WState.READY)
         shooter.stance = Stance.WEAPONS_FREE
         system_combat(w, shooter)
-        self.assertIs(ws.state, WState.AIMING)            # 解除即恢复
+        self.assertIs(ws.state, WState.AIMING)             # 解除即恢复
+
+    def test_hold_fire_returns_fire_when_fired_upon(self):
+        # 手册「only fire when fired upon」：HOLD_FIRE 单位受击（apply_damage）
+        # → return_fire_until 窗内发射出口放行（保持瞄准的武器次拍即射）；
+        # 窗过期 → 回保持瞄准（不发射）
+        w = make_world(7)
+        shooter = add_unit(w, make_unit(w, TANK_TPL, 0, 0, (100000, 100000)))
+        foe = add_unit(w, make_unit(w, INF_TPL, 1, 1, (130000, 100000)))
+        foe.spotted_mask = 1
+        ws = shooter.elements[0].weapon_states[0]
+        shooter.stance = Stance.HOLD_FIRE
+        system_combat(w, shooter)                         # 开瞄（保持瞄准）
+        ws.timer = 0
+        apply_damage(w, shooter.elements[0], 1)           # 受击 → 刷还击窗
+        self.assertGreater(shooter.return_fire_until, w.tick)
+        system_combat(w, shooter)                         # 窗内：发射出口放行
+        self.assertIs(ws.state, WState.RELOADING)         # 已发射（转装填）
+        self.assertEqual(len(w.projectiles), 1)           # 弹丸在途
+        # 窗过期：重新开瞄后再到期 → 回保持瞄准不发射
+        ws.state = WState.READY
+        ws.timer = 0
+        system_combat(w, shooter)                         # 开瞄
+        w.tick = shooter.return_fire_until + 1            # 窗过期（手推时钟）
+        system_combat(w, shooter)
+        self.assertIs(ws.state, WState.AIMING)            # 保持瞄准（不发射）
+        self.assertEqual(len(w.projectiles), 1)
 
     def test_aa_chain_exempt_from_stance(self):
         # §F4 :695「不约束对空」：HOLD_FIRE 下 aa_try_engage 照常 begin_aim
@@ -2102,15 +2142,23 @@ class TestResolveHitDirect(unittest.TestCase):
         resolve_hit(w, mk_proj(w, se, KE6, dest=te.pos, pos=(5000, 5000), hit_target=te))
         self.assertEqual(te.hp_current, 20 - 10)                 # SIDE
 
-    def test_bounce_zero_damage_and_no_crit_draw(self):
-        # KE3 pen3：3*2=6 < front8 → 跳弹 0 伤（hp 不动）；D071 全拆后 MECH 命中
-        # 零暴击掷——CRIT 通道零消费〔勘正 2026-10-07：原注「roll_crit prob=0
-        # 短路（prob<=0 先于 chance_bp 判）」系拆除前机理——已随生产端退役〕
+    def test_bounce_zero_damage_no_crit_draw_but_guaranteed(self):
+        # KE3 pen3：3*2=6 < front8 → 跳弹 0 伤（hp 不动）；普通武器 0 伤零暴击
+        # 掷（〔2026-10-13 终审恢复〕dmg<=0 早退——CRIT 通道不动）；同弹标
+        # crit_guaranteed=步兵轻 AT 位（manual.txt:339-341）→ 0 伤跳弹亦必暴击
+        # （「even if they don't have enough penetration」字面）
         w, se, te = self._world_pair((0, 0), (0, 5000))
         before = channel_states(w)
         resolve_hit(w, mk_proj(w, se, KE3, dest=te.pos, pos=(0, 0), hit_target=te))
         self.assertEqual(te.hp_current, 20)
-        self.assertEqual(channel_states(w), before)
+        self.assertEqual(channel_states(w), before)             # 普通：零掷
+        faust = replace(KE3, crit_guaranteed=True)
+        resolve_hit(w, mk_proj(w, se, faust, dest=te.pos, pos=(0, 0),
+                               hit_target=te))
+        self.assertEqual(te.hp_current, 20)                     # 仍 0 伤（穿深不变）
+        self.assertEqual(len(te.crit), 1)                       # 必暴击（槽位一掷）
+        after = channel_states(w)
+        self.assertNotEqual(after["CRIT"], before["CRIT"])      # CRIT 通道消费
 
     def test_garrison_overrides_to_rear(self):
         # v1.7 覆盖序（驻楼→转向→顶攻→角度）：南射本为 FRONT（5 伤），驻楼强制 REAR（10 伤）
@@ -2130,19 +2178,20 @@ class TestResolveHitDirect(unittest.TestCase):
                                pos=(0, 0), hit_target=te))
         self.assertEqual(te.hp_current, 20 - 10)
 
-    def test_mech_hit_zero_crit_zero_crit_draw(self):
-        # D071 全拆（2026-10-07 发起人拍板「全拆+留口子」）负锚——前身
-        # test_mech_crit_on_crit_channel_only（旧链 REAR 满伤 10 → prob=10000 必暴击、
-        # below(3) 掷 CRIT 通道）随拆重锚：MECH 命中伤害链不动（REAR 满伤 10）、
-        # crit 槽恒空（四槽无产出者=口子①枚举预留）、CRIT 通道零消费（口子③
-        # 通道号保留=掷骰面退役自证）；HIT/SCATTER/SNIPER 等七通道全不动
+    def test_mech_hit_crit_on_crit_channel_only(self):
+        # 〔2026-10-13 终审恢复重锚——恢复 2026-10-07 D071 全拆前的正锚形态：
+        # 严重损伤四类暴击（basics:214-230/manual.txt:339-341）〕REAR 满伤 10 →
+        # prob=MIN(10000, 10×crit_per_hp_bp(1200)×1000//1000)=10000 必暴击、
+        # below(4) 掷 CRIT 通道（四类等权含 MOB）；伤害链不动（REAR 满伤 10）；
+        # HIT/SCATTER 等其余通道全不动（掷骰仅落 CRIT）
         w, se, te = self._world_pair((0, 10000), (0, 5000))
         before = channel_states(w)
         resolve_hit(w, mk_proj(w, se, KE6, dest=te.pos, pos=(0, 10000), hit_target=te))
         self.assertEqual(te.hp_current, 10)                      # 20−10（REAR 满伤不动）
-        self.assertEqual(len(te.crit), 0)                        # 零暴击产出（恒空 dict）
+        self.assertEqual(len(te.crit), 1)                        # 必暴击：恰一槽
+        self.assertIn(next(iter(te.crit)), (0, 1, 2, 3))         # 四类槽位域 below(4)
         after = channel_states(w)
-        self.assertEqual(after["CRIT"], before["CRIT"])
+        self.assertNotEqual(after["CRIT"], before["CRIT"])      # CRIT 通道消费（掷面非单调——不等式断言）
         for name in ("HIT", "SCATTER", "SPOT", "SNIPER", "SONAR", "ECONOMY", "AIR"):
             self.assertEqual(after[name], before[name], name)
 
@@ -2308,9 +2357,9 @@ class TestResolveBlast(unittest.TestCase):
 
     def test_falloff_anchors_and_inclusive_edge(self):
         # d=2000 → 20*8000//10000=16（MECH hp20→4）；d=4000 边界含 → 12（→8）；
-        # d=4001 界外 → 不动。D071 全拆（2026-10-07）重锚：爆破受击 MECH 零暴击
-        # 零掷（原「每受击元素各掷 CRIT、dmg≥9 必暴击」生产块已删）——CRIT 通道
-        # 零消费、crit 槽恒空；界外锚保留
+        # d=4001 界外 → 不动。〔2026-10-13 终审恢复重锚〕爆破受击车辆各掷暴击
+        # （dmg16/12 均≥9 → prob 饱和 10000 必暴击、below(4) 掷 CRIT 通道）；
+        # 界外锚保留
         w, how = self._world()
         dest = (200000, 200000)
         t2 = add_unit(w, make_unit(w, ARMORED_TPL, 1, 1, (202000, 200000)))
@@ -2322,13 +2371,13 @@ class TestResolveBlast(unittest.TestCase):
         self.assertEqual(t2.elements[0].hp_current, 20 - 16)
         self.assertEqual(t4.elements[0].hp_current, 20 - 12)     # 边界含等号
         self.assertEqual(tout.elements[0].hp_current, 20)
-        self.assertEqual(len(t2.elements[0].crit), 0)            # 零暴击产出
+        self.assertEqual(len(t2.elements[0].crit), 1)            # dmg16 必暴击（饱和）
         self.assertEqual(t2.elements[0].suppression, 10)         # 点压制全值（不衰减）
         after = channel_states(w)
-        self.assertEqual(after["CRIT"], before["CRIT"])
+        self.assertNotEqual(after["CRIT"], before["CRIT"])      # CRIT 通道两掷×两车
         for name in ("HIT", "SCATTER", "SPOT", "SNIPER", "SONAR", "ECONOMY", "AIR"):
             self.assertEqual(after[name], before[name], name)
-        self.assertEqual(tout.elements[0].crit, {})              # 界外亦零掷（锚保留）
+        self.assertEqual(tout.elements[0].crit, {})              # 界外零掷（锚保留）
 
     def test_friendly_fire_and_squad_factor(self):
         # 敌我不分（自由落体砸落点双方）：己方步兵贴点满衰减 20 伤灭班；

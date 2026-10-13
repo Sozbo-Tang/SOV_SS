@@ -77,16 +77,44 @@ def _viewport_center_px(win):
     return (l + r) / 2, (b + t) / 2
 
 
+def _cam_rot(win) -> float:
+    """视图旋转角（deg，顺时针；MMB+拖拽写点——manual.txt:594「MMB + Move
+    Camera rotation」，2026-10-13 终审修复块。2D 顶视下=绕视口中心的视图旋转：
+    老窗口/鸭子无槽=0°（无旋转，行为与旧链逐位一致）。"""
+    return getattr(win, "cam_rot", 0.0) % 360.0
+
+
 def cm_to_px(win, x_cm, y_cm):
+    """世界 cm → 屏幕 px（绕**视口中心**平移+缩放+旋转；rot=0 与旧轴对齐链
+    逐位一致——旋转仅以加法项介入，无旋转路径零行为差）。"""
     cx_px, cy_px = _viewport_center_px(win)
-    return (cx_px + (x_cm - win.cam_cx) * win.cam_scale,
-            cy_px + (y_cm - win.cam_cy) * win.cam_scale)
+    dx = (x_cm - win.cam_cx) * win.cam_scale
+    dy = (y_cm - win.cam_cy) * win.cam_scale
+    rot = _cam_rot(win)
+    if rot:
+        rad = math.radians(rot)
+        cos_r, sin_r = math.cos(rad), math.sin(rad)
+        dx, dy = dx * cos_r - dy * sin_r, dx * sin_r + dy * cos_r
+    return (cx_px + dx, cy_px + dy)
 
 
 def px_to_cm(win, x_px, y_px):
+    """cm_to_px 逆变换（点击命中/框选/画线共用——旋转视图下指令坐标仍落世界系）。"""
     cx_px, cy_px = _viewport_center_px(win)
-    return (int((x_px - cx_px) / win.cam_scale + win.cam_cx),
-            int((y_px - cy_px) / win.cam_scale + win.cam_cy))
+    dx, dy = x_px - cx_px, y_px - cy_px
+    rot = _cam_rot(win)
+    if rot:
+        rad = math.radians(-rot)
+        cos_r, sin_r = math.cos(rad), math.sin(rad)
+        dx, dy = dx * cos_r - dy * sin_r, dx * sin_r + dy * cos_r
+    return (int(dx / win.cam_scale + win.cam_cx),
+            int(dy / win.cam_scale + win.cam_cy))
+
+
+def rotate_camera(win, dx_px: float) -> None:
+    """MMB 横拖=视图旋转（manual.txt:594——0.4°/px 灵敏度占位可调；只动视角
+    不动 cam_cx/cy（旋转绕视口中心，图幅钳制语义不受扰））。"""
+    win.cam_rot = (getattr(win, "cam_rot", 0.0) + dx_px * 0.4) % 360.0
 
 
 def visible_cm_rect(win):
@@ -96,17 +124,20 @@ def visible_cm_rect(win):
 
 
 def pan_camera(win, dt: float) -> None:
-    """方向键平移（字母键全部让给命令——held 集合由窗口层自维护）。"""
+    """方向键+WASD 平移（P0 键位纠偏块 2026-10-13：WASD 并入——手册 Camera
+    Controls「W, A, S, D Camera movement」manual.txt:579-580；方向键保留并存，
+    held 集合由窗口层自维护。S 双职（相机下移+停止令）——A 已随攻击移动改 Q
+    退役归相机，S=停止为既有战斗令未获拍板不移除，按住 S 两效并存留痕）。"""
     step = 700.0 * dt / max(win.cam_scale, 1e-9)
     dx = dy = 0.0
     held = win._cam_held
-    if arcade.key.UP in held:
+    if arcade.key.UP in held or arcade.key.W in held:
         dy += step
-    if arcade.key.DOWN in held:
+    if arcade.key.DOWN in held or arcade.key.S in held:
         dy -= step
-    if arcade.key.LEFT in held:
+    if arcade.key.LEFT in held or arcade.key.A in held:
         dx -= step
-    if arcade.key.RIGHT in held:
+    if arcade.key.RIGHT in held or arcade.key.D in held:
         dx += step
     if dx or dy:
         win.cam_cx += dx
@@ -205,6 +236,11 @@ _TRAIL_STYLE = {
     "air_alt": (AIR_MARK, "circle"), "air_rtb": (AIR_MARK, "circle"),
     "smoke_sprint": (SMOKE_MARK, "smoke"), "smoke": (SMOKE_MARK, "smoke"),
     "stance": (SMOKE_MARK, "circle"),
+    # ── P1 机制块（2026-10-13）──
+    "ground_rtb": (TRAIL_MARK, "circle"), "laser_designate": (ATTACK_MARK, "target"),
+    "radar": (SMOKE_MARK, "circle"), "supply_switch": (SMOKE_MARK, "circle"),
+    "buy_supplies": (SMOKE_MARK, "circle"),
+    "air_afterburner": (AIR_MARK, "circle"), "air_decoy": (AIR_MARK, "circle"),
 }
 
 TASK_MARK_COLOR = (240, 224, 96, 200)      # 任务标记（patrol 圈/strike 十字/airdrop 叉）
@@ -221,21 +257,28 @@ def draw_scene(win) -> None:
     l, b, r, t = win._viewport_px()
     step = next((s for s in _GRID_STEPS_CM if s * win.cam_scale >= 24),
                 _GRID_STEPS_CM[-1])
+    rot = _cam_rot(win)      # 旋转视图：网格/图幅框按变换后端点画（rot=0 竖平线
+                             # 与旧轴对齐画法像素等价——端点画法仅越界段被裁）
     x = step
     while x < mw:
-        px, _ = win.cm_to_px(x, 0)
-        if l <= px <= r:
-            arcade.draw_line(px, b, px, t, GRID_LINE, 1)
+        p0x, p0y = win.cm_to_px(x, 0)
+        p1x, p1y = win.cm_to_px(x, mh)
+        if max(p0x, p1x) >= l and min(p0x, p1x) <= r:
+            arcade.draw_line(p0x, p0y, p1x, p1y, GRID_LINE, 1)
         x += step
     y = step
     while y < mh:
-        _, py = win.cm_to_px(0, y)
-        if b <= py <= t:
-            arcade.draw_line(l, py, r, py, GRID_LINE, 1)
+        p0x, p0y = win.cm_to_px(0, y)
+        p1x, p1y = win.cm_to_px(mw, y)
+        if max(p0y, p1y) >= b and min(p0y, p1y) <= t:
+            arcade.draw_line(p0x, p0y, p1x, p1y, GRID_LINE, 1)
         y += step
-    bx, by = win.cm_to_px(0, 0)
-    tx, ty = win.cm_to_px(mw, mh)
-    arcade.draw_lrbt_rectangle_outline(bx, tx, by, ty, MAP_BORDER, 2)
+    for (ax, ay), (bx, by) in zip(
+            ((0, 0), (mw, 0), (mw, mh), (0, mh)),
+            ((mw, 0), (mw, mh), (0, mh), (0, 0))):
+        p0 = win.cm_to_px(ax, ay)
+        p1 = win.cm_to_px(bx, by)
+        arcade.draw_line(p0[0], p0[1], p1[0], p1[1], MAP_BORDER, 2)
     for o in frame.get("objectives", ()):
         px, py = win.cm_to_px(o["pos_cm"][0], o["pos_cm"][1])
         draw_objective_glyph(px, py, max(4.0, o["radius_cm"] * win.cam_scale),
@@ -263,8 +306,11 @@ def draw_scene(win) -> None:
         if not (l - CAM_PAD - 2 <= px <= r + CAM_PAD + 2
                 and b - CAM_PAD - 2 <= py <= t + CAM_PAD + 2):
             continue
+        facing = a.get("facing")
+        if facing is not None:
+            facing = facing + rot          # 世界朝向+视图旋转（屏幕系机头指向）
         draw_aircraft_glyph(px, py, team=a["team"], alt_tier=a["alt_tier"],
-                            spotted=a["spotted"], facing_deg=a.get("facing"),
+                            spotted=a["spotted"], facing_deg=facing,
                             selected=a["id"] in selected_air)
         if a["id"] in selected_air:            # 空选区角框（黄——与单位白框区分）
             arcade.draw_lrbt_rectangle_outline(px - 16, px + 16, py - 16, py + 16,

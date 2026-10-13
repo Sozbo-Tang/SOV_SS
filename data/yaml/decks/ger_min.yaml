@@ -1,5 +1,5 @@
 # 德军最小卡组（data/decks/ger_min.csv 迁移——DATA-03 §3 卡组源行）。
-schema_version: "1.4"
+schema_version: "1.6"
 deck_key: ger_min
 faction: GERMAN
 cards:

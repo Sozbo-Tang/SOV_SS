@@ -26,8 +26,12 @@ card_loader 构造冻结 dataclass 时共用该表反查。
 PB-52 单位级地形数值块加三可选字段、1.1→1.2＝2026-10-04 PB-53 自卫烟幕块加元素级
 可选字段 self_smoke_charges、1.2→1.3＝2026-10-04 PB-55 士气效果接线块加卡级三可选
 字段 morale_{sup,pin,rout}_th、1.3→1.4＝2026-10-12 GP-01 §1.3/DATA-03 航空入库块
-加 AirCardModel/AirWeaponModel 可选域——均 §2.3-1 加可选字段＝minor；地面 39 字段
-零触碰）；
+加 AirCardModel/AirWeaponModel 可选域、1.4→1.5＝2026-10-13 P1 机制块航空卡 +3
+可选能力域（can_afterburner/decoy_charges/passive_evade_bp——断箭手册
+ABILITIES；数值/配属清单手册未给→manual_silent，YAK9/FW190A 配属）、1.5→
+1.6＝2026-10-13 终审修复块武器行加可选域 crit_guaranteed（manual.txt:339-341
+步兵轻 AT 必暴击——恢复的严重损伤四类暴击系统数据位；仅步兵破甲发射器置位）——
+均 §2.3-1 加可选字段＝minor；地面其余字段零触碰）；
 SUPPORTED_CARD_SCHEMA＝{1: 4}——键＝major、值＝接受的 minor 上界；
 schema_version_supported() 供 CardLibraryModel/DeckModel 校验器与加载器复用。
 
@@ -50,9 +54,9 @@ from .types import (AltTier, AuraKind, DamageType, ElementType, Mode,
                     MovementClass, TargetDomain, Trajectory, UnitFlag, UnitType)
 
 # ── 版本门（DATA-01 §2）──
-SCHEMA_VERSION: str = "1.4"
+SCHEMA_VERSION: str = "1.6"
 #: 结构化支持表：键＝major、值＝接受的 minor 上界（加载器 fail-fast 拒绝一切表外版本）
-SUPPORTED_CARD_SCHEMA: dict[int, int] = {1: 4}
+SUPPORTED_CARD_SCHEMA: dict[int, int] = {1: 6}
 
 
 def schema_version_supported(version: str) -> bool:
@@ -187,6 +191,9 @@ class WeaponRowModel(BaseModel):
     trajectory: TrajectoryTok = "DIRECT"                        # 〔冻结〕D.3#18
     suppression_power: StrictInt = Field(default=0, ge=0)       # 〔数锚〕GDD-03 §2.3 压制带
     crit_mod_permille: StrictInt = Field(default=1000, ge=0)    # 〔冻结〕D.3#20
+    crit_guaranteed: StrictBool = Field(default=False)  # 1.6：步兵轻 AT 必暴击位
+    # （manual.txt:339-341「will always inflict a critical hit…even if they don't have
+    # enough penetration」——2026-10-13 终审修复块；仅步兵破甲发射器置 true）
     vs_fort_mult_permille: StrictInt = Field(default=1000, ge=0)  # 〔冻结〕D.3#21（M5 硬要求）
     needs_deployed: StrictBool = False                          # 〔冻结〕D.3#24（R-05）
     combat_style: CombatStyleTok = "NORMAL"                     # 〔冻结〕D.3#26（方案1 档案化）
@@ -557,6 +564,11 @@ class AirCardModel(BaseModel):
     can_engage_air: StrictBool = False                      # §D.1 #18
     has_dive: StrictBool = False                            # §D.1 #19（Ju 87D 专属）
     payload_price: dict[PayloadPriceKeyTok, StrictInt] = Field(default_factory=dict)
+    # ── P1 机制块 +3 能力域（2026-10-13，GP-01 断箭手册 P1 补建——manual_silent：
+    #    手册无数值/配属清单，从简占位待数值章节定标）──
+    can_afterburner: StrictBool = False    # Z 加力（manual.txt:492-497——仅战斗机）
+    decoy_charges: StrictInt = Field(default=0, ge=0)       # C 诱饵发数（manual.txt:505-509）
+    passive_evade_bp: StrictInt = Field(default=0, ge=0, le=10000)  # 被动对策 bp（basics:353-356）
 
     @field_validator("payload_price")
     @classmethod
@@ -606,6 +618,8 @@ class AirCardModel(BaseModel):
             raise ValueError("paratroop_seats/payload_max_supply 仅 TRANSPORT 可>0")
         if self.role not in ("BOMBER", "TRANSPORT") and self.turret_damage:
             raise ValueError("turret_damage 仅 BOMBER/TRANSPORT 可>0（§D.1 #17 反向）")
+        if self.can_afterburner and self.role != "FIGHTER":
+            raise ValueError("can_afterburner 仅 FIGHTER（manual.txt:492-497 fighters）")
         return self
 
 

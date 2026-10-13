@@ -118,13 +118,16 @@ class TestAirCommandDispatch(unittest.TestCase):
         self.assertEqual(a.flight_plan[0], (397000, 397000))
 
     def test_air_alt_cmd(self):
-        # §F2/B-08 高度过渡：alt_pending 写入
+        # §F2/B-08 高度过渡：alt_pending 写入。〔P1 机制块 2026-10-13 批注：
+        # YAK9=FIGHTER 出场即 HIGH（manual.txt:426-428「fighters will be high」
+        # ——entry_tier 按角色），故换层令改打 LOW 以保持「换层→alt_pending」
+        # 断言面；FIGHTER 出场高度锚另见 tests/test_p1_mechanics。〕
         w = make_world(42)
-        a = call(w, w.players[0], YAK9, {})            # entry_tier=MIN(MID, HIGH)=MID
-        self.assertIs(a.alt_tier, AltTier.MID)
-        queue_command(w, AirAltCmd(aircraft=a, tier=AltTier.HIGH))
+        a = call(w, w.players[0], YAK9, {})            # entry_tier=HIGH（P1 按角色）
+        self.assertIs(a.alt_tier, AltTier.HIGH)
+        queue_command(w, AirAltCmd(aircraft=a, tier=AltTier.LOW))
         consume_commands(w)
-        self.assertEqual(a.alt_pending, (AltTier.HIGH, CONFIG.alt_transition_ticks))
+        self.assertEqual(a.alt_pending, (AltTier.LOW, CONFIG.alt_transition_ticks))
 
     def test_air_strike_cmd(self):
         # §F3 attack run 建立：STRIKE 任务槽/INGRESS/航点=run_start
@@ -205,12 +208,23 @@ class TestAirCommandDispatch(unittest.TestCase):
 
 class TestStrafeResolveHit(unittest.TestCase):
     """块1 规格对齐锚：§F3 命中支走 combat.resolve_hit（Projectile{top_attack=TRUE}
-    即时结算 B-13）——命中面压制注入（原直扣实现缺失的行为面）+伤害照常。"""
+    即时结算 B-13）——命中面压制注入（原直扣实现缺失的行为面）+伤害照常。
+    〔P1 机制块 2026-10-13 重写：resolve_strafe 取严修正为「沿全航道无差别落点」
+    （manual.txt:413-416「fired indiscriminately along the entire length」）——
+    落点不再锁定枚举敌元素，靶面改为沿走廊密集铺元素（每 1000cm 一枚，走廊半宽
+    1500cm 内必有最近者），断言口径=全靶面聚合（hp 总损/压制注入），不再锚单靶。〕"""
 
-    def _world_with_target(self):
+    def _world_with_targets(self):
+        """沿攻击走廊密集铺靶（run=正北线过 (500000,500000)、半长 lead 8000——
+        走廊 y∈[492000,508000] 每 1000cm 一枚，覆盖全航道取样落点）。"""
         w = make_world(7)
-        u = add_unit(w, make_unit(w, TARGET_TPL, 1, 0, (500000, 500000)))
-        return w, u.elements[0]
+        lead = CONFIG.strafe_run_lead_cm
+        elems = []
+        for i in range(-(lead // 1000), lead // 1000 + 1):
+            u = add_unit(w, make_unit(w, TARGET_TPL, 1, 0,
+                                       (500000, 500000 + i * 1000)))
+            elems.append(u.elements[0])
+        return w, elems
 
     def _strike(self, w, weapon):
         a = cmd_air_call(w, w.players[0],
@@ -224,20 +238,21 @@ class TestStrafeResolveHit(unittest.TestCase):
         return a
 
     def test_hit_injects_suppression_and_damage(self):
-        # 恒命中（acc 10000）：2 发×3 伤 → hp 20→14；每发命中注入 40 压制
-        # （falloff(d=0)=10000 满衰减）→ suppression=80——切换前该值为 0（判别锚）
-        w, x = self._world_with_target()
+        # 恒命中（acc 10000）：2 发×3 伤 → 全靶面 hp 总损 6；命中注入压制
+        # （falloff 满档 40/发→受击靶 suppression 40）——判别锚=伤害照常+压制>0
+        w, elems = self._world_with_targets()
         a = self._strike(w, SURE_STRAFE_W)
         self.assertEqual(a.ammo_left["STRAFE"], 10 - SURE_STRAFE_W.salvo)
-        self.assertEqual(x.hp_current, 20 - 2 * 3)
-        self.assertEqual(x.suppression, 80)
+        total_hp = sum(e.hp_current for e in elems)
+        self.assertEqual(total_hp, 20 * len(elems) - 2 * 3)   # 无差别落点恒有最近靶
+        self.assertTrue(any(e.suppression > 0 for e in elems))
 
     def test_miss_jitter_suppression_no_damage(self):
         # 恒未命中（acc 0）：jitter 近失压制（>0 可判别）+零伤害
-        w, x = self._world_with_target()
+        w, elems = self._world_with_targets()
         a = self._strike(w, MISS_STRAFE_W)
-        self.assertEqual(x.hp_current, 20)
-        self.assertGreater(x.suppression, 0)
+        self.assertEqual(sum(e.hp_current for e in elems), 20 * len(elems))
+        self.assertTrue(any(e.suppression > 0 for e in elems))
         self.assertEqual(a.ammo_left["STRAFE"], 10 - MISS_STRAFE_W.salvo)
 
 
@@ -260,12 +275,14 @@ class TestCfgThreading(unittest.TestCase):
                        strafe_run_lead_cm=self.LEAD_OV)
 
     def test_alt_pending_ticks_reads_override_cfg(self):
-        # cmd_air_alt：alt_pending=(tier, 覆写 77)——读全局则 30
+        # cmd_air_alt：alt_pending=(tier, 覆写 77)——读全局则 30。〔P1 批注
+        # 2026-10-13：YAK9 出场即 HIGH（按角色出场高度），换层令打 LOW 保持
+        # 「换层→pending」判别面。〕
         w = make_world(42)
-        a = call(w, w.players[0], YAK9, {})            # alt_ceiling=HIGH、当前 MID
-        queue_command(w, AirAltCmd(aircraft=a, tier=AltTier.HIGH))
+        a = call(w, w.players[0], YAK9, {})            # alt_ceiling=HIGH、出场即 HIGH
+        queue_command(w, AirAltCmd(aircraft=a, tier=AltTier.LOW))
         consume_commands(w, self._ov_cfg())
-        self.assertEqual(a.alt_pending, (AltTier.HIGH, self.ALT_OV))
+        self.assertEqual(a.alt_pending, (AltTier.LOW, self.ALT_OV))
 
     def test_strike_run_start_reads_override_cfg(self):
         # cmd_air_strike：run_start 距 target=覆写 lead 13000——读全局则 8000。

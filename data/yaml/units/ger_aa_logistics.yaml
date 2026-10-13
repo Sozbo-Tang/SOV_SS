@@ -2,7 +2,7 @@
 # 数值口径：卡名/编制/造价＝GDD-01 兵种表现值；其余字段按同类现役卡插值，
 # 逐块登记 sidecar/pending.yaml（P-301~P-314）待数值章节拍板——不阻塞（GP-01 §1.4）。
 # 字段集＝card_schema.UnitCardModel 39 字段（缺省字段省略＝pydantic 默认）。
-schema_version: "1.4"
+schema_version: "1.6"
 cards:
   - card_key: GER_FLAK38
     template_id: 230
@@ -186,9 +186,9 @@ cards:
           top: 0
         suppression_vuln_permille: 1500
         seats: 1
-        cargo_rounds_max: 600
+        cargo_rounds_max: 4000   # 2026-10-13 终审：手册 4000Kg 档可载（basics:198-200 数值刻度）
         cargo_medical_max: 120
-        cargo_weight_max: 600
+        cargo_weight_max: 4000    # 同上（t1=1000/t4=4000/max=舱满——basics:198-200）
         self_smoke_charges: 2
         weapons: []
   - card_key: GER_BERGE

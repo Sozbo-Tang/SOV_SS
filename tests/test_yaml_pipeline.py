@@ -68,13 +68,36 @@ class MigrationByteAnchor(unittest.TestCase):
     def tearDownClass(cls):
         cls._tmp.cleanup()
 
+    @staticmethod
+    def _strip_post_freeze_edits(cards: list) -> list:
+        """〔终审修复块 2026-10-13〕迁移后首例地面数据变更的显式归一（改判先改这里）：
+        ① 武器行剥 crit_guaranteed（schema 1.6 新序列化键——归档 1.3 无此键，
+          False≡缺省值面无漂移）；
+        ② SU_TRUCK/GER_TRUCK 舱位 4000→归档值 600（basics:198-200 手册刻度落地
+          ——卡车舱位 600→4000，仅此两卡两字段）。除这两处外仍逐字节相等。"""
+        out = []
+        for c in cards:
+            c = json.loads(json.dumps(c))            # 深拷贝（不改 gen 原文）
+            if c["card_key"] in ("SU_TRUCK", "GER_TRUCK"):
+                for e in c["elements"]:
+                    for f in ("cargo_rounds_max", "cargo_weight_max"):
+                        if e.get(f) == 4000:
+                            e[f] = 600
+            for e in c["elements"]:
+                for w in e.get("weapons", ()):
+                    w.pop("crit_guaranteed", None)
+            out.append(c)
+        return out
+
     def test_legacy_cards_subset_byte_equal(self):
-        """10 卡 cards 子数组（CSV 原序）逐字节相等——YAML/CSV 两管线零行为漂移。"""
+        """10 卡 cards 子数组（CSV 原序）逐字节相等——YAML/CSV 两管线零行为漂移
+        （迁移后地面数据变更经 _strip_post_freeze_edits 显式归一在册）。"""
         new_by_key = {c["card_key"]: c for c in self.new_doc["cards"]}
         missing = [k for k in LEGACY_KEYS if k not in new_by_key]
         self.assertEqual(missing, [])
         subset = [new_by_key[k] for k in LEGACY_KEYS]
-        self.assertEqual(_dumps(subset), _dumps(self.old_doc["cards"]))
+        self.assertEqual(_dumps(self._strip_post_freeze_edits(subset)),
+                         _dumps(self.old_doc["cards"]))
 
     def test_legacy_pending_subsequence_byte_equal(self):
         """旧 23 条 pending 子序列逐字节相等（新登记 P-201~P-314 只增不改）。"""
@@ -220,19 +243,19 @@ class SchemaDiscipline(unittest.TestCase):
             (src / sub).mkdir(parents=True)
         for name in by.GROUND_UNIT_FILES:
             (src / "units" / name).write_text(
-                'schema_version: "1.4"\ncards: []\n', encoding="utf-8")
+                'schema_version: "1.6"\ncards: []\n', encoding="utf-8")
         (src / "units" / "su_recon.yaml").write_text(cards_yaml, encoding="utf-8")
         for name in by.AIR_FILES:
             (src / "units" / name).write_text(
-                'schema_version: "1.4"\n' + ("weapons: []" if "weapons" in name else "cards: []"),
+                'schema_version: "1.6"\n' + ("weapons: []" if "weapons" in name else "cards: []"),
                 encoding="utf-8")
         (src / "sidecar" / "provenance.yaml").write_text(
-            'schema_version: "1.4"\nentries: []\n', encoding="utf-8")
+            'schema_version: "1.6"\nentries: []\n', encoding="utf-8")
         (src / "sidecar" / "pending.yaml").write_text(
-            'schema_version: "1.4"\nentries: []\n', encoding="utf-8")
+            'schema_version: "1.6"\nentries: []\n', encoding="utf-8")
         return src
 
-    _CARD = """schema_version: "1.4"
+    _CARD = """schema_version: "1.6"
 cards:
   - card_key: SU_FLOAT
     template_id: 901
@@ -273,7 +296,7 @@ cards:
         with tempfile.TemporaryDirectory() as tmp:
             src = self._write_min_yaml(Path(tmp), self._CARD % "6000")
             (src / "units" / "air_su.yaml").write_text(
-                'schema_version: "1.4"\ncards:\n'
+                'schema_version: "1.6"\ncards:\n'
                 '  - card_key: X1\n    template_id: 91\n    name: 零价机\n    faction: SOVIET\n'
                 '    role: BOMBER\n    cost_body: 10\n    hp_max: 60\n    armor_aa: 0\n'
                 '    speed_cm_tick: 100\n    dogfight_power: 1\n    maneuver: 1\n'
@@ -289,10 +312,10 @@ class VersionInterlock(unittest.TestCase):
     """⑥ 三处版本表双写互检＋air JSON 版本门。"""
 
     def test_supported_tables_in_lockstep(self):
-        self.assertEqual(cs.SUPPORTED_CARD_SCHEMA, {1: 4})       # minor 演进锁当前值（1.3→1.4 航空入库）
+        self.assertEqual(cs.SUPPORTED_CARD_SCHEMA, {1: 6})       # minor 演进锁当前值（1.5→1.6 终审修复块武器行 crit_guaranteed）
         self.assertEqual(cl.SUPPORTED_CARD_SCHEMA, cs.SUPPORTED_CARD_SCHEMA)
         self.assertEqual(al.SUPPORTED_CARD_SCHEMA, cs.SUPPORTED_CARD_SCHEMA)
-        self.assertFalse(cs.schema_version_supported("1.5"))
+        self.assertFalse(cs.schema_version_supported("1.7"))  # 上界 1.6（终审修复块）
         self.assertTrue(cs.schema_version_supported("1.3"))     # 旧产物（归档 CSV 重建）仍可加载
 
     def test_air_product_version_gate(self):

@@ -23,6 +23,13 @@ tick.make_unit(rec.unit_template,…)＋tick.add_unit 真实现（AIR §F6 :610-
 ——契约⑥ TOP 分支即时结算 B-13；〔2026-10-07 空中闭环·块1切换〕原"combat 冻结纯函数
 组合直扣"实现缺命中面压制注入且恒 TOP——地面 resolve_hit 完整体 2026-10-02 ⑤块落地，
 air.py 头注预留的切换点本块执行）。
+
+P1 机制块（2026-10-13，GP-01 断箭手册 P1 补建）：加力/燃油/弹射（manual.txt:492-497、
+basics:312-314）、诱饵与导弹来袭事件口（manual.txt:505-509）、低空降速与按角色出场
+高度（manual.txt:421-428）、扫射沿全航道无差别（manual.txt:411-418 取严修正）、空投
+逐一跳伞+无令货机自动空投（manual.txt:430-440）。数值手册未给者一律 manual_silent
+出表占位（tables.py P1 段），配属清单（哪些机型带加力/诱饵/被动对策）=数据侧
+data/yaml/units/air_*.yaml。
 """
 from __future__ import annotations
 
@@ -53,9 +60,15 @@ def dir_index(dx: int, dy: int) -> int:
     return octant_deg(dx, dy) // 45
 
 
-def entry_tier(alt_ceiling: AltTier) -> AltTier:
-    """§D.1 注：进场高度层派生式 entry_tier = MIN(MID, alt_ceiling)（AMB-03，零新槽）。"""
-    return min(AltTier.MID, alt_ceiling)
+def entry_tier(alt_ceiling: AltTier, role: "AirRole | None" = None) -> AltTier:
+    """§D.1 注：进场高度层派生式 entry_tier = MIN(MID, alt_ceiling)（AMB-03，零新槽）。
+    〔P1 机制块 2026-10-13：+role 形参——manual.txt:426-428「Each plane spawns on map
+    with either high or low altitude depending on its role (e.g., fighters will be
+    high)」：FIGHTER=MIN(HIGH, ceiling)、其余角色维持 MIN(MID, ceiling)（手册只给
+    fighters-high 一例，余角色从简维持现值——manual_silent 留痕）。缺省 role=None=
+    旧签名行为逐位不变（测试直调兼容面）。〕"""
+    base = AltTier.HIGH if role is AirRole.FIGHTER else AltTier.MID
+    return min(base, alt_ceiling)
 
 
 # ── §F4 缠斗概率式（R-20：对空战力/机动性）──
@@ -282,6 +295,16 @@ class AircraftTemplate:
     can_engage_air: bool = False
     has_dive: bool = False
     payload_price: dict = field(default_factory=dict)  # {BOMB: 单价, SUPPLY: 每重量单位单价}（2026-10-03 拍板：载荷一池化）
+    # ── P1 机制块 +3 槽（2026-10-13，GP-01 断箭手册 P1 补建——basics/ABILITIES；
+    #    数值/配属清单手册未给→manual_silent，数据侧 data/yaml/units/air_*.yaml）──
+    can_afterburner: bool = False   # 加力资格（manual.txt:492-497「Afterburner … Press Z」
+                                    # ——仅战斗机配属，YAK9/FW190A）
+    decoy_charges: int = 0          # 诱饵发数（manual.txt:505-509「ammo limited and can be
+                                    # resupplied」——再补给走「不能图上补给」飞机限制位，
+                                    # 回基地冷却后再呼入即满发，manual_silent 留痕）
+    passive_evade_bp: int = 0       # 被动对策规避 bp（basics:353-356「reduces the probability
+                                    # of missiles to hit」——fire_aa acc 乘区；统计面板以 %
+                                    # 显示=帧 evade_pct）
 
 
 @dataclass(slots=True)
@@ -296,6 +319,7 @@ class AirTask:
     center: tuple[int, int] | None = None     # PATROL
     radius: int = 0                           # PATROL
     drop: tuple[int, int] | None = None       # AIRDROP
+    sticks_done: int = 0                      # AIRDROP P1：已投 stick 数（逐一跳伞节拍账）
 
 
 @dataclass(slots=True)
@@ -347,8 +371,24 @@ class AircraftInstance:
     alt_pending: tuple | None = None      # (target_tier, ticks_left)——条件槽
     dogfight: DogfightState | None = None
     engage_air: bool | None = None        # 条件槽：can_engage_air 或 FIGHTER
-    paratroop_cargo: object | None = None  # 条件槽：paratroop_seats>0
+    paratroop_cargo: object | None = None  # 条件槽：paratroop_seats>0（舱内空降卡模板；
+                                    # 份数账在 paratroop_left——P1「逐一跳伞」节拍消费）
     no_engage_until: int = 0
+    # ── P1 机制块 +6 槽（2026-10-13，GP-01 断箭手册 P1 补建）──
+    paratroop_left: int = 0         # 舱内空降份数（cmd_air_call ← payload["PARATROOP_COUNT"]
+                                    # 缺省 1；resolve_airdrop 逐 stick 递减，0 时清 cargo——
+                                    # manual.txt:432-433「jump out one by one」）
+    afterburner: bool = False       # 加力开关（cmd_air_afterburner 写点；速度/油耗 ×2——
+                                    # manual.txt:492-497 toggle）
+    fuel_ticks: int = -1            # 燃油余量（-1=未初始化哨兵；cmd_air_call ← cfg.
+                                    # air_fuel_ticks。耗尽=飞行员被迫跳伞 eject——basics:
+                                    # 312-314，走 air_downed 同链（冷却+无退款），manual_silent）
+    decoy_left: int = 0             # 诱饵余发（cmd_air_call ← template.decoy_charges）
+    decoy_auto: bool = True         # 诱饵自动模式（basics:351-352 右键切换自动档；缺省开
+                                    # ——basics 未言缺省，manual_silent 从简）
+    evade_until: int = 0            # 诱饵规避窗到期拍（0=无在途；fire_aa acc 乘区消费）
+    auto_drop_tick: int = 0         # 无令货机自动空投到期拍（0=无排程；进场到场拍+
+                                    # cfg.airdrop_auto_delay_ticks——manual.txt:434-440）
 
     @property
     def hp_max(self) -> int:              # 契约①字段引用槽
@@ -411,9 +451,12 @@ def cmd_air_call(world, player, template: AircraftTemplate, payload: dict,
     entry = world.air_entry_point(player.team)                        # 己方底边场外点（world 注入）
     a = AircraftInstance(id=world.next_aircraft_id, team=player.team,
                          player_index=player.index, template=template,
-                         pos=entry, alt_tier=entry_tier(template.alt_ceiling),
+                         pos=entry, alt_tier=entry_tier(template.alt_ceiling, r),
                          hp_current=template.hp_max, state=AirState.INBOUND)
     world.next_aircraft_id += 1
+    # P1 机制块（2026-10-13）：燃油/诱饵/空降份数运行时初始化（模板缺省 0/缺省份数 1）
+    a.fuel_ticks = cfg.air_fuel_ticks
+    a.decoy_left = template.decoy_charges
     ammo = {"BOMB": payload.get("BOMB", 0),
             "SUPPLY": payload.get("SUPPLY", 0)}
     for w, n in template.weapons:                                     # GAP2-04：STRAFE←weapons[] 弹量
@@ -423,6 +466,17 @@ def cmd_air_call(world, player, template: AircraftTemplate, payload: dict,
     a.ammo_left = ammo
     if template.paratroop_seats > 0:
         a.paratroop_cargo = paratroop_tpl
+        # P1「逐一跳伞」份数账（manual.txt:432-433）：payload["PARATROOP_COUNT"] 可装
+        # 多份（受 deck 余份与 paratroop_seats 钳制；缺省 1=旧行为）。装机即扣份
+        # B-06/B-12 同拍——份数扣减在此（cmd_air_call 经济段之后）。
+        count = int(payload.get("PARATROOP_COUNT", 1) or 1)
+        count = max(1, min(count, template.paratroop_seats))
+        if ps is not None:
+            count = min(count, ps.copies_left + 1)               # deck 余份钳（经济段
+                                                                # 已扣 1——余份≥1 上面
+                                                                # ≤0 已整呼叫拒）
+            ps.copies_left -= count - 1
+        a.paratroop_left = count
     if template.can_engage_air or r is AirRole.FIGHTER:               # AMB2-02：FIGHTER 同配槽
         a.engage_air = False
     cx, cy = world.map_center
@@ -433,14 +487,17 @@ def cmd_air_call(world, player, template: AircraftTemplate, payload: dict,
 
 
 def air_recovery(world, a: AircraftInstance, cfg: BalanceConfig = CONFIG) -> None:
-    """§F1 安全飞离：舱内班退份（B-27②）→本体价回收→冷却 MAX 合并（B-25）。"""
+    """§F1 安全飞离：舱内班退份（B-27②）→本体价回收→冷却 MAX 合并（B-25）。
+    〔P1 机制块 2026-10-13：舱内份按 paratroop_left 计（多份装载/逐 stick 投放后
+    余份全退——「逐一跳伞」份数账的回收侧）。〕"""
     player = world.players[a.player_index]
     tid = a.template.template_id
     if a.paratroop_cargo is not None:
         ps = next((s for s in player.deck_slots if s.template is a.paratroop_cargo), None)
         if ps is not None:
-            ps.copies_left += 1
+            ps.copies_left += a.paratroop_left
         a.paratroop_cargo = None
+        a.paratroop_left = 0
     player.air_points += a.template.cost_body
     new_cd = world.tick + recovery_cooldown_ticks(cfg, a.template.hp_max, a.hp_current)
     player.air_cooldowns[tid] = max(player.air_cooldowns.get(tid, 0), new_cd)
@@ -496,6 +553,7 @@ def cmd_air_patrol(world, a: AircraftInstance, center: tuple[int, int], radius: 
         return False
     if _strike_busy(a):
         return False
+    a.auto_drop_tick = 0                    # P1：显式令撤销自动空投排程
     a.task = AirTask(kind=TaskKind.PATROL, center=center, radius=radius)
     a.state = AirState.PATROL
     a.patrol_loop = True
@@ -508,6 +566,7 @@ def cmd_air_move(world, a: AircraftInstance, path: list) -> bool:
         return False
     if _strike_busy(a):
         return False
+    a.auto_drop_tick = 0                    # P1：显式令撤销自动空投排程
     a.task = None
     a.state = AirState.PATROL
     a.patrol_loop = False
@@ -529,6 +588,7 @@ def cmd_air_alt(world, a: AircraftInstance, tier: AltTier,
 def cmd_air_rtb(world, a: AircraftInstance) -> bool:
     if a.state is AirState.DOGFIGHT:
         return False
+    a.auto_drop_tick = 0                    # P1：显式令撤销自动空投排程
     a.task = None
     a.patrol_loop = False
     a.state = AirState.RTB
@@ -547,7 +607,23 @@ def aircraft_move_step(world, a: AircraftInstance, cfg: BalanceConfig = CONFIG) 
             a.alt_pending = None
         else:
             a.alt_pending = (t, left)
+    # ── P1 燃油/加力/低空降速（2026-10-13，manual.txt:421-428/:492-497、basics:312-314）──
+    # 油耗=每拍 1（加力 ×2——afterburner_fuel_mult_bp）；耗尽=飞行员被迫跳伞 eject
+    # （走 air_downed 同链：冷却+无退款+舱内份亡——手册未给区别性后果，manual_silent）。
+    # 燃油只在飞机实际飞行（非 settle/已移除）时消耗——aircraft_tick settle 早退兜底。
+    if a.fuel_ticks > 0:
+        a.fuel_ticks -= (cfg.afterburner_fuel_mult_bp // 10000
+                         if a.afterburner else 1)
+        if a.fuel_ticks <= 0:
+            a.fuel_ticks = 0
+            a.afterburner = False                                   # 无油不加力
+            air_downed(world, a, cfg)                               # eject（basics:312-314）
+            return
     budget = a.template.speed_cm_tick
+    if a.afterburner:                                               # 加力 ×2
+        budget = budget * cfg.afterburner_speed_mult_bp // 10000
+    if a.alt_tier is AltTier.LOW:                                   # 低空降速
+        budget = budget * cfg.alt_low_speed_mult_bp // 10000
     while budget > 0 and a.flight_plan:
         dest = a.flight_plan[0]
         prev = a.pos
@@ -561,6 +637,13 @@ def aircraft_move_step(world, a: AircraftInstance, cfg: BalanceConfig = CONFIG) 
         else:
             budget = 0
     if a.state is AirState.INBOUND and not a.flight_plan:
+        # P1 无令货机自动空投排程（manual.txt:434-440：进场到场=呼叫点；无其他命令
+        # 时延迟窗后自动投放。任何显式令在 cmd_air_* 侧清零本排程——「given no
+        # other orders」字面；EGRESS/缠斗收尾走 enter_patrol_hold 不经此支）。
+        if (a.template.role is AirRole.TRANSPORT
+                and (a.paratroop_cargo is not None
+                     or a.ammo_left.get("SUPPLY", 0) > 0)):
+            a.auto_drop_tick = world.tick + cfg.airdrop_auto_delay_ticks
         enter_patrol_hold(world, a, cfg)
     if a.state is AirState.STRIKE:
         strike_step(world, a, cfg)
@@ -629,6 +712,7 @@ def cmd_air_strike(world, a: AircraftInstance, target: tuple[int, int], weapon: 
         re = tuple(target[i] + s[i] for i in (0, 1))
     else:
         rs, re = _run_points(target, a.pos, cfg)
+    a.auto_drop_tick = 0                    # P1：显式令撤销自动空投排程
     a.task = AirTask(kind=TaskKind.STRIKE, weapon=weapon, target=target,
                      phase=StrikePhase.INGRESS, run_start=rs, run_end=re)
     a.state = AirState.STRIKE
@@ -652,6 +736,7 @@ def cmd_air_airdrop(world, a: AircraftInstance, drop_point: tuple[int, int],
     if world.phase == PHASE_SETTLE:
         return False
     rs, re = _run_points(drop_point, a.pos, cfg)
+    a.auto_drop_tick = 0                    # P1：显式令撤销自动空投排程
     a.task = AirTask(kind=TaskKind.AIRDROP, drop=drop_point,
                      phase=StrikePhase.INGRESS, run_start=rs, run_end=re)
     a.state = AirState.STRIKE
@@ -671,16 +756,28 @@ def strike_step(world, a: AircraftInstance, cfg: BalanceConfig = CONFIG) -> None
         a.flight_plan = [s.run_end]
         if s.kind is TaskKind.STRIKE and s.weapon == "STRAFE":
             resolve_strafe(world, a, s, cfg)
-    elif s.phase is StrikePhase.RUN and dist_cm(a.pos, line_point) <= a.template.speed_cm_tick:
+    elif s.phase is StrikePhase.RUN:
         if s.kind is TaskKind.AIRDROP:
-            resolve_airdrop(world, a, s, cfg)
-        elif s.weapon == "BOMB":
-            resolve_bomb_release(world, a, s, cfg)
-        if world.phase == PHASE_COMBAT:
-            s.phase = StrikePhase.EGRESS
-        else:
-            s.phase = StrikePhase.INGRESS                              # GAP2-03：非实战期挂起回 INGRESS 重走
-            a.flight_plan = [s.run_start]
+            # P1「逐一跳伞」（manual.txt:432-433）：RUN 段逐 stick 投放（几何过点
+            # 触发——airdrop_run_step）；投毕或抵达 run_end 转 EGRESS（残余舱载保留，
+            # 由弹尽自动 RTB/玩家令接管）。
+            airdrop_run_step(world, a, s, cfg)
+            empty = ((a.paratroop_cargo is None or a.paratroop_left <= 0)
+                     and a.ammo_left.get("SUPPLY", 0) <= 0)
+            if empty or not a.flight_plan:
+                if world.phase == PHASE_COMBAT:
+                    s.phase = StrikePhase.EGRESS
+                else:
+                    s.phase = StrikePhase.INGRESS                      # GAP2-03：非实战期挂起重走
+                    a.flight_plan = [s.run_start]
+        elif dist_cm(a.pos, line_point) <= a.template.speed_cm_tick:
+            if s.weapon == "BOMB":
+                resolve_bomb_release(world, a, s, cfg)
+            if world.phase == PHASE_COMBAT:
+                s.phase = StrikePhase.EGRESS
+            else:
+                s.phase = StrikePhase.INGRESS                          # GAP2-03：非实战期挂起回 INGRESS 重走
+                a.flight_plan = [s.run_start]
     elif s.phase is StrikePhase.EGRESS and not a.flight_plan:
         enter_patrol_hold(world, a, cfg)
 
@@ -714,46 +811,65 @@ def resolve_bomb_release(world, a: AircraftInstance, s: AirTask,
 
 def resolve_strafe(world, a: AircraftInstance, s: AirTask,
                    cfg: BalanceConfig = CONFIG) -> None:
+    """§F3 扫射结算。〔P1 机制块 2026-10-13 取严修正：manual.txt:413-416「guns and
+    rockets are fired **indiscriminately along the entire length** of the selected
+    strafing lane」——落点=沿全航道均匀取样（rng.below 全长），不再是「走廊内敌
+    元素逐目标 salvo」；取样点近旁（走廊半宽内）有敌元素则按精度掷 HIT 命中最近
+    一名（resolve_hit 契约⑥ TOP 支），否则该发落空仅面压制（无差别扫射打地面）。
+    敌元素自然加权（落点密集处才打得着）而非显式选靶。我方单位不误伤——引擎级
+    「无友军伤害」既有口径沿用（断箭扫射同样不打友军，留痕）。导弹打航道周边
+    特定目标：1944 现役航空卡无导弹档（weapon_slot 仅 STRAFE/BOMB）——manual_silent
+    留痕，弹型位待数据章节。低阻/高阻弹高度配对：卡面无弹型区分，由既有
+    bomb_scatter_alt_bp 高度乘区承载（低空更准）——manual_silent 留痕。〕"""
     if world.phase != PHASE_COMBAT:
         return
     w = _weapon_of(a, "STRAFE")
     if w is None:
         return
     rng = world.rng.air()
-    for u in list(world.units):
-        if u.team == a.team or not u.alive or not u.elements:
-            continue
-        for x in list(u.elements):
-            if point_segment_dist_cm(x.pos, s.run_start, s.run_end) > cfg.strafe_corridor_half_cm:
+    from .combat import inject_suppression_area, resolve_hit
+    run_len = dist_cm(s.run_start, s.run_end)
+    acc = strafe_acc_bp(cfg, w.accuracy_base_bp, a.alt_tier)
+    for _i in range(w.salvo):
+        if a.ammo_left.get("STRAFE", 0) <= 0:
+            break
+        t = rng.below(run_len + 1) if run_len > 0 else 0
+        pt = _lerp_int(s.run_start, s.run_end, t, run_len)
+        # 落点近旁最近敌元素（走廊半宽内——无差别落点+几何命中面）
+        tgt, tgt_d = None, None
+        for u in list(world.units):
+            if u.team == a.team or not u.alive:
                 continue
-            if x.mounted_in is not None:
-                continue
-            for _i in range(w.salvo):                                  # B-28：逐目标各 salvo
-                if a.ammo_left.get("STRAFE", 0) <= 0:
-                    break
-                acc = min(10000, w.accuracy_base_bp * cfg.strafe_acc_alt_bp[a.alt_tier] // 10000)
-                if rng.chance_bp(acc):
-                    # 〔2026-10-07 空中闭环·块1〕命中支改走 combat.resolve_hit
-                    # （§F3 字面：resolve_hit(world, p)——契约⑥ TOP 分支即时结算
-                    # B-13；air.py 头注预留的"地面完整体落地后可切换"切换点执行）：
-                    # 补齐命中面压制注入（resolve_hit 尾行 inject_suppression_area）
-                    # 与 compute_hit_facing 覆盖序（驻楼 REAR/转向 SIDE/顶攻 TOP——
-                    # 原直扣实现恒 TOP 且零压制，与本仓地面 TOP 分支不等价）。
-                    from .combat import resolve_hit
-                    resolve_hit(world, AirProjectile(
-                        shooter=air_shooter_view(a), weapon=w,
-                        damage_type=w.damage_type, damage=w.damage,
-                        blast_cm=w.blast_radius_cm, pos=a.pos, dest=x.pos,
-                        speed_cm_tick=w.projectile_speed_cm_tick,
-                        trajectory=Trajectory.DIRECT, hit_target=x,
-                        will_hit=True, top_attack=True), cfg)
-                else:
-                    j = (rng.sym(cfg.strafe_suppress_jitter_cm),
-                         rng.sym(cfg.strafe_suppress_jitter_cm))       # AMB-01
-                    from .combat import inject_suppression_area
-                    inject_suppression_area(world, (x.pos[0] + j[0], x.pos[1] + j[1]),
-                                            cfg.strafe_suppression_radius_cm, w.suppression_power)
-                a.ammo_left["STRAFE"] -= 1
+            for x in list(u.elements):
+                if x.mounted_in is not None:
+                    continue
+                d = dist_cm(x.pos, pt)
+                if d <= cfg.strafe_corridor_half_cm and (tgt_d is None or d < tgt_d):
+                    tgt, tgt_d = x, d
+        if tgt is not None and rng.chance_bp(acc):
+            resolve_hit(world, AirProjectile(
+                shooter=air_shooter_view(a), weapon=w,
+                damage_type=w.damage_type, damage=w.damage,
+                blast_cm=w.blast_radius_cm, pos=a.pos, dest=tgt.pos,
+                speed_cm_tick=w.projectile_speed_cm_tick,
+                trajectory=Trajectory.DIRECT, hit_target=tgt,
+                will_hit=True, top_attack=True), cfg)
+        else:
+            j = (rng.sym(cfg.strafe_suppress_jitter_cm),
+                 rng.sym(cfg.strafe_suppress_jitter_cm))           # AMB-01
+            inject_suppression_area(world, (pt[0] + j[0], pt[1] + j[1]),
+                                    cfg.strafe_suppression_radius_cm,
+                                    w.suppression_power)
+        a.ammo_left["STRAFE"] -= 1
+
+
+def _lerp_int(a: tuple[int, int], b: tuple[int, int], d: int, total: int
+              ) -> tuple[int, int]:
+    """沿线段 a→b 行进 d 的整型插值点（total=线长；d≥total → b）。"""
+    if total <= 0 or d >= total:
+        return b
+    return (a[0] + (b[0] - a[0]) * d // total,
+            a[1] + (b[1] - a[1]) * d // total)
 
 
 def dump_bombs(world, a: AircraftInstance, cfg: BalanceConfig = CONFIG) -> None:
@@ -915,29 +1031,82 @@ def air_recon_step(world, cfg: BalanceConfig = CONFIG) -> None:
 
 # ── §F6 空投链 ──
 
-def resolve_airdrop(world, a: AircraftInstance, s: AirTask,
-                    cfg: BalanceConfig = CONFIG) -> None:
-    if world.phase != PHASE_COMBAT:
-        return
-    rng = world.rng.air()
+def _airdrop_scatter_now(world, a: AircraftInstance, s: AirTask,
+                         cfg: BalanceConfig) -> int:
+    """当次散布幅度（高度×速度×信标吸附——resolve_airdrop 既有口径抽取）。"""
     r = airdrop_scatter_cm(cfg, a.alt_tier, a.template.speed_cm_tick)
     beacon = nearest_friendly_beacon(world.beacon_by_unit, a.team, s.drop, cfg)
     if beacon is not None:
         r = r * airdrop_beacon_mult(cfg) // 10000                     # 契约⑤ ×0.5
-    if a.paratroop_cargo is not None:                                 # D017：落地即地面一命单位
+    return r
+
+
+def resolve_airdrop(world, a: AircraftInstance, s: AirTask,
+                    cfg: BalanceConfig = CONFIG, point=None) -> None:
+    """投放**一份**（P1「逐一跳伞」——manual.txt:432-433「jump out one by one」）：
+    空降分支=投一个舱内卡单位（point=stick 点，缺省 s.drop——测试直调兼容面），
+    投放作业费 B-30② 每任务收一次（首 stick 拍——多份装载不重复计费，manual_silent）；
+    补给分支=整舱一箱（「one by one」主要语义=人员，补给单投留痕 manual_silent——
+    Li-2 载荷量级单箱即全舱）。舱空判定由调用侧（airdrop_run_step/strike_step）。"""
+    if world.phase != PHASE_COMBAT:
+        return
+    rng = world.rng.air()
+    r = _airdrop_scatter_now(world, a, s, cfg)
+    at = s.drop if point is None else point
+    if a.paratroop_cargo is not None and a.paratroop_left <= 0:
+        a.paratroop_left = 1        # 份数账缺省归一（直构实例只挂 cargo 未置份数=
+                                    # 单份旧语义——cmd_air_call 路径恒显式置数）
+    if a.paratroop_cargo is not None and a.paratroop_left > 0:        # D017：落地即地面一命单位
         tpl = a.paratroop_cargo
-        land = (s.drop[0] + rng.sym(r), s.drop[1] + rng.sym(r))
+        land = (at[0] + rng.sym(r), at[1] + rng.sym(r))
         world.spawn_paratroop(tpl, a.team, a.player_index, land)      # 地面管线回调（边界登记）
-        a.paratroop_cargo = None
-        p = world.players[a.player_index]
-        p.air_points = max(0, p.air_points - cfg.airdrop_fee_points)  # B-30②：投放费下限钳（AMB3-07）
+        a.paratroop_left -= 1
+        if a.paratroop_left <= 0:
+            a.paratroop_cargo = None
+        if s.sticks_done == 0:
+            p = world.players[a.player_index]
+            p.air_points = max(0, p.air_points - cfg.airdrop_fee_points)  # B-30② 下限钳（AMB3-07）
+        s.sticks_done += 1
     else:                                                             # R-21：落地实体补给箱
         supply_left = a.ammo_left.get("SUPPLY", 0)
         if supply_left <= 0:
             return
-        land = (s.drop[0] + rng.sym(r), s.drop[1] + rng.sym(r))
+        land = (at[0] + rng.sym(r), at[1] + rng.sym(r))
         world.spawn_airdrop_crate(a.team, land, supply_left)          # 契约④：地面冻结接口
         a.ammo_left["SUPPLY"] = 0
+
+
+def airdrop_run_step(world, a: AircraftInstance, s: AirTask,
+                     cfg: BalanceConfig = CONFIG) -> None:
+    """RUN 段逐 stick 投放（P1 逐一跳伞节拍，2026-10-13）：stick 点=drop 点沿 run
+    轴向两侧对称排开（间隔=速度×5≈0.5s 航程——manual 无节拍数值，manual_silent）；
+    飞机航向进度越过某 stick 阈值即投一份（几何过点触发，确定性零节拍计数器）。
+    补给箱在飞机抵达 drop 点（旧触发口径）时整舱投放。"""
+    if world.phase != PHASE_COMBAT:
+        return
+    if a.paratroop_cargo is not None and a.paratroop_left <= 0:
+        a.paratroop_left = 1            # 份数账缺省归一（resolve_airdrop 同款）
+    if a.paratroop_cargo is not None and a.paratroop_left > 0:
+        n_total = s.sticks_done + a.paratroop_left
+        k = dir_index(s.run_end[0] - s.run_start[0], s.run_end[1] - s.run_start[1])
+        d = DIR8[k]
+        spacing = max(1, a.template.speed_cm_tick * 5)
+        prog = ((a.pos[0] - s.run_start[0]) * d[0]
+                + (a.pos[1] - s.run_start[1]) * d[1])                 # 轴向进度（同基不含模长）
+        while s.sticks_done < n_total and a.paratroop_left > 0:
+            i = s.sticks_done
+            off = (2 * i - (n_total - 1)) * spacing // 2              # 对称分布
+            pt = (s.drop[0] + d[0] * off // DIR_NORM,
+                  s.drop[1] + d[1] * off // DIR_NORM)
+            thr = ((pt[0] - s.run_start[0]) * d[0]
+                   + (pt[1] - s.run_start[1]) * d[1])
+            if prog >= thr:
+                resolve_airdrop(world, a, s, cfg, point=pt)
+            else:
+                break
+    if a.ammo_left.get("SUPPLY", 0) > 0 \
+            and dist_cm(a.pos, s.drop) <= max(1, a.template.speed_cm_tick):
+        resolve_airdrop(world, a, s, cfg)                             # 补给箱：抵达 drop 点整舱投
 
 
 # ── §F7 击落结算与主循环 ──
@@ -971,3 +1140,78 @@ def aircraft_tick(world, cfg: BalanceConfig = CONFIG) -> None:
             # GAP3-02（v1.3）：资格门=有可投送载荷资格（weapons/补给舱/空降舱三析取）——
             # 运输机投送完毕恢复自动 RTB（B-05/D001），侦察机（三者皆无）豁免维持。
             cmd_air_rtb(world, a)
+        elif (a.auto_drop_tick > 0 and world.tick >= a.auto_drop_tick
+              and a.state is AirState.PATROL and a.task is not None
+              and a.task.kind is TaskKind.PATROL and world.phase == PHASE_COMBAT
+              and (a.paratroop_cargo is not None
+                   or a.ammo_left.get("SUPPLY", 0) > 0)):
+            # P1 无令货机自动空投（manual.txt:434-440：到场延迟窗内无其他命令→
+            # 在呼叫点自动投放；投毕由上方弹尽自动 RTB 接管回基地）。投放点=当前
+            # 盘旋位（呼叫到场点）。排程一次性（清零防重排）。
+            a.auto_drop_tick = 0
+            cmd_air_airdrop(world, a, a.pos, cfg)
+
+
+# ── P1 机制块（2026-10-13，GP-01 断箭手册 P1 补建）──
+# Afterburner（manual.txt:492-497）／Decoy（manual.txt:505-509、basics:347-352）／
+# 导弹来袭统一事件口 missile_warning（Smoke/Decoy 自动触发的共同事件源）。
+
+def cmd_air_afterburner(world, a: AircraftInstance, engage: bool,
+                        cfg: BalanceConfig = CONFIG) -> bool:
+    """Z 加力开关（toggle——再按 Z 关闭，manual.txt:496-497「Press Z again to turn
+    it off」）。门：模板无加力资格（can_afterburner=False）→REJECT；DOGFIGHT/RTB
+    态 →REJECT（失控段不可微操——B-22 同口径）；燃油耗尽 →REJECT。速度/油耗 ×2
+    消费点=aircraft_move_step。"""
+    if not a.template.can_afterburner:
+        return False
+    if a.state in (AirState.DOGFIGHT, AirState.RTB):
+        return False
+    if engage and a.fuel_ticks <= 0:
+        return False
+    a.afterburner = bool(engage)
+    return True
+
+
+def cmd_air_decoy(world, a: AircraftInstance, action: str,
+                  cfg: BalanceConfig = CONFIG) -> bool:
+    """C 诱饵令（manual.txt:508「Press C to fire a decoy manually」＋basics:351-352
+    右键切自动档）。action ∈ {"POP","AUTO_ON","AUTO_OFF"}：POP=立即投放一发（发数
+    门），规避窗 evade_until=now+cfg.decoy_evade_ticks——fire_aa acc 乘区消费；
+    AUTO_ON/OFF=自动模式开关（「被导弹攻击自动触发」的资格位）。"""
+    if a.template.decoy_charges <= 0:
+        return False                                  # 机型无诱饵槽（数据位）
+    if action in ("AUTO_ON", "AUTO_OFF"):
+        a.decoy_auto = action == "AUTO_ON"
+        return True
+    if action != "POP":
+        return False
+    if a.decoy_left <= 0:
+        return False
+    a.decoy_left -= 1
+    a.evade_until = world.tick + cfg.decoy_evade_ticks
+    return True
+
+
+def missile_warning(world, target) -> None:
+    """「导弹来袭」统一事件口（P1——Smoke/Decoy 自动触发的共同事件源）。
+
+    断箭原文：Smoke「Triggers automatically if a missile is fired on the unit」
+    （manual.txt:501-502）/ Decoy「Triggers automatically if a missile is fired on
+    the unit」（manual.txt:507-508）。本作 1944 题材的「导弹」对应物=对空高炮弹
+    （唯一制导样武器的时代表亲）——**唯一生产调用点=tick.fire_aa（对空弹发射拍，
+    target=被瞄准飞机）**：飞机诱饵自动投放（decoy_auto 且有发）。
+    地面支：函数体承载（任一元素有自卫烟幕发数且过冷却→cmd_smoke 自动落烟），
+    但 1944 现役武器面**无对地导弹**（无 ATGM/SEAD 弹种）→事件源不可达、无生产
+    调用点——接线留痕（manual_silent）：将来出现对地导弹武器时在其发射点调本函数
+    即激活；X 手动路径不变。"""
+    from .tick import cmd_smoke
+    if isinstance(target, AircraftInstance):
+        if target.decoy_auto and target.decoy_left > 0:
+            cmd_air_decoy(world, target, "POP")
+        return
+    unit = getattr(target, "unit", target)                 # 元素或单位均可
+    if getattr(unit, "alive", False):
+        for e in unit.elements:
+            if e.self_smoke_left > 0:
+                cmd_smoke(world, e, e.pos)
+                return

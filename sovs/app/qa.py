@@ -66,7 +66,7 @@ def smoke(seed: int = 42, deck: str = "su_min", kev: str = "rule",
         ok = ok and ev["issued"] > 0 and ev["observed"]
         print("  %s %s：入队生效 %d 笔，World 可断言变化=%s"
               % (verdict, group, ev["issued"], "是" if ev["observed"] else "否"))
-    # 标准玩法剧本断言（附加要求③：框选→右键移动→A 攻击移动→烟幕→编组→切组）
+    # 标准玩法剧本断言（附加要求③：框选→右键移动→Q 攻击移动→烟幕→编组→切组）
     for name, passed, detail in pilot.script.checks:
         if not passed:
             print("  ✗ 标准玩法：%s（%s）" % (name, detail))
@@ -76,7 +76,7 @@ def smoke(seed: int = 42, deck: str = "su_min", kev: str = "rule",
               % len(pilot.script.checks))
     else:
         print("  ✓ 标准玩法剧本 %d 条断言全过（框选/建组/取组剪尸/右键移动/"
-              "A 攻击移动/G 组合）" % len(pilot.script.checks))
+              "Q 攻击移动/G 组合）" % len(pilot.script.checks))
     # ── GP-01 §4 空中可控链（--smoke 剧本扩展①）──
     air_ctrl_ok = (pilot.air_ctrl["selected"]
                    and pilot.air_ctrl["commands"] >= 2
@@ -94,11 +94,25 @@ def smoke(seed: int = 42, deck: str = "su_min", kev: str = "rule",
     # ── GP-01 §7 编辑器→自制卡组→一局到结算（--smoke 剧本扩展③）──
     deck_ok, deck_detail = _custom_deck_smoke(seed, kev)
     print("  %s 编辑器造卡组开一局：%s" % ("✓" if deck_ok else "✗", deck_detail))
-    ok = ok and script_ok and air_ctrl_ok and fm_new_ok and deck_ok
+    # ── P1 机制块（2026-10-13——地面 RTB 退款／激光→精密打击／诱饵+加力）──
+    p1_pilot_ok = (pilot.p1["rtb_issued"] and pilot.p1["rtb_observed"]
+                   and pilot.p1["decoy_issued"] and pilot.p1["decoy_observed"]
+                   and pilot.p1["ab_issued"] and pilot.p1["ab_observed"])
+    print("  %s P1 剧本证据：RTB退款=%s/%s 诱饵=%s/%s 加力=%s/%s（发令/观测）"
+          % ("✓" if p1_pilot_ok else "✗",
+             pilot.p1["rtb_issued"], pilot.p1["rtb_observed"],
+             pilot.p1["decoy_issued"], pilot.p1["decoy_observed"],
+             pilot.p1["ab_issued"], pilot.p1["ab_observed"]))
+    p1_laser_ok, p1_laser_detail = _p1_mechanics_smoke(seed, kev)
+    print("  %s P1 激光→精密打击：%s" % ("✓" if p1_laser_ok else "✗",
+                                        p1_laser_detail))
+    ok = ok and script_ok and air_ctrl_ok and fm_new_ok and deck_ok \
+        and p1_pilot_ok and p1_laser_ok
     if ok:
         print("OK  smoke 五组命令全部经 queue_command 入队、被 consume_commands "
               "消费且 World 状态可断言变化；标准玩法剧本全绿；空中可控链/"
-              "炮击新模式/编辑器自制卡组三段扩展证据全绿")
+              "炮击新模式/编辑器自制卡组三段扩展证据全绿；P1 机制证据（地面 "
+              "RTB 退款/激光→精密打击/诱饵/加力）全绿")
     return 0 if ok else 1
 
 
@@ -196,6 +210,193 @@ def _custom_deck_smoke(seed: int, kev: str) -> tuple[bool, str]:
             pass
 
 
+def _p1_mechanics_smoke(seed: int, kev: str) -> tuple[bool, str]:
+    """P1 机制证据段（2026-10-13）：激光照射 N→精密打击 P 一笔（自制卡组——
+    su_min 无狙击卡，SU_SNIPER 为照射器载体）＋战中购卡通道实证。
+
+    断言链：①自制卡组（SU_SNIPER/SU_RIFLE/SU_ZIS3）开局；②部署购卡后入实战，
+    战中再购一张（basics:165-168 战斗全程随时可呼——cmd_purchase 实战放行）；
+    ③狙击组对已发现敌下激光照射（laser_by_unit 落账）；④ZiS-3 对激光位近点下
+    PRECISION 炮击任务（任务体 ammo==PRECISION 安装+至少一发弹丸落激光位近旁）；
+    ⑤地面 RTB 退款（cmd 侧直验在 pilot 段/单测，此处不重复）。产物 finally 删除。
+    """
+    from sovs.app.deck_editor import DeckEditor
+
+    key = "p1_gp01"
+    ed = DeckEditor()
+    try:
+        entries = [("SU_SNIPER", 1), ("SU_RIFLE", 2), ("SU_ZIS3", 1)]
+        ed.save(key, "SOVIET", entries)
+        session = SkirmishSession(seed=seed, human_deck=key, kev_level=kev)
+        w = session.world
+        from sovs.sim import card_loader
+        from sovs.app.session import LIB_PATH
+        lib = card_loader.load_library(LIB_PATH)
+        sniper_tid = lib["SU_SNIPER"].unit_template.template_id
+        zis_tid = lib["SU_ZIS3"].unit_template.template_id
+        rifle_tid = lib["SU_RIFLE"].unit_template.template_id
+        # 部署期购狙击+ZiS-3+步枪各 1 份（各只买首份——步枪留 1 份给战中购卡
+        # 断言：basics:165-168「战斗全程随时可呼」）
+        bought: set[int] = set()
+        while w.phase == PHASE_DEPLOY:
+            p = w.players[0]
+            for tid in (sniper_tid, zis_tid, rifle_tid):
+                if tid in bought:
+                    continue
+                slot = next((s for s in p.deck_slots
+                             if s.template.template_id == tid
+                             and s.copies_left > 0
+                             and p.points >= s.template.cost), None)
+                if slot is not None:
+                    if session.cmd.purchase(tid):
+                        bought.add(tid)
+                    break
+            session.advance(1)
+        if w.phase != PHASE_COMBAT:
+            return False, "未入实战（phase=%s）" % w.phase
+        sniper = next((u for u in w.units if u.team == 0 and u.alive
+                       and u.template.template_id == sniper_tid), None)
+        gun = next((u for u in w.units if u.team == 0 and u.alive
+                    and u.template.template_id == zis_tid), None)
+        if sniper is None or gun is None:
+            return False, "狙击组/ZiS-3 未出场（sniper=%s gun=%s）" % (
+                sniper is not None, gun is not None)
+        # ①战中购卡通道（P1：实战期 PurchaseCmd 放行——剩 1 份步枪；经命令流
+        # 入队→下一拍落地后核对扣点扣份）
+        p = w.players[0]
+        slot = next((s for s in p.deck_slots
+                     if s.template.template_id == rifle_tid
+                     and s.copies_left > 0), None)
+        if slot is None or not session.cmd.purchase(rifle_tid,
+                                                    (60000, 20000)):
+            return False, "战中购卡构造被拒（无余份）"
+        pts0, copies0 = p.points, slot.copies_left
+        session.advance(1)
+        if not (p.points == pts0 - slot.template.cost
+                and slot.copies_left == copies0 - 1):
+            return False, ("战中购卡被拒（P1 相位门未放行？points %d→%d copies "
+                           "%d→%d）" % (pts0, p.points, copies0,
+                                       slot.copies_left))
+        # ②激光照射：开战首拍敌尚在北缘（80km+）——狙击组先安全行军一次到
+        # (100000, 12000) 前哨站定（站立隐蔽 10 档=敌目视 17500 内不可见），
+        # 候敌南压进入光学 45000 圈即**停稳照射**（观察者移动=LOS 减半——
+        # sensing 既有 move_vision 乘区）；断 LOS 则横向换位重试（穿林带侧移）
+        session.cmd.move([sniper.id], (100000, 12000))
+        session.cmd.move([gun.id], (86000, 9000))    # 火炮同步疏散（② 等待窗
+                                                      # 内走完——③ 到位即展开）
+        sniper_id = sniper.id
+        designated = False
+        guard = 0
+        lateral = (0, 15000, -15000, 30000, -30000)   # 断 LOS 换位候选
+        li = 0
+        while guard < 6000 and w.phase != PHASE_SETTLE and not designated:
+            foe = next((u for u in w.units if u.team == 1 and u.alive), None)
+            sniper = next((u for u in w.units
+                           if u.id == sniper_id and u.alive), None)
+            if sniper is None:
+                return False, "照射窗内射手消亡"
+            if foe is None:
+                return False, "照射窗内无敌方单位"
+            d = abs(foe.pos[0] - sniper.pos[0]) + abs(foe.pos[1] - sniper.pos[1])
+            if not sniper.moving():
+                if d <= 42000:
+                    session.cmd.laser_designate([sniper_id], foe.id)
+                    session.advance(1)
+                    designated = sniper_id in w.laser_by_unit
+                    if designated:
+                        break                     # 即时出窗（防尾拍 advance 剪枝）
+                    if li < len(lateral) - 1:
+                        li += 1                   # 断 LOS——横向换位再试
+                        session.cmd.move([sniper_id],
+                                         (100000 + lateral[li], 12000))
+                elif li > 0:                      # 换位后未入圈——回中列候敌
+                    session.cmd.move([sniper_id], (100000 + lateral[li], 12000))
+                session.advance(100)
+                guard += 100
+                continue
+            session.advance(100)
+            guard += 100
+        if not designated:
+            return False, "激光位未落账（资格/LOS 门拒——%d 拍窗内未成 LOS）" % guard
+        # ③精密打击：ZiS-3 射程 100km+ 覆盖全图——短距疏散（离锚点 ~20km，
+        # spy 实测蹲锚点被 KEV 炮火拆）+到位即展开；照射与下令**同拍**完成
+        # （激光随目标移动，防照射→下令间隔断链），任务先安装、展开毕自然开火
+        gun_id, sniper_id0 = gun.id, sniper_id
+        fired = False
+        guard = 0
+        while guard < 6000 and w.phase != PHASE_SETTLE:
+            gun = next((u for u in w.units if u.id == gun_id and u.alive), None)
+            sniper = next((u for u in w.units
+                           if u.id == sniper_id0 and u.alive), None)
+            if gun is None or sniper is None:
+                return False, "射击窗内火炮/射手消亡（gun=%s sniper=%s）" % (
+                    gun is not None, sniper is not None)
+            if not gun.moving() and gun.deploy_state == 0:
+                session.cmd.deploy_gun([gun_id])     # 到位即展开（MOBILE=0）
+            if not sniper.moving():
+                foe = next((u for u in w.units if u.team == 1 and u.alive), None)
+                if foe is not None:
+                    d = abs(foe.pos[0] - sniper.pos[0]) \
+                        + abs(foe.pos[1] - sniper.pos[1])
+                    if d <= 42000:
+                        if sniper_id0 not in w.laser_by_unit:
+                            session.cmd.laser_designate([sniper_id0], foe.id)
+                            session.advance(1)
+                        if sniper_id0 in w.laser_by_unit:
+                            laser_pos = w.laser_by_unit[sniper_id0][1].pos
+                            if session.cmd.fire_mission(gun_id, laser_pos,
+                                                        ammo="PRECISION"):
+                                fired = True
+                                break
+            session.advance(50)
+            guard += 50
+        if not fired:
+            return False, "PRECISION 任务未构造（激光位/火炮门——%d 拍窗）" % guard
+        session.advance(1)
+        gun = next((u for u in w.units if u.id == gun_id and u.alive), None)
+        fm = gun.fire_mission if gun is not None else None
+        if fm is None or fm.ammo != "PRECISION":
+            return False, "PRECISION 任务体未安装"
+        # ④观测至少一发精密弹丸（落点近激光位——紧散射判据曼哈顿 ≤5km；
+        # 展开毕自然开火，等候窗覆盖展开+装填节奏）
+        landed = False
+        guard = 0
+        seen = {id(pr) for pr in w.projectiles}
+        while guard < 2500 and w.phase != PHASE_SETTLE:
+            session.advance(10)
+            guard += 10
+            for pr in w.projectiles:
+                if id(pr) not in seen:
+                    seen.add(id(pr))
+                    if pr.weapon is fm_target_ws(gun, "PRECISION"):
+                        d = abs(pr.dest[0] - laser_pos[0]) \
+                            + abs(pr.dest[1] - laser_pos[1])
+                        if d <= 5000:
+                            landed = True
+        if not landed:
+            return False, "精密弹未在激光位近旁落点（%d 拍窗）" % guard
+        while w.phase != PHASE_SETTLE:
+            session.advance(100)
+        return True, "照射→PRECISION 任务安装+落点近激光位+战中购卡放行 tick=%d" % w.tick
+    except Exception as exc:                          # noqa: BLE001（门禁转红不崩栈）
+        return False, "异常 %r" % (exc,)
+    finally:
+        try:
+            ed.delete(key)
+        except (FileNotFoundError, ValueError):
+            pass
+
+
+def fm_target_ws(gun_unit, ammo):
+    """炮击任务武器档（tick._fm_ws 惰性代理——qa 侧判弹丸归属；入参=单位，
+    取其首个 INDIRECT 元素档）。"""
+    from sovs.sim.tick import _fm_ws
+    from sovs.sim.types import Mode
+    el = next((g for g in gun_unit.elements if g.mode is Mode.INDIRECT),
+              gun_unit.elements[0] if gun_unit.elements else None)
+    return _fm_ws(el, ammo).template if el is not None and el.weapon_states else None
+
+
 # ── 门禁②：--coldstart（真实事件层冷启动——交互重设计 A11）──
 
 def coldstart(seed: int = 42, deck: str = "su_min", kev: str = "rule") -> int:
@@ -279,7 +480,7 @@ def coldstart(seed: int = 42, deck: str = "su_min", kev: str = "rule") -> int:
                "spawned=%d initial=%d remaining=%d"
                % (spawned, initial_copies, remaining))
 
-        # ── ④ 实战：真实事件层标准玩法（框选→右键→A 攻击移动→齐射→T/Z/X/G
+        # ── ④ 实战：真实事件层标准玩法（框选→右键→Q 攻击移动→齐射→T/Z/X/G
         #    →编组→切组），逐 100t 节拍推进至结算（50t+观测+50t——观测窗加密，
         #    瞄准/位移等短生命周期状态不因节拍过疏而漏采）──
         counts = {"move": 0, "attack": 0, "fire_mission": 0, "smoke_sprint": 0,
@@ -335,18 +536,18 @@ def coldstart(seed: int = 42, deck: str = "su_min", kev: str = "rule") -> int:
                 probes[probe_unit["id"]] = tuple(probe_unit["pos_cm"])
                 rx, ry = win.cm_to_px(100000, 45000)
                 win.on_mouse_press(rx, ry, R, 0)
-            # A+点地攻击移动（真实事件）
-            win.on_key_press(arcade.key.A, 0)
+            # Q+点地攻击移动（真实事件——P0 键位纠偏块 2026-10-13 A→Q）
+            win.on_key_press(arcade.key.Q, 0)
             ax, ay = win.cm_to_px(100000, 55000)
             win.on_mouse_press(ax, ay, L, 0)
-            # A+点敌齐射（真实事件；点距我军最近已发现敌——齐射观测对=选中
+            # Q+点敌齐射（真实事件；点距我军最近已发现敌——齐射观测对=选中
             # 全员×该敌，A11 判据「指定 shooter 武器 target.unit.id==指定 foe id」）
             if foes and counts["attack"] < 8:
                 cx = sum(u["pos_cm"][0] for u in mine) / len(mine)
                 cy = sum(u["pos_cm"][1] for u in mine) / len(mine)
                 foe = min(foes, key=lambda f: (abs(f["pos_cm"][0] - cx)
                                                + abs(f["pos_cm"][1] - cy), f["id"]))
-                win.on_key_press(arcade.key.A, 0)
+                win.on_key_press(arcade.key.Q, 0)
                 fx, fy = win.cm_to_px(foe["pos_cm"][0], foe["pos_cm"][1])
                 win.on_mouse_press(fx, fy, L, 0)
                 volley_pairs.extend((u["id"], foe["id"]) for u in mine)
@@ -453,7 +654,7 @@ def coldstart(seed: int = 42, deck: str = "su_min", kev: str = "rule") -> int:
             print("   - %s" % f)
         return 1
     print("OK  coldstart 事件层冷启动全绿（配置→盲部署→实战→结算；购卡 8 份/"
-          "出场锚定/事件层框选编组/A 攻击移动/齐射/炮击/烟幕/位移与目标观测）")
+          "出场锚定/事件层框选编组/Q 攻击移动/齐射/炮击/烟幕/位移与目标观测）")
     return 0
 
 

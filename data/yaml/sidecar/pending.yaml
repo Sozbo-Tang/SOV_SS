@@ -1,6 +1,6 @@
 # P-xx 待定登记（data/ground_pending.csv 全量迁移＋GP-01 §1.4 P-201/202/203＋新卡插值 P-301~P-314）。
 # 前段（P-1xx）＝CSV 时代原行逐行平移（迁移锚：pending 数组逐字节相等）；后段＝GP-01 M1 新登记。
-schema_version: "1.4"
+schema_version: "1.6"
 entries:
   - {pending_id: "P-101", scope: "空降两卡（苏⑥/德⑥）", field: "category/per_card_limit", filled_value: "INFANTRY／随步兵默认3", resolve_plan: "air_data P-13 拍板后回填；限份待 D032 细化数值章节（O-05）"}
   - {pending_id: "P-102", scope: "空降两卡", field: "编制（班数/班人数/武器配比）", filled_value: "3班×10人；苏=冲锋枪为主、德=K98＋MP40混编", resolve_plan: "GDD-01 逐卡评审补空降编制锚（O-12）"}

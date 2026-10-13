@@ -1,4 +1,4 @@
-schema_version: '1.4'
+schema_version: "1.6"
 deck_key: su_min
 faction: SOVIET
 cards:
@@ -15,16 +15,4 @@ cards:
 - card_key: SU_ZIS3
   copies: 1
 - card_key: SU_TRUCK
-  copies: 2
-- card_key: SU_CAVALRY
-  copies: 1
-- card_key: SU_SNIPER
-  copies: 1
-- card_key: SU_MORTAR82
-  copies: 1
-- card_key: SU_GUARD
-  copies: 1
-- card_key: SU_52K
-  copies: 2
-- card_key: SU_REPAIR
   copies: 1

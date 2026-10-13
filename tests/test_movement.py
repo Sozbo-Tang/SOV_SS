@@ -52,22 +52,25 @@ class TestMoveSpeed(unittest.TestCase):
         e.towed = TowState.TOWING  # v1.5 双态：牵引侧同样锁 1 档
         self.assertEqual(move_speed_cm_tick(CONFIG, u, 0), 25 * 7000 // 10000)
 
-    def test_crippled_threshold_replaces_mob(self):
-        # GAP-14 拆除+增量③（2026-10-06 速度链块；原 test_mob_major_immobilized/
-        # test_mob_minor_halves 两锚随 §9 tests 行改写为重伤阈值版）：MOB 暴击
-        # MAJOR 不再趴窝/MINOR 不再减速（消费面拆除——combat.roll_crit 亦不再
-        # 产出 MOB），HP≤25% 单阈值 ×crippled_speed_mult_bp 原位替换（D068：
-        # 重伤≠瘫痪，仅减速不减停）；边界含等号——16HP 车 4HP 恰触发（§2.3 边界③）
+    def test_mob_crit_and_crippled_threshold_coexist(self):
+        # 〔2026-10-13 终审恢复重锚——前身 test_crippled_threshold_replaces_mob
+        # （2026-10-06 速度链块拆除版）〕MOB 暴击乘区回贴（basics:229-230
+        # Mobility「moves slower and can even be totally stuck」）：MAJOR=趴窝
+        # 0 速、MINOR=×crit_mob_minor_mult_bp(5000)；D068 HP≤25% 重伤减速单阈值
+        # 并存（两乘区叠乘）；边界含等号——16HP 车 4HP 恰触发（§2.3 边界③）
         u, e = make_tank(speed_tier=4, cls=MovementClass.WHEEL)  # 100×5000=50
-        e.crit[CritSlot.MOB] = CritLevel.MAJOR                    # 拆除锚：不再趴窝
-        self.assertEqual(move_speed_cm_tick(CONFIG, u, 0), 50)
-        e.crit[CritSlot.MOB] = CritLevel.MINOR                    # 拆除锚：不再减速
-        self.assertEqual(move_speed_cm_tick(CONFIG, u, 0), 50)
+        e.crit[CritSlot.MOB] = CritLevel.MAJOR                    # 趴窝（totally stuck）
+        self.assertEqual(move_speed_cm_tick(CONFIG, u, 0), 0)
+        e.crit[CritSlot.MOB] = CritLevel.MINOR                    # 减速 ×5000bp
+        self.assertEqual(move_speed_cm_tick(CONFIG, u, 0), 25)
         e.crit.clear()
         e.hp_current = 5      # 5×10000=50000 > 16×2500=40000：不触发
         self.assertEqual(move_speed_cm_tick(CONFIG, u, 0), 50)
         e.hp_current = 4      # 恰 25%：40000 ≤ 40000 触发（等号边界）
         self.assertEqual(move_speed_cm_tick(CONFIG, u, 0), 25)    # 50×5000//10000
+        e.crit[CritSlot.MOB] = CritLevel.MINOR                    # 叠乘：重伤×MOB 轻伤
+        self.assertEqual(move_speed_cm_tick(CONFIG, u, 0),
+                         50 * 5000 // 10000 * 5000 // 10000)
 
     def test_crippled_any_element_slows_unit(self):
         # §2.3 边界④/MV-B-14：ANY 元素重伤 → 全单位减速（排级同速抽象，与拖曳

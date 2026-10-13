@@ -13,9 +13,10 @@ cmd_tow 消费；解挂侧 stop_tow/release_tow_if_involved ⑤块既有）
 - 无甲（armor<=0，卡车）→ 1000‰；SMOKE → 0
 
 掷骰通道纪律（⑤块起）：狙击=R-02 概率掷 SNIPER 通道（world.rng.sniper()）；
-近战/爆破伤害段零掷骰。〔D071 全拆 2026-10-07 发起人拍板「全拆+留口子」：暴击
-掷骰整体退役——roll_crit/upgrade_crit 删除、CRIT 通道零消费者（通道号 3 冻结
-不回收=口子③，见 rng.py 预留注）；恢复路径一步可回，见下方拆除留痕〕
+近战/爆破伤害段零掷。〔D071 全拆 2026-10-07→**2026-10-13 终审修复块恢复**：
+四类暴击（FC/SEN/RLD/MOB）生产端恢复（roll_crit/roll_guaranteed_crit/
+upgrade_crit＋resolve_hit/resolve_blast 生产块）——CRIT 通道重新有消费者；
+恢复依据与差异登记见下方「严重损伤四类暴击」块注〕
 """
 from __future__ import annotations
 
@@ -99,13 +100,44 @@ def compute_hit_facing(target_elem, approach_deg: int, cfg: BalanceConfig,
     return facing_of(target_elem.facing, approach_deg, cfg.front_arc, cfg.side_arc)
 
 
-def apply_damage(world, elem, dmg: int) -> None:
+def supply_dump_explode(world, elem, cfg: BalanceConfig = CONFIG) -> None:
+    """P1 补给堆被打爆（basics:206-207「supply dumps are extremely volatile and
+    explode as soon as something hits them」——D065「卡车即移动补给堆」拍板下车载
+    物资同爆）：物资清零先行（防连锁递归）→ 本体吃致命伤（apply_damage 唯一
+    入口——走 destroy_element 完整连带）→ 溅射半径内全体（敌我不分——爆炸无
+    立场）按 AMB-01 衰减吃 cfg.supply_dump_damage。数值 manual_silent 出表。"""
+    pos = elem.pos
+    elem.supply_weight_g = 0
+    apply_damage(world, elem, elem.hp_current)
+    for e in alive_elements_within(world, pos, cfg.supply_dump_blast_cm):
+        dmg = cfg.supply_dump_damage * falloff_bp(dist_cm(e.pos, pos),
+                                                  cfg.supply_dump_blast_cm) // 10000
+        apply_damage(world, e, dmg)
+        inject_suppression(e, cfg.supply_dump_damage)
+
+
+def apply_damage(world, elem, dmg: int,
+                 cfg: BalanceConfig = CONFIG) -> None:
     """全游戏唯一伤害入口、唯一除名路径（§F2 :435-440 完整体——2026-10-02 ⑤块）：
     幂等门（dmg<=0 或元素不在编）→ 扣血 → hp<=0 走 destroy_element 完整连带，
     存活且出现缺口（弹药未满/步兵带伤）登记 world.await_resupply（:439-440
-    带伤登记——原登记表记"⑥块补"，因本块重写 apply_damage 主体一并落地）。"""
+    带伤登记——原登记表记"⑥块补"，因本块重写 apply_damage 主体一并落地）。
+    〔P0 键位纠偏块 2026-10-13：+受击还击窗写点——断箭手册 Hold Fire「Unit(s)
+    will not fire unless fired upon」（manual.txt:364-368）：吃到伤害即刷
+    unit.return_fire_until=now+cfg.return_fire_window_ticks，fire_permitted ②
+    据此放行 HOLD_FIRE 单位的还击发射。攻击者不可知（签名无 attacker——伤害源
+    含近失爆破/塌楼连带等无射手面），窗内还击目标=既有自动索敌面（select_target
+    已瞄准对象），非「专打来犯者」——手册未细目化，按最小接线留痕。cfg 形参
+    缺省 CONFIG，既有调用面零改动。〕
+    〔P1 机制块 2026-10-13：+补给堆命中即爆门——受击元素带在途物资（supply_
+    weight_g>0，卡车/空投箱）即触发 supply_dump_explode（basics:206-207；判定
+    先于扣血=「任何命中即爆」字面，轻擦也爆）。〕"""
     if dmg <= 0 or elem not in elem.unit.elements:
         return
+    if (elem.supply_weight_g is not None and elem.supply_weight_g > 0):
+        supply_dump_explode(world, elem, cfg)
+        return
+    elem.unit.return_fire_until = world.tick + cfg.return_fire_window_ticks
     elem.hp_current -= dmg
     if elem.hp_current <= 0:
         destroy_element(world, elem)
@@ -260,7 +292,9 @@ def unregister_unit_refs(world, unit) -> None:
     """§F2 :487-492 所有销毁路径收口注销：信标注销（unit 作标定者）、掩护整键注销
     （unit 作被掩护对象）+ 从全部掩护者名单移除（空键删除——v1.3 终审遗留闭合）。
     旁表键型=unit.id（UnitInstance 为 mutable dataclass 不可哈希，v1.7 §D.6 键型
-    unit 的实现适配——见 tick.py 登记表 discrepancies）。"""
+    unit 的实现适配——见 tick.py 登记表 discrepancies）。
+    〔P1 机制块 2026-10-13：+激光照射两向注销（unit 作照射者→撤其照射；unit 作
+    被照射目标→该位随目标消亡——manual.txt:520-522 激光随目标、目标亡即失效）。〕"""
     world.beacon_by_unit.pop(unit.id, None)
     world.cover_by_target.pop(unit.id, None)
     for tgt_id in list(world.cover_by_target):
@@ -268,18 +302,71 @@ def unregister_unit_refs(world, unit) -> None:
         protectors[:] = [x for x in protectors if x is not unit]
         if not protectors:
             del world.cover_by_target[tgt_id]
+    world.laser_by_unit.pop(unit.id, None)
+    for uid in list(world.laser_by_unit):
+        if world.laser_by_unit[uid][1] is unit:
+            del world.laser_by_unit[uid]
 
 
-# ── D071 暴击掷骰整体拆除留痕（2026-10-07 发起人拍板「全拆+留口子」）──
-# roll_crit/upgrade_crit 两函数原位删除（MOB 范围 2026-10-06 速度链块先行收窄
-# below(4)→below(3)，本块 FC/SEN/RLD 一并=暴击掷骰整体退役，与 D068「纯血条
-# 到底」字面全一致）。resolve_hit/resolve_blast 的两 MECH 暴击生产块同日同删。
-# 恢复路径（一步可回，四处写点）：恢复 roll_crit（prob=MIN(10000, dmg×
-# crit_per_hp_bp×crit_mod_permille//1000)→chance_bp 一次→成功 below(3) 一次，
-# CRIT 通道即用）+ upgrade_crit（NONE→MINOR→MAJOR 只升不降）+ tables
-# crit_per_hp_bp 出表 + resolve_hit/resolve_blast 生产块回贴——消费端（三乘区
-# 族/恢复门/指纹 E 段）零改动即活。crit_mod_permille 字段保留标预留（勘察案 b：
-# schema 冻结 D.3#20/空射硬要求⑥=0 契约/CSV 全空默认 1000——零数据改动）。
+# ── 严重损伤四类暴击（2026-10-13 终审修复块恢复）──
+# D071（2026-10-07 发起人拍板「全拆+留口子」）拆除的 roll_crit/upgrade_crit 按
+# 预留口子一步恢复（combat.py 拆除留痕原设计）；恢复依据＝终审判定「与手册不符
+# 且非后置项」：basics:214-230 四类暴击（Targeting/Detection/Reloading/Mobility，
+# 轻伤黄/重伤红、概率随伤害、修满移除）＋manual.txt:339-341 步兵轻反坦克武器
+# （AT4/RPG 类——本作=巴祖卡/铁拳/坦克杀手）对车辆**必暴击**（穿深不足亦然）。
+# 恢复面四处写点全落：roll_crit/upgrade_crit 两函数＋tables crit_per_hp_bp 出表
+# ＋resolve_hit/resolve_blast 生产块回贴——消费端（aim/reload/optics 三乘区族/
+# system_supply 恢复门/指纹 E 段）零改动即活（口子设计的兑现）。
+# 与 D071 前旧链的差异（登记可推翻）：
+# - 掷骰域 below(4)：旧链 2026-10-06 速度链块收窄到 below(3)（MOB 出域）；
+#   手册四类明文含 Mobility（basics:229-230「moves slower and can even be
+#   totally stuck」）→ 恢复 below(4)＝四类全产出，movement 速度链同步恢复
+#   MOB 乘区（MINOR 减速/MAJOR 趴窝）——速度链块「重伤≠瘫痪」旧判就此被
+#   终审推翻（GAP-14 重伤减速单阈值保留并存）。
+# - 车辆门＝element_type is VEHICLE（basics:214「When vehicles are hit」——
+#   被拖炮（GUN）不入暴击面）。
+# - +crit_guaranteed 武器位（manual.txt:339-341 必暴击：掷槽位仍走 CRIT 通道
+#   保确定性纪律，掷成功跳过、0 伤跳弹亦触发）。
+# crit_mod_permille（basics:218「infantry RPGs and cluster munitions have a
+# bigger chance」的更大暴击倍率位）随恢复重新有消费者。
+
+
+def roll_crit(world, elem, dmg: int, weapon, cfg: BalanceConfig = CONFIG) -> None:
+    """受击暴击掷（MECH 车辆生产块调用；CRIT 通道两掷=chance_bp 一次+below(4)
+    槽位一次）。prob=MIN(10000, dmg×crit_per_hp_bp×crit_mod_permille//1000)
+    （basics:216「概率与伤害量成正比」——重伤近必暴、轻伤偶发；RPG/集束类
+    crit_mod_permille>1000 放大概率）。零产出路径不掷（prob<=0/非车辆直回）——
+    CRIT 通道消费面与伤害链同步（通道纪律：掷骰=效果面之实）。"""
+    if elem.template.element_type is not ElementType.VEHICLE:
+        return                                    # basics:214 仅车辆受暴击
+    if dmg <= 0:
+        return                                    # 零伤无掷（必暴击位另走 guaranteed）
+    prob = min(10000, dmg * cfg.crit_per_hp_bp * weapon.crit_mod_permille // 1000)
+    if prob <= 0:
+        return
+    rng = world.rng.crit()
+    if not rng.chance_bp(prob):
+        return
+    upgrade_crit(elem, CritSlot(rng.below(4)))    # 四类等权（含 MOB）
+
+
+def roll_guaranteed_crit(world, elem) -> None:
+    """步兵轻 AT 必暴击（manual.txt:339-341：对车辆「will always inflict a
+    critical hit…even if they don't have enough penetration」——跳弹 0 伤亦触发，
+    调用点在 apply_damage 之前的直射结算段）。槽位掷仍走 CRIT 通道（确定性纪律：
+    无掷即无槽位可依）。"""
+    if elem.template.element_type is not ElementType.VEHICLE:
+        return
+    upgrade_crit(elem, CritSlot(world.rng.crit().below(4)))
+
+
+def upgrade_crit(elem, slot) -> None:
+    """basics:222-224 轻（黄）→重（红）只升不降（NONE→MINOR→MAJOR；已 MAJOR
+    保持）。修满移除走 system_supply 恢复门（口子④：hp 判满即 crit.clear()）。"""
+    cur = elem.crit.get(slot, CritLevel.NONE)
+    if cur is CritLevel.MAJOR:
+        return
+    elem.crit[slot] = CritLevel.MINOR if cur is CritLevel.NONE else CritLevel.MAJOR
 
 
 def inject_suppression(elem, amount: int) -> None:
@@ -310,14 +397,12 @@ def falloff_bp(d: int, radius_cm: int) -> int:
 
 
 # ── 修饰器族（查询期计算，不落变量；v1.7 GAP-29：crit × 压制 乘法复合，对齐 §F1 :414-419）──
-# 〔口子②·预留分支 2026-10-07 D071 全拆〕下方 aim/reload/optics 三函数的
-# crit.get(CritSlot.X) 分支原样保留：生产端已拆、elem.crit 恒空 dict → 分支恒
-# miss=暴击项恒等（aim/reload 退化为纯压制连续项 10000∓6000×sup//100、optics
-# 恒 10000）。重启用零改动——恢复生产端即活；tests/test_curves.py 三锚/ sensing
-# SEN 锚手写 crit 槽位即生效，恰证口子活着。
+# 〔2026-10-13 终审恢复〕生产端恢复后三函数 crit.get(CritSlot.X) 分支重新吃到
+# 真值（D071 全拆期间恒 miss=口子②设计兑现）；tests/test_curves.py 三锚/ sensing
+# SEN 锚手写 crit 槽位即生效。
 def aim_factor_bp(elem, cfg: BalanceConfig = CONFIG) -> int:
     f = 10000
-    c = elem.crit.get(CritSlot.FC)                # 预留口子（D071 全拆后恒 miss）
+    c = elem.crit.get(CritSlot.FC)                # Targeting 暴击（2026-10-13 恢复产出）
     if c is CritLevel.MINOR:
         f = f * 7500 // 10000
     elif c is CritLevel.MAJOR:
@@ -328,7 +413,7 @@ def aim_factor_bp(elem, cfg: BalanceConfig = CONFIG) -> int:
 
 def reload_factor_bp(elem, cfg: BalanceConfig = CONFIG) -> int:
     f = 10000
-    c = elem.crit.get(CritSlot.RLD)               # 预留口子（D071 全拆后恒 miss）
+    c = elem.crit.get(CritSlot.RLD)               # Reloading 暴击（2026-10-13 恢复产出）
     if c is CritLevel.MINOR:
         f = f * 13000 // 10000
     elif c is CritLevel.MAJOR:
@@ -359,10 +444,10 @@ def morale_acc_factor_bp(unit, cfg: BalanceConfig = CONFIG) -> int:
 
 
 def optics_factor_bp(elem) -> int:
-    """值域 {3000,6000,10000}（§F1 :414-419 字面）。〔口子②·预留分支 2026-10-07
-    D071 全拆〕SEN 查表分支保留：恒空 dict → 恒 10000（纯查表无压制项）；重启用
-    零改动——恢复生产端即恢复三值域（sensing 四消费点零改动）。"""
-    c = elem.crit.get(CritSlot.SEN)               # 预留口子（D071 全拆后恒 miss）
+    """值域 {3000,6000,10000}（§F1 :414-419 字面）。〔2026-10-13 终审恢复〕SEN
+    查表分支重新吃到真值（Detection 暴击——basics:226「lose detection power」；
+    sensing 四消费点零改动）。"""
+    c = elem.crit.get(CritSlot.SEN)               # Detection 暴击（2026-10-13 恢复产出）
     if c is CritLevel.MINOR:
         return 6000
     if c is CritLevel.MAJOR:
@@ -426,8 +511,9 @@ def resolve_hit(world, p, cfg: BalanceConfig = CONFIG) -> None:
     """§F1 :321-346 地面直射命中结算（system_projectiles ⑤ will_hit 分派支）：
     建筑支（×vs_fort、无装甲曲线——v1.3 审查#5）→ 失的守卫（飞行中阵亡按落空 B9）
     → 方案1 combat_style 分支（狙击 R-02 / 近战绕装甲曲线）→ 装甲面/穿深/曲线伤害
-    → apply_damage 唯一入口 → 面压制（AMB-01 衰减）。〔D071 全拆 2026-10-07：原
-    「MECH 暴击掷 CRIT 通道」生产块删除——CRIT 通道零消费者〕"""
+    → apply_damage 唯一入口 → 面压制（AMB-01 衰减）。〔严重损伤生产块 2026-10-13
+    终审恢复：步兵轻 AT 必暴击（manual.txt:339-341）＋普通武器概率暴击掷
+    （basics:214-218）〕"""
     tgt = p.hit_target
     if isinstance(tgt, Building):
         hit_building(world, tgt, p.damage * p.weapon.vs_fort_mult_permille // 1000
@@ -448,9 +534,14 @@ def resolve_hit(world, p, cfg: BalanceConfig = CONFIG) -> None:
     facing = compute_hit_facing(tgt, approach, cfg, top_attack=p.top_attack)
     pen = penetration_at(p.weapon, dist_cm(p.pos, tgt.pos), p.pen_bonus)
     dmg = compute_direct_damage(tgt, facing, p.damage_type, pen, p.damage, p.shooter)
-    apply_damage(world, tgt, dmg)                 # 唯一伤害入口（§F2）
-    # 〔D071 全拆 2026-10-07〕原 MECH 暴击生产块（roll_crit CRIT 通道掷+upgrade_crit
-    # 只升不降）删除——恢复路径见本文件头部拆除留痕（口子登记）
+    # 严重损伤生产块（2026-10-13 终审恢复）：步兵轻 AT 必暴击先于伤害
+    # （manual.txt:339-341——穿深不足跳弹 0 伤亦必暴）；普通武器掷概率暴击。
+    if getattr(p.weapon, "crit_guaranteed", False):
+        roll_guaranteed_crit(world, tgt)
+        apply_damage(world, tgt, dmg)             # 唯一伤害入口（§F2）
+    else:
+        apply_damage(world, tgt, dmg)             # 唯一伤害入口（§F2）
+        roll_crit(world, tgt, dmg, p.weapon, cfg)
     inject_suppression_area(world, tgt.pos, p.weapon.blast_radius_cm,
                             p.weapon.suppression_power)   # 目标+溅射圈内近旁
 
@@ -506,8 +597,8 @@ def resolve_blast(world, p, cfg: BalanceConfig = CONFIG) -> None:
     ——空投炸弹 AirProjectile 鸭子兼容同走此支）。SMOKE → 烟区实体（B4：半径/时长
     出 cfg，§D.6 :222 三字段口径）；爆破：半径内（含等号）元素按 AMB-01 衰减式吃
     溅射（乘区书写序 damage*falloff//10000*squad_bp//10000）+ 点压制；建筑按
-    weapon vs_fort 直扣（无 squad 衰减）。〔D071 全拆 2026-10-07：原「MECH 暴击
-    掷 CRIT」生产块删除——CRIT 通道零消费者〕"""
+    weapon vs_fort 直扣（无 squad 衰减）。〔严重损伤生产块 2026-10-13 终审恢复：
+    每受击车辆各掷暴击（basics:214-218——集束类 crit_mod_permille 放大）〕"""
     if p.damage_type is DamageType.SMOKE:
         world.smoke_zones.append(SmokeZone(center=p.dest, radius_cm=cfg.smoke_radius_cm,
                                            ttl_ticks=cfg.smoke_ttl_ticks))
@@ -517,8 +608,9 @@ def resolve_blast(world, p, cfg: BalanceConfig = CONFIG) -> None:
         dmg = p.damage * falloff_bp(dist_cm(e.pos, p.dest), radius) // 10000 \
             * squad_hp_factor_bp(p.shooter) // 10000
         apply_damage(world, e, dmg)
-        # 〔D071 全拆 2026-10-07〕原 MECH 暴击生产块（每受击元素各掷 CRIT 通道）
-        # 删除——恢复路径见本文件头部拆除留痕（口子登记）
+        roll_crit(world, e, dmg, p.weapon, cfg)
+        # 严重损伤生产块（2026-10-13 终审恢复）：每受击车辆各掷（集束类经
+        # crit_mod_permille>1000 放大——basics:218）
         inject_suppression(e, p.weapon.suppression_power)
     for b in list(world.buildings):               # buildings_within（快照——塌楼出表）
         if dist_cm(b.pos, p.dest) <= radius:

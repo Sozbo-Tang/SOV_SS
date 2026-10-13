@@ -169,7 +169,10 @@ class SkirmishSession:
             for i, entry in enumerate(self.pending_expands):
                 if entry["template_id"] == u.template.template_id:
                     del self.pending_expands[i]
-                    self.cmd.move([u.id], entry["dest"])   # 经 CmdBus 同管线
+                    dx = abs(u.pos[0] - entry["dest"][0])
+                    dy = abs(u.pos[1] - entry["dest"][1])
+                    if dx > 500 or dy > 500:         # 已在场（直接出场仅差条带
+                        self.cmd.move([u.id], entry["dest"])   # 钳位）则免空令
                     break
 
     # ── 配置页/编辑器数据 ──

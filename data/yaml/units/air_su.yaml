@@ -3,7 +3,7 @@
 # 字段集＝card_schema.AirCardModel（AircraftTemplate 冻结 20 字段镜像＋card_key/faction
 # 管线键——schema 1.4）。weapons 按 weapon_key 引用 air_weapons.yaml（编译期解引用；
 # 运行时 BOMB 弹药以 payload 购买数为准——§F1/GAP2-04）。
-schema_version: "1.4"
+schema_version: "1.6"
 cards:
   - card_key: PO2
     template_id: 1                 # 回放校验号自编（苏 1~5/德 11~15）
@@ -91,6 +91,10 @@ cards:
     can_engage_air: true           # 〔冻结〕硬要求⑦（AMB3-03）
     has_dive: false
     payload_price: {}
+    can_afterburner: true          # 〔P1 2026-10-13 manual_silent〕manual.txt:492-497
+                                   # 战斗机加力——配属清单手册未给，从简仅双战斗机配
+    decoy_charges: 2               # 〔P1 manual_silent〕manual.txt:505-509 诱饵发数无据占位
+    passive_evade_bp: 2000         # 〔P1 manual_silent〕basics:353-356 被动对策 20% 占位
   - card_key: LI2
     template_id: 5
     name: Li-2运输机

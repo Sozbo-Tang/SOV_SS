@@ -32,6 +32,11 @@ sovs.sim.types（枚举）——air 模板注册表（air_data.AIR_CARDS）等�
   supply_dock（补给停靠＝move 入补给半径——车载制映射，无「卸货成堆」命令）；
 - 烟幕冲刺姿态：smoke_sprint_stance（SmokeCmd+SprintCmd+SetStanceCmd 三令
   一键——自卫烟幕发数门内元素才发 SmokeCmd，无烟弹单位余两令照发）。
+- P1 机制块（2026-10-13，GP-01 断箭手册 P1 补建——wire 1.3 六命令族）：
+  ground_rtb（B 地面回基地退款）/laser_designate（N 照射）/radar（Z 高炮雷达）/
+  supply_switch+buy_supplies（补给堆四开关/补给购买三档）/air_afterburner（Z
+  加力）/air_decoy（C 诱饵）；精密打击 P=fire_mission ammo="PRECISION" 既有
+  包装透传（第三弹药位）。
 
 常量镜像纪律：AIR_PATROL_RADIUS_CM＝tables.py patrol_orbit_radius_cm 现值
 镜像（本模块禁 import sovs.sim.tables——AST 守卫②；同值由
@@ -43,16 +48,19 @@ A6 判据：攻击移动入口生效）。
 """
 from __future__ import annotations
 
-from sovs.sim.tick import (AirAirdropCmd, AirAltCmd, AirCallCmd,  # noqa: E402
-                           AirDisengageCmd, AirEngageAirCmd, AirMoveCmd,
-                           AirPatrolCmd, AirRTBCmd, AirStrikeCmd, AttackCmd,
-                           CancelCmd, CancelFireMissionCmd, DeployCmd,
+from sovs.sim.tick import (AirAirdropCmd, AirAfterburnerCmd, AirAltCmd,  # noqa: E402
+                           AirCallCmd, AirDecoyCmd, AirDisengageCmd,
+                           AirEngageAirCmd, AirMoveCmd, AirPatrolCmd,
+                           AirRTBCmd, AirStrikeCmd, AttackCmd, BuySuppliesCmd,
+                           CancelCmd, CancelFireMissionCmd, CreateDumpCmd,
+                           DeployCmd,
                            DismountCmd, FireMissionCmd, FormationCmd,
-                           GarrisonCmd, MountCmd, MoveCmd, PackCmd,
-                           PurchaseCmd, ReverseCmd, SetModeCmd,
-                           SetSniperCoverCmd, SetStanceCmd, SmokeCmd,
-                           SprintCmd, StopCmd, ToggleAmbushCmd, TowCmd,
-                           UntowCmd, queue_command)
+                           GarrisonCmd, GroundRTBCmd, LaserDesignateCmd,
+                           MountCmd, MoveCmd, PackCmd, PurchaseCmd, RadarCmd,
+                           ReverseCmd, SetModeCmd, SetSniperCoverCmd,
+                           SetStanceCmd, SmokeCmd, SprintCmd, StopCmd,
+                           SupplySwitchCmd, ToggleAmbushCmd, TowCmd, UntowCmd,
+                           queue_command)
 from sovs.sim.types import (AltTier, FireMissionForm, FormationShape,  # noqa: E402
                             Mode, MoveMode, SalvoMode, Stance, UnitFlag)
 
@@ -110,10 +118,11 @@ class CmdBus:
         if len(self.trail) > TRAIL_CAP:
             del self.trail[: len(self.trail) - TRAIL_CAP]
 
-    # ── 盲部署：购卡（PurchaseCmd——位置由 spawn_step 落己方底边中点锚）──
+    # ── 盲部署：购卡（PurchaseCmd——dest=点击展开目的地：出动点=目的地向己方
+    #    底边垂线的垂足（2026-10-12 拍板），None=己方底边中点锚旧行为）──
 
-    def purchase(self, template_id: int):
-        """购卡意图：deck 槽查活对象 → PurchaseCmd(player, template)。
+    def purchase(self, template_id: int, dest=None):
+        """购卡意图：deck 槽查活对象 → PurchaseCmd(player, template, dest)。
 
         空降投送限定卡（DELIVERY_AIRDROP_ONLY——空裁8 购买门恒拒）与未知卡在
         查活对象阶段即拦（不入队，返回 None）；点数/余量门留给引擎裁决。
@@ -123,7 +132,8 @@ class CmdBus:
                 if slot.template.flags & UnitFlag.DELIVERY_AIRDROP_ONLY:
                     return None
                 return self._queue(PurchaseCmd(player=self._player(),
-                                               template=slot.template))
+                                               template=slot.template,
+                                               dest=dest))
         return None
 
     # ── 移动族（Move/Stop/Cancel/Reverse/Sprint）──
@@ -179,7 +189,10 @@ class CmdBus:
 
     # ── 攻击（AttackCmd——element 位=首个有射程有弹武器元素）──
 
-    def attack(self, unit_id: int, target_unit_id: int) -> list:
+    def attack(self, unit_id: int, target_unit_id: int,
+               queue: bool = False) -> list:
+        """攻击令（P0 键位纠偏块 2026-10-13 +queue：手册 SHIFT=Queue orders——
+        Q+Shift+点敌=齐射入队排队，待令不清可连续下令）。"""
         shooter = self._unit(unit_id)
         foe = self._unit(target_unit_id)
         if shooter is None or foe is None:
@@ -189,7 +202,7 @@ class CmdBus:
         if e is None or t is None:
             return []
         self._record("attack", [unit_id], foe.pos)
-        return [self._queue(AttackCmd(element=e, target=t))]
+        return [self._queue(AttackCmd(element=e, target=t, queue=bool(queue)))]
 
     @staticmethod
     def _first_armed_element(unit):
@@ -205,7 +218,7 @@ class CmdBus:
     def fire_mission(self, unit_id: int, point_or_line, *, form: str = "POINT",
                      ammo: str = "HE", ammo_mult: int = 1,
                      salvo_mode: str | None = "FULL",
-                     creep_speed: int = 0) -> list:
+                     creep_speed: int = 0, queue: bool = False) -> list:
         """炮击任务令（GP-01 §3 全参透传）：无 INDIRECT 位的单位不构造。
 
         point_or_line：form=POINT 传 (x,y)；LINE/CREEP 传 ((x0,y0),(x1,y1))。
@@ -213,6 +226,9 @@ class CmdBus:
         rejection_log 反馈）；ammo_mult 1..3 时长档；salvo_mode FULL|HALF
         （HALF=低强度快闪前 ⌈N/2⌉ 门）；creep_speed 徐进速度（CREEP 形态用，
         档位=shell_fsm.CREEP_SPEEDS_CM）。缺省参=既有 POINT/HE 行为不变。
+        P0 键位纠偏块（2026-10-13）+queue：T+Shift 确认=任务入队排队（手册
+        SHIFT=Queue orders）；注意入队的 SetMode(INDIRECT) 预置仍即发（模式
+        切换非待令语义，排队仅 FireMissionCmd 本体）。
         """
         unit = self._unit(unit_id)
         if unit is None or not (unit.template.mode_set & (1 << Mode.INDIRECT)):
@@ -230,7 +246,7 @@ class CmdBus:
             unit=unit, form=fm_form, point=point, line=line,
             ammo_mult=int(ammo_mult), ammo=str(ammo),
             salvo_mode=(SalvoMode[salvo_mode] if salvo_mode else None),
-            creep_speed=int(creep_speed))))
+            creep_speed=int(creep_speed), queue=bool(queue))))
         self._record("fire_mission", [unit_id],
                      point if is_point else point_or_line[0])
         return cmds
@@ -385,18 +401,38 @@ class CmdBus:
 
     # ── §6 「sim 有 UI 无入口」包装（命令类全部既有——零新增语义）──
 
-    def unload(self, unit_ids, cm=None, building_id=None) -> list:
+    def unload(self, unit_ids, cm=None, building_id=None,
+               queue: bool = False) -> list:
         """U 卸载待令组：DismountCmd＋（点楼=GarrisonCmd 排队下车进楼/点地=
-        move 开进）。建筑对象经 world.buildings 查活（hp>0）。"""
+        move 开进）。建筑对象经 world.buildings 查活（hp>0）。P0 键位纠偏块
+        （2026-10-13）+queue：U+Shift 确认=卸载族入队（Dismount/Garrison/
+        move 三段全排队——保「先下车后进楼/开进」次序；手册 SHIFT=Queue
+        orders）；U 连按=cm=None 仅 DismountCmd 就地立即卸载（手册「Press U
+        twice to unload immediately」——shell_fsm 双击检测）。
+        〔终审修复块 2026-10-13：点地对满载补给卡车=CreateDumpCmd 卸货成堆
+        （basics:202-204「Order your truck to unload somewhere to create a
+        supply dump」——处理体含驶向落点，故该类单位不再另发 move）。〕
+        """
         cmds = []
         units = [u for uid in unit_ids if (u := self._unit(uid)) is not None]
         building = self._building(building_id) if building_id is not None else None
+
+        def _loaded(u) -> bool:
+            return any(e.supply_weight_g is not None and e.supply_weight_g > 0
+                       for e in u.elements)
+        movers = []
         for u in units:
-            cmds.append(self._queue(DismountCmd(squad_unit=u)))
+            cmds.append(self._queue(DismountCmd(squad_unit=u, queue=bool(queue))))
             if building is not None:
-                cmds.append(self._queue(GarrisonCmd(unit=u, building=building)))
-        if building is None and cm is not None and units:
-            cmds.extend(self.move([u.id for u in units], cm, record=False))
+                cmds.append(self._queue(GarrisonCmd(unit=u, building=building,
+                                                    queue=bool(queue))))
+            if building is None and cm is not None and _loaded(u):
+                cmds.append(self._queue(CreateDumpCmd(unit=u, pos=cm,
+                                                      queue=bool(queue))))
+            else:
+                movers.append(u.id)
+        if building is None and cm is not None and movers:
+            cmds.extend(self.move(movers, cm, record=False, queue=bool(queue)))
         if cmds:
             self._record("unload", unit_ids, cm)
         return cmds
@@ -535,4 +571,93 @@ class CmdBus:
                 for uid in unit_ids if (u := self._unit(uid)) is not None]
         if cmds:
             self._record("stance", unit_ids)
+        return cmds
+
+    # ── P1 机制块包装（2026-10-13，GP-01 断箭手册 P1 补建——wire 1.3 六命令族）──
+
+    def ground_rtb(self, unit_ids) -> list:
+        """B 地面 RTB（manual.txt:394-400——快移最近友方出生点，到场退款≥20%）。"""
+        cmds = [self._queue(GroundRTBCmd(unit=u)) for uid in unit_ids
+                if (u := self._unit(uid)) is not None]
+        if cmds:
+            self._record("ground_rtb", unit_ids)
+        return cmds
+
+    def laser_designate(self, unit_ids, target_unit_id: int) -> list:
+        """N 激光照射（manual.txt:517-522——照射跟随目标/断 LOS 失效；资格=
+        CAN_SNIPER_COVER（basics:291 狙击组即照射器载体））。"""
+        foe = self._unit(target_unit_id)
+        if foe is None:
+            return []
+        cmds = [self._queue(LaserDesignateCmd(designator_unit=u, target_unit=foe))
+                for uid in unit_ids if (u := self._unit(uid)) is not None]
+        if cmds:
+            self._record("laser_designate", unit_ids, foe.pos)
+        return cmds
+
+    def radar(self, unit_ids, engage: bool) -> list:
+        """Z 高炮雷达开关（manual.txt:534-539——开=对空探测/射程大增+5s 启动；
+        关=即刻。资格=_aa_eligible，引擎门裁决）。"""
+        cmds = [self._queue(RadarCmd(unit=u, engage=bool(engage)))
+                for uid in unit_ids if (u := self._unit(uid)) is not None]
+        if cmds:
+            self._record("radar", unit_ids)
+        return cmds
+
+    def supply_switch(self, unit_ids, switch: str, on: bool) -> list:
+        """补给堆四功能开关（basics:208-213——share/heal/repair/ammo）。"""
+        cmds = [self._queue(SupplySwitchCmd(unit=u, switch=switch, on=bool(on)))
+                for uid in unit_ids if (u := self._unit(uid)) is not None]
+        if cmds:
+            self._record("supply_switch", unit_ids)
+        return cmds
+
+    def buy_supplies(self, unit_id: int, rounds: int, medical: int) -> list:
+        """补给购买（basics:198-200 三档的引擎包装——BuySuppliesCmd：rounds/
+        medical 换算入重量池；点数扣减由引擎门裁决）。"""
+        u = self._unit(unit_id)
+        if u is None or not u.elements:
+            return []
+        cmd = BuySuppliesCmd(truck_element=u.elements[0], rounds=int(rounds),
+                             medical=int(medical))
+        self._record("buy_supplies", [unit_id])
+        return [self._queue(cmd)]
+
+    def buy_supplies_tier(self, unit_ids, tier: str) -> list:
+        """补给购买三档（basics:198-200 手册数值刻度——2026-10-13 终审修复块）：
+        点=1000 / Ctrl+点=4000 / Shift+点=按车载上限买满。〔刻度同数值复刻：手册
+        1000/4000 Kg 落本作补给重量池数值位（supply_round_weight=1 ⇒ 重量池读数
+        即手册 Kg 读数）；「limited by your money」半边——补给点数计价手册未给值，
+        buy_supplies 五门无点数门，经济计价仍登记在册待口径裁决（GP-02 manual_
+        silent 面），现「买满」仅受舱位钳制。舱位数据随刻度扩至 4000（卡车
+        cargo_rounds_max/cargo_weight_max 600→4000）。〕tier ∈ {"t1","t4","max"}。"""
+        cmds = []
+        for uid in unit_ids:
+            u = self._unit(uid)
+            if u is None:
+                continue
+            cap = max((e.template.cargo_rounds_max for e in u.elements), default=0)
+            if cap <= 0:
+                continue
+            rounds = {"t1": 1000, "t4": 4000, "max": cap}.get(tier)
+            if not rounds:
+                continue
+            rounds = min(rounds, cap)        # 1000/4000 超舱（小容量合成卡）钳舱满
+            cmds.extend(self.buy_supplies(uid, rounds, 0))
+        return cmds
+
+    def air_afterburner(self, air_ids, engage: bool) -> list:
+        """Z 飞机加力（manual.txt:492-497——速度×2/油耗×2 toggle；无资格机型门拒）。"""
+        cmds = [self._queue(AirAfterburnerCmd(aircraft=a, engage=bool(engage)))
+                for aid in air_ids if (a := self._aircraft(aid)) is not None]
+        if cmds:
+            self._record("air_afterburner", air_ids)
+        return cmds
+
+    def air_decoy(self, air_ids, action: str = "POP") -> list:
+        """C 诱饵（manual.txt:505-508——POP 手动投放/AUTO_ON·AUTO_OFF 自动档）。"""
+        cmds = [self._queue(AirDecoyCmd(aircraft=a, action=action))
+                for aid in air_ids if (a := self._aircraft(aid)) is not None]
+        if cmds:
+            self._record("air_decoy", air_ids)
         return cmds

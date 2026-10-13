@@ -344,14 +344,24 @@ class TestWeaponSlotIdentity(unittest.TestCase):
                             elements=[])
         gtpl = ElementTemplate(element_type=ElementType.SQUAD,
                                unit_type=UnitType.INFANTRY, hp_max=10)
-        x = ElementInstance(id=1, unit=u, template=gtpl, pos=(600000, 500000),
-                            hp_current=10)
-        u.elements = [x]
-        w.units = [u]
+        # 〔P1 机制块 2026-10-13：resolve_strafe 改「沿全航道无差别落点」
+        # （manual.txt:413-416）——单靶不再必然中，靶面改沿走廊密集铺（每
+        # 1000cm 一枚单元素单位，走廊半宽 1500cm 内落点恒有最近靶），断言
+        # 口径=全靶面聚合伤害（acc 10000 → salvo×damage 恒中）。〕
+        targets = []
+        for i in range(-8, 9):
+            tu = SimpleNamespace(id=901 + i, team=1, alive=True,
+                                 pos=(600000, 500000 + i * 1000), elements=[])
+            tx = ElementInstance(id=1, unit=tu, template=gtpl,
+                                 pos=(600000, 500000 + i * 1000), hp_current=10)
+            tu.elements = [tx]
+            targets.append((tu, tx))
+        w.units = [tu for tu, _ in targets]
         self.assertTrue(cmd_air_strike(w, a, (600000, 500000), "STRAFE"))
         resolve_strafe(w, a, a.task)
-        self.assertEqual(a.ammo_left["STRAFE"], 12 - VYA_W.salvo)  # 走廊内逐目标 salvo 递减
-        self.assertNotIn(x, u.elements)  # 4 发×4 伤全中（acc 10000）→ 3 发即灭班除名
+        self.assertEqual(a.ammo_left["STRAFE"], 12 - VYA_W.salvo)  # 无差别落点照耗弹
+        self.assertEqual(sum(10 - tx.hp_current for _tu, tx in targets),
+                         VYA_W.salvo * VYA_W.damage)               # 恒命中（acc 10000）
         # name='STRAFE' 的非合规档（HE 非 KE）不被误认：弹药不入账、_weapon_of 不可寻
         b = cmd_air_call(w, w.players[0],
                          tpl(AirRole.FIGHTER, template_id=2,

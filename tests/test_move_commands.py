@@ -39,10 +39,12 @@ from sovs.sim.movement import (attack_move_engage_hold, auto_approach_waypoint,
                                system_move_dispatch)
 from sovs.sim.pathfind import TerrainLayer, TerrainTile
 from sovs.sim.tables import CONFIG
-from sovs.sim.tick import (CancelCmd, FormationCmd, MoveCmd, ReverseCmd,
+from sovs.sim.tick import (AttackCmd, CancelCmd, DismountCmd, FormationCmd,
+                           MoveCmd, ReverseCmd,
                            SprintCmd, StopCmd,
                            add_unit, cmd_halt, cmd_sprint,
-                           consume_unit_commands, fire_permitted,
+                           consume_commands, consume_unit_commands,
+                           fire_permitted,
                            issue_group_move, make_unit, make_world,
                            queue_command, world_tick)
 from sovs.sim.types import (DamageType, DeployState, ElementInstance,
@@ -432,6 +434,56 @@ class TestConsumeUnitCommands(unittest.TestCase):
 
 
 # ── §2.2 HaltCmd(StopCmd)/current_order + SprintCmd 写点 ──
+
+# ── P0 键位纠偏块（2026-10-13）：动作令排队（手册 SHIFT=Queue orders 通用化）──
+
+
+class TestP0ActionCommandQueue(unittest.TestCase):
+    """AttackCmd/DismountCmd queue=True 经世界级命令流路由入单位级链，
+    consume_unit_commands 空闲消费**每拍至多一条**（break 交还控制）；移动令
+    到位阻塞保持（排队动作令须等前序移动到位）。引擎门拒绝的队列头照移动令
+    口径丢弃不回队首。"""
+
+    def test_action_cmds_route_to_unit_queue_and_consume_one_per_tick(self):
+        w = make_world(31)
+        u = mk_unit(w, wheel_tpl(5, weapons=(GUN_W,)), pos=(0, 0))
+        foe = mk_unit(w, wheel_tpl(5), team=1, pos=(7000, 0))
+        queue_command(w, AttackCmd(element=u.elements[0],
+                                   target=foe.elements[0], queue=True))
+        queue_command(w, DismountCmd(squad_unit=u, queue=True))
+        consume_commands(w)                       # 世界级分派：queue=True → 单位链
+        self.assertEqual(len(u.command_queue), 2)
+        self.assertNotEqual(u.command_queue[0], u.command_queue[1])
+        consume_unit_commands(w)                  # 空闲：pop 首条执行后 break
+        self.assertEqual(len(u.command_queue), 1)
+        consume_unit_commands(w)                  # 次拍再消费一条
+        self.assertEqual(u.command_queue, [])
+
+    def test_queued_action_waits_for_move_arrival(self):
+        w = make_world(32)
+        u = mk_unit(w, wheel_tpl(5), pos=(0, 0))
+        queue_command(w, MoveCmd(unit=u, path=[(7000, 0)], queue=True))
+        queue_command(w, DismountCmd(squad_unit=u, queue=True))
+        consume_commands(w)
+        self.assertEqual(len(u.command_queue), 2)
+        for _ in range(100):
+            world_tick(w)                         # 移动令安装并到位（70cm/拍×100）
+        self.assertEqual(u.pos, (7000, 0))
+        self.assertEqual(len(u.command_queue), 1) # 动作令仍排队（move_path 阻塞）
+        world_tick(w)                             # 到位后下一拍消费
+        self.assertEqual(u.command_queue, [])
+
+    def test_halt_keeps_queued_action_cmds(self):
+        # StopCmd=保动作令（只清移动令条目）——排队攻击/卸载不受停止令牵连
+        w = make_world(33)
+        u = mk_unit(w, wheel_tpl(5), pos=(0, 0))
+        queue_command(w, MoveCmd(unit=u, path=[(7000, 0)], queue=True))
+        queue_command(w, DismountCmd(squad_unit=u, queue=True))
+        consume_commands(w)
+        cmd_halt(u)
+        self.assertEqual(len(u.command_queue), 1)     # 移动令被清
+        self.assertIsInstance(u.command_queue[0], DismountCmd)
+
 
 class TestHaltAndSprint(unittest.TestCase):
     def test_halt_clears_path_mode_and_queued_move_orders(self):

@@ -1,7 +1,7 @@
 # 值级偏离留痕（data/ground_provenance.csv 全量迁移＋新卡插值行——DATA-01 §6.2/DATA-03 §2.7）。
 # 前段（P-1xx）＝CSV 时代原行逐行平移（迁移锚：10 卡 _provenance 旁键逐字节相等）；
 # 后段＝GP-01 M1 新 57 卡插值留痕（grade=插值，pending_id→pending.yaml P-3xx）。
-schema_version: "1.4"
+schema_version: "1.6"
 entries:
   - {card_key: "SU_PARATROOP", field_path: "category", grade: "拍板", source_ref: "O-05 拟步兵（施工方案§C.3；GDD-02 :326）", pending_id: "P-101"}
   - {card_key: "SU_PARATROOP", field_path: "per_card_limit", grade: "待定", source_ref: "air_data P-13 限份待 D032 细化——随步兵默认3", pending_id: "P-101"}

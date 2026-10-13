@@ -32,6 +32,9 @@ D1_FIELDS = (
     "optics_air_cm", "recon_mark_base_bp", "weapons", "payload_max_bombs",
     "payload_max_supply", "paratroop_seats", "turret_damage",
     "can_engage_air", "has_dive", "payload_price",
+    # ── P1 机制块 +3（2026-10-13，GP-01 断箭手册 P1 补建——加力/诱饵/被动对策；
+    #    数值/配属手册未给→manual_silent，数据侧 YAML）──
+    "can_afterburner", "decoy_charges", "passive_evade_bp",
 )
 
 # GDD-02 v1.9 卡面价（:321-326 苏①~⑥ / :330-335 德①~⑥；GDD-01 :94-99/:169-174 同值互证）
@@ -97,8 +100,9 @@ class TestFieldCompleteness(unittest.TestCase):
 
     def test_template_has_exactly_twenty_d1_fields(self):
         # §D.1 静态 20（IMPL v1.4 :77/§D.6 :176）——字段数与字段名双检
+        # 〔P1 机制块 2026-10-13：+3 能力位（加力/诱饵/被动对策）→23。〕
         names = tuple(f.name for f in dataclasses.fields(AircraftTemplate))
-        self.assertEqual(len(names), 20)
+        self.assertEqual(len(names), 23)
         self.assertEqual(names, D1_FIELDS)
 
     def test_every_aircraft_card_passes_all_twenty_kwargs(self):
@@ -422,7 +426,9 @@ class TestConstructorSignatureMatch(unittest.TestCase):
                 strafe = sum(n for wp, n in t.weapons if wp.name == "STRAFE")
                 self.assertEqual(a.ammo_left["STRAFE"], strafe, k)
                 self.assertEqual(a.hp_current, t.hp_max, k)  # GAP3-04 满血进场
-                self.assertEqual(a.alt_tier, entry_tier(t.alt_ceiling), k)  # AMB-03
+                # AMB-03〔P1 2026-10-13 批注：entry_tier 按角色（FIGHTER=HIGH——
+                # manual.txt:426-428「fighters will be high」）〕
+                self.assertEqual(a.alt_tier, entry_tier(t.alt_ceiling, t.role), k)
 
     def test_real_pipeline_slot_and_capacity_gates(self):
         # GAP2-26 slot_ok：FIGHTER/RECON 拒弹、TRANSPORT 拒弹、ATTACK 拒补给
