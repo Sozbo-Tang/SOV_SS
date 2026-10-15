@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import arcade
 
+from . import keybinds
 from .deck_editor_page import (draw_config_page, draw_deck_edit_page,  # noqa: E402
                                handle_config_click, layout_config_page,
                                layout_deck_edit_page)
@@ -45,9 +46,12 @@ from .hud_top import (draw_command_stats, draw_exit_confirm,  # noqa: E402
                       draw_top_bar, flow_positions, text_width)
 from .minimap import draw_minimap, minimap_geom, minimap_to_cm  # noqa: E402
 from .palette import BACKGROUND, TOP_SEG_GAP  # noqa: E402
+from .settings_page import (draw_settings_page,  # noqa: E402
+                            handle_settings_click, handle_settings_key,
+                            layout_settings_page)
 from .scene import draw_deploy_markers, draw_margin_mat, draw_scene  # noqa: E402
 from . import scene  # noqa: E402（相机/命中数学面——薄委托）
-from .selection_panel import (draw_selection_panel, draw_unit_info,  # noqa: E402
+from .selection_panel import (draw_selection_panel,  # noqa: E402
                               layout_selection_panel, panel_geom)
 from .shell_fsm import ShellFsm  # noqa: E402
 from .timeline import PlaybackController  # noqa: E402
@@ -77,13 +81,12 @@ class ShellWindow(arcade.Window):
         self.cam_cy = 0.0
         self.cam_rot = 0.0            # 视图旋转角（MMB+拖拽——manual.txt:594，
                                       # 2026-10-13 终审修复块；0=北向上轴对齐）
-        # 交互态
+        # 交互态（框选松手即清拖拽角点——橡皮筋不留痕；选中态由单位角框
+        # （scene.draw_selection_marks）与选中卡承载，B2 修复块 2026-10-13）
         self._box_p0 = None            # 框选拖拽起点（px）
         self._box_p1 = None
         self._line_p0 = None           # 画线拖拽起点（px——K/T 待令画线态）
         self._line_p1 = None
-        self._last_box = None          # 最近一次框选矩形（px 四元组）
-        self._info_uid: int | None = None
         self._buttons: list[Btn] = []
         self._cam_held: set = set()
         self._mmb_drag = False        # MMB 旋转拖拽在途（中键按下期间）
@@ -140,17 +143,10 @@ class ShellWindow(arcade.Window):
     def select_box_px(self, x0, y0, x1, y1):
         c0, c1 = self.px_to_cm(x0, y0), self.px_to_cm(x1, y1)
         self.fsm.box_select(c0, c1)
-        self._last_box = (min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
-
-    def show_unit_info(self, uid: int):
-        self._info_uid = uid
-
-    @property
-    def unit_info_entry(self) -> dict | None:
-        if self._info_uid is None:
-            return None
-        return next((u for u in self.frame.get("units", ())
-                     if u["id"] == self._info_uid), None)
+        # B2（2026-10-13）：不再记录残留白框——框选松手即由选中态（单位角框+
+        # 选中条）接管呈现；本 API 仅保留框选语义（screenshot 消费）
+        # 〔2026-10-15 二轮拍板：点击单位浮层（show_unit_info/_info_uid 链）
+        # 整体撤除——底中只留选中长条，血量/弹药明细不再常驻屏〕
 
     @property
     def _armed_purchase(self):
@@ -183,7 +179,7 @@ class ShellWindow(arcade.Window):
             # 不 return：S 仍落 fsm 分发（S=停止为既有战斗令，未获拍板不移除——
             # 按住 S=平移+按下即停双效，留痕）；W/A/D 无战斗绑定直落空。
             self._cam_held.add(key)
-        if key == arcade.key.F1:
+        if key == arcade.key.F1 and page != "settings":
             fsm.help_open = not fsm.help_open
             return
         if key == arcade.key.ESCAPE:
@@ -194,12 +190,18 @@ class ShellWindow(arcade.Window):
                 fsm.close_deck_edit()
                 self._layout_buttons()
                 return
+            if page == "settings":                  # 设置页 ESC=取消捕获/返回 config
+                handle_settings_key(self, key)
+                return
             if fsm.esc() == "exit":
                 self.close()
             return
         if page == "deck_edit":                     # 改名字态：退格编辑/其余经 on_text
             if key == arcade.key.BACKSPACE:
                 fsm.deck_edit_rename_backspace()
+            return
+        if page == "settings":                      # 改键捕获/吞键（语义在 settings_page）
+            handle_settings_key(self, key)
             return
         fsm.cancel_exit_confirm()
         if page == "config":
@@ -244,6 +246,10 @@ class ShellWindow(arcade.Window):
     def _key_name(self, key):
         return self._KEY_NAMES.get(key)
 
+    def _rebuild_key_names(self):
+        """设置改键后即时重建映射（settings_page 改绑成功/恢复默认后调用）。"""
+        ShellWindow._KEY_NAMES = _build_key_names()
+
     def _edge_scroll(self, dt: float):   # 兼容面再出口（tests/test_shell_window 锚）
         scene.edge_scroll(self, dt)
 
@@ -269,7 +275,10 @@ class ShellWindow(arcade.Window):
     def on_mouse_press(self, x, y, button, modifiers):
         self.fsm.cancel_exit_confirm()
         page = self.fsm.page
-        if page in ("config", "deck_edit"):
+        # 2026-10-15 六条修正·问题1：settings 入元组——_config_click 的 settings
+        # 分支（→handle_settings_click）此前无人路由，st_* 命中落入 _panel_click
+        # 即被吞（含返回钮 st_back）；点击不再漏到框选起笔边路。
+        if page in ("config", "deck_edit", "settings"):
             self._config_click(x, y)
             return
         if page == "settle":
@@ -282,7 +291,7 @@ class ShellWindow(arcade.Window):
         if self._panel_click(x, y, button):
             return
         if self.fsm.page != "deploy" and minimap_to_cm(self, x, y) is not None:
-            self._minimap_click(x, y, button)      # §11：部署页无小地图（全图即视野）
+            self._minimap_click(x, y, button, modifiers)   # §11：部署页无小地图
             return
         if button == arcade.MOUSE_BUTTON_RIGHT:
             self._right_click_map(x, y, modifiers)
@@ -322,6 +331,9 @@ class ShellWindow(arcade.Window):
     # ── 点击处理 ──
 
     def _config_click(self, x, y):
+        if self.fsm.page == "settings":             # 设置页命中域独立分发
+            handle_settings_click(self, x, y)
+            return
         handle_config_click(self, x, y)
 
     def _start_game(self):
@@ -346,7 +358,7 @@ class ShellWindow(arcade.Window):
     def _minimap_geom(self):          # 兼容面再出口（tests/test_shell_window 锚）
         return minimap_geom(self)
 
-    def _minimap_click(self, x, y, button):
+    def _minimap_click(self, x, y, button, modifiers=0):
         cm = minimap_to_cm(self, x, y)
         if cm is None:
             return False
@@ -355,8 +367,10 @@ class ShellWindow(arcade.Window):
             self._clamp_camera()
             return True
         if button == arcade.MOUSE_BUTTON_RIGHT:
-            if self.fsm.selected:
-                self.session.cmd.move(list(self.fsm.selected), cm)
+            queue = bool(modifiers & arcade.key.MOD_SHIFT)   # Shift=排队（2026-10-14
+            if self.fsm.selected:                            # 小地图 Shift 锚——与
+                self.session.cmd.move(list(self.fsm.selected), cm,  # 地图右键同口径）
+                                      queue=queue)
             if self.fsm.selected_air:              # 空选区=盘旋待命（§4 右键语义）
                 self.session.cmd.air_patrol(list(self.fsm.selected_air), cm)
             return True
@@ -418,7 +432,6 @@ class ShellWindow(arcade.Window):
         # 无待令：点选（单位∪飞机双通道）/点空地=框选落笔
         if own is not None:
             fsm.click_unit(own["id"], shift=shift)
-            self._info_uid = own["id"]
         elif air is not None:
             fsm.click_aircraft(air["id"], shift=shift)
         else:
@@ -467,14 +480,20 @@ class ShellWindow(arcade.Window):
         if page == "deck_edit":
             layout_deck_edit_page(self)
             return
+        if page == "settings":
+            layout_settings_page(self)
+            return
         if page == "settle":
             return
         if page == "deploy":
             layout_deploy_panel(self)      # §11 断箭部署面：无小地图/编组列/命令格
             return                         # （选中卡亦不绘——与左栏卡轨让位）
+        # B1 修复块（2026-10-13）：命令格/呼援轨先布局（layout_air_rail 记录
+        # win._rail_bottom）——六处修正块后选中卡已迁底中、不再消费该让位值
+        # （记录仍写：qa.py rail_rect 在读），布局调用序维持不动。
+        layout_battle_buttons(self)
         layout_selection_panel(self)
         layout_group_bar(self)
-        layout_battle_buttons(self)
         layout_fm_panel(self)
 
     # ── 绘制 ──
@@ -492,6 +511,10 @@ class ShellWindow(arcade.Window):
             return
         if page == "deck_edit":
             draw_deck_edit_page(self)
+            draw_toasts(self)
+            return
+        if page == "settings":
+            draw_settings_page(self)
             draw_toasts(self)
             return
         draw_scene(self)
@@ -512,9 +535,8 @@ class ShellWindow(arcade.Window):
             draw_minimap(self)
             draw_group_bar(self)
             draw_selection_panel(self)
-        info = self.unit_info_entry
-        if info is not None:
-            draw_unit_info(self, info)
+        # 〔2026-10-15 二轮拍板：单位信息浮层整体撤除（§11.3 炮击待令抑制
+        # 判据随之废止）——底中只留选中长条；地图痕迹文字标签同批撤（scene）。〕
         draw_toasts(self)
         draw_help_overlay(self)
         draw_exit_confirm(self)
@@ -536,6 +558,15 @@ def _build_key_names():
             arcade.key.P: "P"}
     for d in range(1, 10):
         keys[getattr(arcade.key, "KEY_%d" % d)] = str(d)
+    # 设置改键块（2026-10-14）：用户覆盖层（data/gen/keybinds.json）叠加——
+    # 被覆盖槽位的默认键码移除（防双触发），新码入表。默认表保持字面=
+    # tests/test_manual_conformance HOTKEYS 节源码解析锚不破。
+    overrides = keybinds.load_overrides()
+    for name, code in overrides.items():
+        for k, v in list(keys.items()):
+            if v == name:
+                del keys[k]
+        keys[int(code)] = name
     return keys
 
 

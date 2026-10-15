@@ -142,6 +142,11 @@ class BalanceConfig:
     infiltration_mult_bp: int = 15000
     ambush_mult_bp: int = 20000
     reveal_mult_bp: int = 4000
+    cover_detect_mult_bp: int = 5000       # basics:239「Units in cover are twice
+                                           # harder to detect」——目标林内/驻楼探测减半
+    marked_stealth_mult_bp: int = 5000     # basics:245-246「harder to hide once you
+                                           # have been spotted」——上一扫描帧被标记→
+                                           # 隐蔽乘区减半（effective_stealth_x10）
     sensing_period_ticks: int = 5
     # ── 移动×感知三乘区出表（2026-10-04 断箭设定数值块·映射冲突3 裁决 B——发起人
     #    默认裁决可推翻）：行为/数值一律不变仅出表（原 sensing.py 硬编码 5000/20000/

@@ -480,6 +480,88 @@ def coldstart(seed: int = 42, deck: str = "su_min", kev: str = "rule") -> int:
                "spawned=%d initial=%d remaining=%d"
                % (spawned, initial_copies, remaining))
 
+        # ── ③b 修复块剧本断言（2026-10-13 四缺陷联合回归的窗口层证据）──
+        #     B1 面板互斥（选中卡/参数条/命令格/小地图/呼援轨两两不交）＋
+        #     B3 无炮能力选区命令格不含炮击钮＋CREEP 满配参数条含于矩形。
+        from sovs.ui.fm_panel import fm_panel_geom
+        from sovs.ui.hud_bottom import order_panel_rect
+        from sovs.ui.minimap import minimap_geom
+        from sovs.ui.palette import MARGIN, RAIL_W, TOP_H
+        from sovs.ui.selection_panel import panel_geom
+
+        def _ovl(a, b):
+            return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+        win.fsm.clear_selection()
+        win._layout_buttons()
+        rail_rect = (MARGIN, win._rail_bottom, MARGIN + RAIL_W,
+                     win.height - TOP_H - 34)
+        # BA 布局复刻轮（2026-10-15 三轮）：选中摘要行在右下集群（命令格顶
+        # +12 右对齐——panel_geom 新位）；命令格经 order_panel_rect——空选区
+        # =满配 6×8 足印（B3 勘注常驻拍板），pairwise 断言语义不变（两两不交）。
+        panels = {"摘要行": panel_geom(win), "参数条": fm_panel_geom(win),
+                  "命令格(空选区满配足印)": order_panel_rect(win),
+                  "小地图": minimap_geom(win), "呼援轨": rail_rect}
+        names = list(panels)
+        clash = ["%s∩%s" % (names[i], names[j])
+                 for i in range(len(panels)) for j in range(i + 1, len(panels))
+                 if _ovl(panels[names[i]], panels[names[j]])]
+        expect("B1 面板矩形两两不交（摘要行/参数条/命令格/小地图/呼援轨）",
+               not clash, ";".join(clash))
+        # B3：无曲射/无狙击选区→命令格不含炮击(T)/狙击(L)钮
+        frame = win.frame
+        plain = [u for u in frame["units"] if u["team"] == 0
+                 and not (u.get("caps") or {}).get("indirect")
+                 and not (u.get("caps") or {}).get("sniper")]
+        expect("B3 过滤面有承载单位（无曲射/无狙击己方在帧）", bool(plain))
+        if plain:
+            win.fsm.select_units([u["id"] for u in plain])
+            win._layout_buttons()
+            keys = {b.key for b in win._buttons}
+            expect("B3 无炮能力选区命令格不含炮击(T)钮", "fm" not in keys)
+            expect("B3 该选区停止(S)钮在册（过滤非清空）", "stop" in keys)
+        # B1 附：CREEP 满配参数条按钮不越矩形（含 ⊆ 参数条矩形）
+        win.fsm.arm_order("fire_mission")
+        win.fsm.set_fm_param("form", "CREEP")
+        win._layout_buttons()
+        fm_rect = fm_panel_geom(win)
+        fm_btns = [b for b in win._buttons if b.key.startswith("fm_")]
+        inside = all(b.x0 >= fm_rect[0] - 1e-9 and b.x1 <= fm_rect[2] + 1e-9
+                     and b.yb >= fm_rect[1] - 1e-9 and b.yt <= fm_rect[3] + 1e-9
+                     for b in fm_btns)
+        expect("B1 CREEP 满配 fm 按钮串 ⊆ 参数条矩形", bool(fm_btns) and inside)
+        win.fsm.clear_order()
+        # B4：真实路线折点序列与引擎 move_path 一致（首令即发+Shift 第二令排队）
+        mover = next((u for u in session.world.units
+                      if u.alive and u.team == 0), None)
+        if mover is None:
+            failures.append("B4 路线一致性无承载单位")
+        else:
+            session.cmd.move([mover.id], (60000, 40000))
+            session.advance(2)                   # 入队→消费→issue_move 装航点
+            win.refresh()
+            entry = next((u for u in win.frame["units"]
+                          if u["id"] == mover.id), None)
+            engine_path = [[p[0], p[1]] for p in mover.move_path]
+            expect("B4 首令后帧 move_path==引擎 move_path",
+                   entry is not None and entry["move_path"] == engine_path
+                   and len(engine_path) >= 1,
+                   "frame=%s engine=%s" % (entry and entry["move_path"],
+                                           engine_path))
+            session.cmd.move([mover.id], (70000, 40000), queue=True)
+            session.advance(2)
+            win.refresh()
+            entry = next((u for u in win.frame["units"]
+                          if u["id"] == mover.id), None)
+            from sovs.sim.types import MoveCmd as _MC
+            engine_q = [[[p[0], p[1]] for p in c.path]
+                        for c in mover.command_queue if isinstance(c, _MC)]
+            expect("B4 Shift 排队后帧 queued==引擎排队令航点",
+                   entry is not None and entry["queued"] == engine_q
+                   and len(engine_q) >= 1,
+                   "frame=%s engine=%s" % (entry and entry["queued"], engine_q))
+        win.fsm.clear_selection()
+
         # ── ④ 实战：真实事件层标准玩法（框选→右键→Q 攻击移动→齐射→T/Z/X/G
         #    →编组→切组），逐 100t 节拍推进至结算（50t+观测+50t——观测窗加密，
         #    瞄准/位移等短生命周期状态不因节拍过疏而漏采）──
@@ -519,6 +601,12 @@ def coldstart(seed: int = 42, deck: str = "su_min", kev: str = "rule") -> int:
                 expect("事件层框选=己方全集",
                        set(win.fsm.selected) == {u["id"] for u in mine},
                        str(win.fsm.selected))
+                # B2（2026-10-13）：框选释放后橡皮筋清除——拖拽角点归 None、
+                # 无残留白框属性，选中态由单位角框承载
+                expect("B2 框选释放后橡皮筋清除（无残留白框）",
+                       getattr(win, "_last_box", None) is None
+                       and win._box_p0 is None and win._box_p1 is None
+                       and bool(win.fsm.selected))
                 # 编组+切组（真实键事件）
                 win.on_key_press(arcade.key.KEY_1, arcade.key.MOD_CTRL)
                 win.fsm.clear_selection()

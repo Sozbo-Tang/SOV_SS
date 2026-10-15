@@ -739,7 +739,8 @@ def run_full_game(w, settle_extra=25, max_ticks=30000, ai_factory=HeadlessAI):
     prev_smoke = 0
     prev_morale = {}                            # unit_id -> 上拍末 MoraleState
     seen_suppressed = set()                     # 曾达受压+ 的单位（回落锚资格）
-    prev_air = {}                               # aircraft.id -> (state, hp_current, team, template_id)
+    prev_air = {}                               # aircraft.id -> (state, hp_current, team, template_id, bombs)
+    st["air_bomb_released"] = {}                # (team, tid) -> 投放弹数（按用计费账）
     while w.phase != PHASE_SETTLE:
         if w.tick > max_ticks:
             raise AssertionError("game did not settle within %d ticks" % max_ticks)
@@ -802,7 +803,8 @@ def run_full_game(w, settle_extra=25, max_ticks=30000, ai_factory=HeadlessAI):
         # 纯航空场景不可达、跨域场景可达）；②状态迁移检测改独立 if（同拍
         # INBOUND→PATROL→DOGFIGHT 一拍多迁移不漏记 arrival）
         cur_air = {a.id: (a.state, a.hp_current) for a in w.aircraft}
-        for aid, (st_, hp, team, tid) in prev_air.items():
+        for aid, entry in prev_air.items():
+            st_, hp, team, tid = entry[:4]
             if aid not in cur_air:                       # 本拍消失
                 if st_ is AirState.RTB and hp > 0:
                     st["air_recoveries"].append((w.tick, team, tid))
@@ -814,6 +816,11 @@ def run_full_game(w, settle_extra=25, max_ticks=30000, ai_factory=HeadlessAI):
             if prev is None:
                 st["air_calls"].append((w.tick, a.team, a.template.template_id))
                 continue
+            if len(prev) > 4 and a.ammo_left.get("BOMB", 0) < prev[4]:
+                key = (a.team, a.template.template_id)     # 投放弹数（按用计费账）
+                st["air_bomb_released"][key] = (
+                    st["air_bomb_released"].get(key, 0)
+                    + prev[4] - a.ammo_left.get("BOMB", 0))
             if prev[0] is AirState.INBOUND and a.state is not AirState.INBOUND:
                 st["air_arrivals"].append((w.tick, a.template.template_id))
             if prev[0] is not AirState.STRIKE and a.state is AirState.STRIKE:
@@ -827,7 +834,8 @@ def run_full_game(w, settle_extra=25, max_ticks=30000, ai_factory=HeadlessAI):
                     st["first_air_dogfight_tick"] = w.tick
             if a.dogfight is not None:
                 st["dogfight_ticks"] += 1
-        prev_air = {a.id: (a.state, a.hp_current, a.team, a.template.template_id)
+        prev_air = {a.id: (a.state, a.hp_current, a.team,
+                           a.template.template_id, a.ammo_left.get("BOMB", 0))
                     for a in w.aircraft}
         for p in w.projectiles:
             if (st["first_air_projectile_tick"] is None
@@ -2337,11 +2345,11 @@ class TestAirFullGame(unittest.TestCase):
         # 13788+600=14388）
         self.assertEqual(dict(w.players[0].air_cooldowns), {3: 13113, 4: 18744})
         self.assertEqual(dict(w.players[1].air_cooldowns), {14: 9910, 2: 14388})
-        # 经济恒等式（D015 租借闭环——实现无关不变量）：
-        #   750 − Σ呼叫(本体+载荷) + Σ回收(本体) = 终值
-        #   队0: 750−(96×5+70)+90×4=560；队1: 750−(109×7+80×2)+85×7=422
+        # 经济恒等式（2026-10-14 空袭按用计费块再推导——实现无关不变量）：
+        #   750 − Σ呼叫(本体) − Σ投放弹费(每发=该型 payload_price["BOMB"])
+        #   + Σ回收(本体) = 终值
         for pi in (0, 1):
-            spent = refunded = 0
+            spent = refunded = bomb_fee = 0
             for _tick, team, tid in st["air_calls"]:
                 if team != pi:
                     continue
@@ -2349,16 +2357,18 @@ class TestAirFullGame(unittest.TestCase):
                     CARD_OBJECTS["PE2"] if tid == 2 else (
                         CARD_OBJECTS["YAK9"] if tid == 4
                         else CARD_OBJECTS["FW190A"]))
-                payload = {"BOMB": 2} if tid == 3 else (
-                    {"BOMB": 4} if tid == 2 else {})
-                spent += tpl.cost_body + sum(
-                    tpl.payload_price.get(k, 0) * v for k, v in payload.items())
+                spent += tpl.cost_body                 # 呼叫只付本体（载荷价投放侧）
+            for (team, tid), n in st["air_bomb_released"].items():
+                if team == pi:
+                    tpl = CARD_OBJECTS["IL2M"] if tid == 3 else CARD_OBJECTS["PE2"]
+                    bomb_fee += n * tpl.payload_price["BOMB"]
             for _tick, team, tid in st["air_recoveries"]:
                 if team == pi:
                     refunded += (CARD_OBJECTS["IL2M"] if tid == 3 else
                                  CARD_OBJECTS["PE2"]).cost_body
-            self.assertEqual(w.players[pi].air_points, 750 - spent + refunded)
-        self.assertEqual([p.air_points for p in w.players], [554, 422])  # P1 再定锚
+            self.assertEqual(w.players[pi].air_points,
+                             750 - spent - bomb_fee + refunded)
+        self.assertEqual([p.air_points for p in w.players], [560, 422])  # 按用计费再定锚
         self.assertEqual(st["air_recoveries"],
                          [(1800, 1, 2), (2117, 0, 3), (3788, 1, 2), (4713, 0, 3),
                           (5788, 1, 2), (7313, 0, 3), (7788, 1, 2),
@@ -2393,8 +2403,8 @@ class TestAirFullGame(unittest.TestCase):
             world_tick(w2)
             self.assertEqual(full_fingerprint(w1), full_fingerprint(w2))
         # 末态与单跑一致（队0 终值 560/422——双跑同构自证）
-        self.assertEqual([p.air_points for p in w1.players], [554, 422])  # P1 再定锚
-        self.assertEqual([p.air_points for p in w2.players], [554, 422])  # P1 再定锚
+        self.assertEqual([p.air_points for p in w1.players], [560, 422])  # 按用计费再定锚
+        self.assertEqual([p.air_points for p in w2.players], [560, 422])  # 按用计费再定锚
 
 
 # ── 空中闭环·块3（2026-10-07）：跨域整局——航空支援地面/地面防空打航空/空投
@@ -2453,9 +2463,11 @@ class TestCombinedAirGround(unittest.TestCase):
         self.assertEqual((w.result.winner, w.result.obj_counts,
                           w.result.unit_scores, w.result.hp_totals),
                          (1, (0, 1), (0, 30), (0, 10)))
-        # 航空经济：15 呼叫/12 回收/1 击落——冷却末值=各型最后事件+600
+        # 航空经济：16 呼叫/12 回收/1 击落——冷却末值=各型最后事件+600
         # （JU87D 击落 1101+7200=8301 被后续回收 10263+600=10863 MAX 合并——B-25）
-        self.assertEqual(len(st["air_calls"]), 15)
+        # 〔2026-10-14 空袭按用计费块再定锚：呼叫只付本体→预算内多呼一架 Il-2M
+        # （15→16），该机整局盘旋在空〕
+        self.assertEqual(len(st["air_calls"]), 16)
         self.assertEqual(len(st["air_recoveries"]), 12)
         self.assertEqual(dict(w.players[1].air_cooldowns),
                          {13: 10863, 3: 13219, 15: 14009, 11: 21410})
@@ -2463,7 +2475,8 @@ class TestCombinedAirGround(unittest.TestCase):
         # （t111 呼叫、整局盘旋无 RTB 规则）于燃油耗尽拍被迫弹射移除
         # （basics:312-314——cd1[11]=弹射击落冷却），末态仅斯图卡在空。〕
         self.assertEqual([(a.template.template_id, int(a.state), a.hp_current)
-                          for a in w.aircraft], [(13, 3, 60)])
+                          for a in w.aircraft],
+                         [(13, 3, 60), (3, 0, 130)])   # 第 16 呼 Il-2M 盘旋在空
         # 双域通道：AIR（投弹/空投散布）+HIT/SCATTER（防炮对空/地面无交战——
         # 防空与航空独占）；ECONOMY 零消费（hold_purchases→无渗透购卡掷）
         self.assertEqual(channels_used(w, rng0), {"AIR", "HIT", "SCATTER"})

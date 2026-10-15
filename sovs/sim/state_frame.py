@@ -30,8 +30,10 @@ from __future__ import annotations
 
 from .air import (PHASE_COMBAT, PHASE_DEPLOY, PHASE_SETTLE, AltTier,
                   TaskKind)
+from .movement import reverse_speed_bp
 from .tables import CONFIG as CONFIG_FUEL_REF  # P1：燃油百分比基数（air_fuel_ticks）
-from .types import UnitFlag
+from .types import (ElementType, Mode, MoveCmd, TargetDomain,
+                    UnitFlag)
 
 # 帧契约版本（FE-T03 wire/回放文件头同源节奏：字段档非向后兼容变更时 bump）。
 # 1.0→1.1＝2026-10-12 GP-01 §4 ①段（空中可控块）：aircraft 条目 +facing/engage_air/
@@ -49,6 +51,39 @@ def _laser_marks(world, team: int) -> list:
     在 tick 侧，帧侧只读）。"""
     from .tick import laser_marks_of
     return laser_marks_of(world, team)
+
+
+def _caps_summary(u) -> dict:
+    """命令能力位摘要（B3 修复块 2026-10-13——右下命令格三态过滤的数据面）：
+    模板/元素级能力 → 全 bool/int 值域（帧纪律）。判据与引擎真实门同源：
+    squad=含步兵班元素（mount/sprint 共用判据——CAN_SPRINT/HAS_MOUNT 两旗标
+    67 卡零配属实测、引擎 sprint 无旗标门 tick.py cmd_sprint，门取手册
+    「Sprint (infantry)」manual.txt:577 元素级承载；mount 真实门①=非 SQUAD
+    CONTINUE tick.py cmd_mount）；smoke=模板自卫烟幕发数位（types self_smoke_
+    charges）；reverse=倒车 bp 求值非零（movement.reverse_speed_bp——issue_move
+    门4 同式）；ambush/sniper=CAN_AMBUSH/CAN_SNIPER_COVER 旗标；seats=元素
+    座位 max；deploy_gun=展开时长位；indirect/tow/transport=mode_set 位
+    （tick.py cmd_fire_mission/cmd_tow/cmd_mount 引擎门同位）；
+    radar=对空资格位（tick.py _aa_eligible 同式：任一武器 target_mask&AIR
+    或 optics_air_cm>0——命令格雷达钮判据，终审第四批 2026-10-13）。"""
+    tpl = u.template
+    return {
+        "squad": any(e.template.element_type is ElementType.SQUAD
+                     for e in u.elements),
+        "smoke": any(e.template.self_smoke_charges > 0 for e in u.elements),
+        "reverse": reverse_speed_bp(CONFIG_FUEL_REF, tpl) != 0,
+        "ambush": bool(tpl.flags & UnitFlag.CAN_AMBUSH),
+        "sniper": bool(tpl.flags & UnitFlag.CAN_SNIPER_COVER),
+        "seats": max((e.template.seats for e in u.elements), default=0),
+        "deploy_gun": tpl.deploy_time_ticks > 0,
+        "indirect": bool(tpl.mode_set & (1 << Mode.INDIRECT)),
+        "tow": bool(tpl.mode_set & (1 << Mode.TOW)),
+        "transport": bool(tpl.mode_set & (1 << Mode.TRANSPORT)),
+        "radar": tpl.optics_air_cm > 0 or any(
+            wt.target_mask & TargetDomain.AIR
+            for et in tpl.element_templates
+            for wt in (*et.weapons, *(et.mounted_armament or ()))),
+    }
 
 
 def _fm_summary(u) -> dict | None:
@@ -74,7 +109,13 @@ def _unit_entry(u, view: int | None) -> dict:
 
     fire_mission 摘要仅己方导出（view=None 裁判全知全量）——敌方即使被
     spotted，其炮击目标坐标也是对方私有情报，不随迷雾可见位泄露。
-    〔2026-10-12 battle.png 复检①加键：帧档 1.1 加键不 bump，见模块头注。〕"""
+    〔2026-10-12 battle.png 复检①加键：帧档 1.1 加键不 bump，见模块头注。〕
+    〔B3/B4 修复块（2026-10-13，帧 1.1 加键不 bump——旧消费者忽略未知键即向后
+    兼容）：+caps 命令能力位摘要（己方/裁判——敌方条目无该键；敌方能力=对方
+    私有情报，同 fire_mission 口径）；+move_path/queued 移动路线导出（己方/
+    裁判=剩余航点+排队令航点，敌方位移意图=私有情报恒 []；move_path 每拍 pop
+    前段 movement.system_move——天然=剩余路线；queued=command_queue 内
+    MoveCmd 逐令航点，Shift 排队令写入 movement.issue_move）。〕"""
     hp = sum(e.hp_current for e in u.elements)
     hp_max = sum(e.template.hp_max for e in u.elements)
     pcts = []
@@ -82,7 +123,8 @@ def _unit_entry(u, view: int | None) -> dict:
         for ws in e.weapon_states:
             if ws.template.ammo_base > 0:
                 pcts.append(ws.ammo_left * 100 // ws.template.ammo_base)
-    return {
+    own = view is None or u.team == view
+    entry = {
         "id": u.id,
         "team": u.team,
         "category": int(u.template.category),        # 0 侦察/1 步兵/2 装甲/3 火支/4 防空后勤
@@ -101,8 +143,11 @@ def _unit_entry(u, view: int | None) -> dict:
         "mode": u.move_mode.name.lower(),            # normal/attack/march/reverse
         "formation": u.formation_shape.name.lower(), # none/line/column/wedge
         "smoke_left": sum(e.self_smoke_left for e in u.elements),  # 自卫烟幕余发（AI 摘要档消费面）
-        "fire_mission": (_fm_summary(u)
-                         if view is None or u.team == view else None),
+        "fire_mission": (_fm_summary(u) if own else None),
+        "move_path": ([[p[0], p[1]] for p in u.move_path] if own else []),
+        "queued": ([[[p[0], p[1]] for p in c.path]
+                    for c in u.command_queue if isinstance(c, MoveCmd)]
+                   if own else []),
         # ── P1 机制块加键（2026-10-13，帧 1.1 加键不 bump——battle.png 复检①口径；
         #    旧消费者忽略未知键即向后兼容）──
         "radar_on": bool(u.radar_on),    # 雷达开关位（SEAD 易损标记=对方可见我雷达
@@ -115,6 +160,9 @@ def _unit_entry(u, view: int | None) -> dict:
                          "repair": bool(u.supply_switches & 4),
                          "ammo": bool(u.supply_switches & 8)},
     }
+    if own:
+        entry["caps"] = _caps_summary(u)   # B3：命令能力位（敌条目无键——私有边界）
+    return entry
 
 
 def _task_summary(a) -> dict | None:
@@ -144,6 +192,8 @@ def _aircraft_entry(a, world) -> dict:
     return {
         "id": a.id,
         "team": a.team,
+        "template_id": a.template.template_id,   # 2026-10-14 加键（空中选中卡
+        # 余弹价值行——payload_price 经 session.air_bomb_price 查；加键不 bump 口径）
         "name": a.template.name,
         "state": a.state.name.lower(),        # inbound/patrol/strike/rtb/dogfight
         "alt_tier": a.alt_tier.name.lower(),  # low/mid/high
@@ -171,6 +221,11 @@ def _aircraft_entry(a, world) -> dict:
         # （basics:353-356「indicated as a % … in the statistics panel」）
         "paratroop_count": (a.paratroop_left
                             if a.paratroop_cargo is not None else 0),  # 舱内份数
+        # ── B3 修复块（2026-10-13 加键）：机型能力位（命令格航空行过滤面；
+        # 机型名本随帧导出——已知机型的能力位非私有情报，spotted 敌机同导）──
+        "alt_ceiling": a.template.alt_ceiling.name.lower(),  # 可及高度层（V 余量判据）
+        "can_afterburner": bool(a.template.can_afterburner),  # 加力资格（Z）
+        "can_decoy": bool(a.template.decoy_charges > 0),      # 诱饵资格（C）
     }
 
 

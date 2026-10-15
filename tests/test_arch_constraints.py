@@ -31,11 +31,14 @@ PYDANTIC_WHITELIST = frozenset({"card_schema.py"})
 
 # cmd_bus.py 允许自 sovs.sim.tick import 的符号面：命令类（*Cmd）+ queue_command
 _CMD_BUS_TICK_ALLOWED_EXTRA = frozenset({"queue_command"})
-# sovs/ui 模块清单（GP-01 §5.2 拆分后全目录——新模块落地先在此登记归属再写文件）
+# sovs/ui 模块清单（GP-01 §5.2 拆分后全目录——新模块落地先在此登记归属再写文件；
+# B3 修复块 2026-10-13 +order_filter：命令格三态过滤纯逻辑件，禁 import sovs.sim）
 _UI_SIM_BANNED_MODULES = ("viewer_window", "shell_window", "timeline",
                           "palette", "glyphs", "shell_fsm",
                           "hud_top", "hud_bottom", "minimap", "scene",
-                          "selection_panel", "fm_panel", "deck_editor_page")
+                          "selection_panel", "fm_panel", "deck_editor_page",
+                          "order_filter", "order_icons",
+                          "keybinds", "settings_page")
 
 
 def _imported_tops(node: ast.AST):

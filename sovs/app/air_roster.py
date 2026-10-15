@@ -11,7 +11,6 @@ cooldown 门 air.py:396 同源——预判只做呈现，不替代裁决）。
 """
 from __future__ import annotations
 
-from sovs.sim.air import payload_price_of
 from sovs.sim.types import UnitFlag
 
 
@@ -41,14 +40,11 @@ def build_air_roster(world, human_index: int, human_deck: str) -> list[dict]:
         in_air = own_in_air.get(tid, 0)
         role = tpl.role.name
         if role in ("ATTACK", "BOMBER"):
-            price = tpl.payload_price.get("BOMB", 0)
-            n_bomb = tpl.payload_max_bombs if price <= 0 else min(
-                tpl.payload_max_bombs,
-                max(0, (p.air_points - tpl.cost_body) // price))
+            # 2026-10-14 空袭按用计费块：满载呼叫（弹费投放时逐发扣 air_points，
+            # 不进呼叫价/点数门——payload_price["BOMB"]=单价在空中选中卡标示）
+            n_bomb = tpl.payload_max_bombs
             payload = {"BOMB": n_bomb}
-            # 点数不够满最小挂载时按「机身+1 弹」报需（空袭无弹无意义）
-            cost = tpl.cost_body + (price if n_bomb == 0 and price > 0
-                                    else payload_price_of(tpl, payload))
+            cost = tpl.cost_body
             out.append({"key": "call_%s" % key.lower(),
                         "label": "呼%s×%d弹" % (tpl.name, n_bomb),
                         "template": tpl, "payload": payload,

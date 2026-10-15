@@ -525,6 +525,52 @@ class TestCmdBusAirWrappers(unittest.TestCase):
         self.assertTrue({"air_patrol", "air_alt"} <= kinds)
 
 
+class TestTrailMarkTransient(unittest.TestCase):
+    """痕迹呈现层短暂显示语义（2026-10-15 排障轮——用户报障「改了路线后
+    旧途径点还保留/变位」）：移动族标记=断箭「下令后短暂显示」——同单位更晚
+    移动族令即时取代旧标＋TTL 自隐；战斗类标记（attack/fire_mission 等）不
+    受限；cmd_bus 数据面零扰动（visible_trail_entries 纯函数锚）。"""
+
+    def test_reroute_supersedes_old_move_mark(self):
+        from sovs.ui.scene import visible_trail_entries
+        trail = [{"kind": "move", "unit_ids": [1], "point_cm": [1, 1],
+                  "tick": 10},
+                 {"kind": "move", "unit_ids": [1], "point_cm": [2, 2],
+                  "tick": 20}]
+        vis = visible_trail_entries(trail, 25)
+        self.assertEqual([t["point_cm"] for t in vis], [[2, 2]])  # 只剩新落点
+
+    def test_other_units_marks_not_eaten(self):
+        from sovs.ui.scene import visible_trail_entries
+        trail = [{"kind": "move", "unit_ids": [1], "point_cm": [1, 1],
+                  "tick": 10},
+                 {"kind": "move", "unit_ids": [2], "point_cm": [3, 3],
+                  "tick": 20}]
+        vis = visible_trail_entries(trail, 25)
+        self.assertEqual(len(vis), 2)                 # 不同单位互不取代
+
+    def test_move_family_ttl_and_air_family(self):
+        from sovs.ui.scene import visible_trail_entries
+        trail = [{"kind": "move", "unit_ids": [1], "point_cm": [1, 1],
+                  "tick": 0},
+                 {"kind": "air_move", "unit_ids": [7], "point_cm": [2, 2],
+                  "tick": 0}]
+        self.assertEqual(visible_trail_entries(trail, 61), [])   # 双双超时
+        self.assertEqual(len(visible_trail_entries(trail, 60)), 2)  # 边界在册
+
+    def test_combat_marks_not_ttl_limited(self):
+        from sovs.ui.scene import visible_trail_entries
+        trail = [{"kind": "fire_mission", "unit_ids": [1], "point_cm": [1, 1],
+                  "tick": 0},
+                 {"kind": "attack", "unit_ids": [1], "point_cm": [2, 2],
+                  "tick": 0},
+                 {"kind": "smoke", "unit_ids": [1], "point_cm": [3, 3],
+                  "tick": 0}]
+        vis = visible_trail_entries(trail, 500)      # 远超 TTL 仍在册
+        self.assertEqual({t["kind"] for t in vis},
+                         {"fire_mission", "attack", "smoke"})
+
+
 class TestCmdBusFireMissionFullParams(unittest.TestCase):
 
     def setUp(self):

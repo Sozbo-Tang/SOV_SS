@@ -15,14 +15,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     import arcade                                    # noqa: F401（探针）
-    import pyglet.display
     # 显示会话探针：arcade 可导入但 WindowServer 不可达（合盖/无头）时，建窗会在
     # pyglet cocoa get_default_screen 处 IndexError——以屏幕枚举预判并整类跳过。
     # （探针修复：pyglet 2.x 已删 pyglet.canvas 模块——pyglet.display.get_display()
     # 为现行 API；旧探针 AttributeError 被 except 吞成 HAS_GL_WINDOW=False，
     # 全类静默 SKIPPED——「崩溃零门禁暴露」的系统性根因之一。）
-    HAS_GL_WINDOW = len(pyglet.display.get_display().get_screens()) > 0
-    HAS_ARCADE = True
+    # 〔2026-10-13 探针加固：屏幕枚举通过但建窗仍可能撞 WindowServer 瞬态不可达
+    #  （门禁实撞=整类 ERROR 非 SKIP）——改共享 _gl_probe 双检：枚举＋隐藏窗
+    #  实试，建不起来=按既有口径整类跳过。〕
+    from tests._gl_probe import gl_window_available
+    HAS_GL_WINDOW = gl_window_available()
+    HAS_ARCADE = HAS_GL_WINDOW or arcade is not None
 except Exception:                                    # noqa: BLE001（缺渲染栈或无显示会话=跳过）
     HAS_ARCADE = False
     HAS_GL_WINDOW = False
@@ -84,15 +87,15 @@ class TestShellWindow(unittest.TestCase):
         self.assertGreaterEqual(len(colors), 8)
         self.assertEqual(img.size, (self.win.width, self.win.height))
 
-    def test_04_unit_overlay_reads_frame_entry(self):
-        """点击单位浮层：血量/弹药/士气取自状态帧条目（迷雾外敌单位不在帧=无浮层）。"""
+    def test_04_unit_overlay_removed_negative_anchor(self):
+        """〔2026-10-15 二轮拍板〕点击单位浮层整体撤除（底中只留选中长条）：
+        show_unit_info/unit_info_entry 不复存在（防复活负锚）；点选单位只落
+        选中态（明细呈现面=选中条图标＋单位图标血条，不再常驻文字浮层）。"""
+        self.assertFalse(hasattr(self.win, "show_unit_info"))
+        self.assertFalse(hasattr(self.win, "unit_info_entry"))
         mine = [u for u in self.win.frame["units"] if u["team"] == 0]
-        self.win.show_unit_info(mine[0]["id"])
-        entry = self.win.unit_info_entry
-        self.assertIsNotNone(entry)
-        self.assertIn("hp", entry)
-        self.assertIn("ammo_pct", entry)
-        self.assertIn("morale", entry)
+        self.win.fsm.select_units([mine[0]["id"]])
+        self.assertIn(mine[0]["id"], self.win.fsm.selected)
 
     def test_05_top_bar_flow_segments_no_overlap(self):
         """顶栏左三段流式排布（视觉复检必修项回归护栏）。
@@ -218,18 +221,41 @@ class TestRedesignWindow(unittest.TestCase):
             self.session.advance(1)
         win.refresh()
         self.assertEqual(win.fsm.page, "battle")
-        for key, group in (("strike", "strike"), ("drop", "drop")):
+        # B3（2026-10-13）：空选区且无在空机→strike/drop 钮不布局（命令格按
+        # 选区过滤，manual.txt:344-346）；直造带弹/载伞在空机＋空选区→钮存在
+        self.assertFalse(any(b.key == "strike" for b in win._buttons))
+        self.assertFalse(any(b.key == "drop" for b in win._buttons))
+        win.frame["aircraft"].append({
+            "id": 9001, "team": 0, "name": "mc bomber", "state": "patrol",
+            "alt_tier": "mid", "pos_cm": [100000, 50000], "facing": 90,
+            "hp": 10, "hp_max": 10, "ammo": {"BOMB": 2}, "paratroop": 922,
+            "spotted": False, "engage_air": None, "task": None,
+            "alt_pending": None, "afterburner": False, "fuel_pct": 100,
+            "decoy_left": 0, "evade_active": False, "evade_pct": 0,
+            "paratroop_count": 1, "alt_ceiling": "mid",
+            "can_afterburner": False, "can_decoy": False})
+        win.fsm.clear_selection()
+        win.fsm.select_aircraft([9001])                 # 直置空选区（plan B3 驱动）
+        win._layout_buttons()
+        btn = next(b for b in win._buttons if b.key == "strike")
+        win.on_mouse_press((btn.x0 + btn.x1) / 2, (btn.yb + btn.yt) / 2, L, 0)
+        self.assertEqual(win.fsm.armed_order, "strike")   # 有机在空→钮在册可待令
+        win.fsm.clear_order()
+        # 撤销造机→恢复无机现场，走原 A9 无机链（K/O 经热键全量通道待令）
+        win.frame["aircraft"][:] = [a for a in win.frame["aircraft"]
+                                    if a["id"] != 9001]
+        win.fsm.clear_selection()
+        win._layout_buttons()
+        for key, kname in (("K", "strike"), ("O", "drop")):
             win.fsm.clear_order()
-            btn = next(b for b in win._buttons if b.key == key)
-            win.on_mouse_press((btn.x0 + btn.x1) / 2, (btn.yb + btn.yt) / 2,
-                               L, 0)
-            self.assertEqual(win.fsm.armed_order, group)  # A2 三按钮齐
+            win.on_key_press(getattr(self.arcade.key, key), 0)
+            self.assertEqual(win.fsm.armed_order, kname)
             win.fsm.notifications.clear()
             tx, ty = win.cm_to_px(100000, 70000)
             win.on_mouse_press(tx, ty, L, 0)          # 无在空飞机→toast+待令保留
             self.assertTrue(any("无在空飞机" in n["text"]    # A9 反馈不静默
                                 for n in win.fsm.notifications))
-            self.assertEqual(win.fsm.armed_order, group)
+            self.assertEqual(win.fsm.armed_order, kname)
         # A6：Q+点地=攻击移动（真实事件层，trail mode=ATTACK——P0 键位纠偏
         # 块 2026-10-13 A→Q，手册 manual.txt:560-562）
         win.fsm.clear_order()                          # strike/drop 待令保留→先清
@@ -249,6 +275,43 @@ class TestRedesignWindow(unittest.TestCase):
         moves = [t for t in self.session.cmd.trail if t["kind"] == "move"]
         self.assertTrue(moves)
         self.assertEqual(moves[-1]["mode"], "ATTACK")
+
+    def test_13_box_release_rubber_band_cleared(self):
+        """B2（2026-10-13）：框选 press→drag→release 后橡皮筋即清除——拖拽角点
+        归 None、无残留白框属性；随后点空地清选区后仍无残留。"""
+        win, L = self.win, self.L
+        mine = [u for u in win.frame["units"] if u["team"] == 0]
+        self.assertTrue(mine)
+        bx0, by0 = win.cm_to_px(mine[0]["pos_cm"][0] - 5000,
+                                mine[0]["pos_cm"][1] - 5000)
+        bx1, by1 = win.cm_to_px(mine[0]["pos_cm"][0] + 5000,
+                                mine[0]["pos_cm"][1] + 5000)
+        win.on_mouse_press(bx0, by0, L, 0)
+        win.on_mouse_drag(bx1, by1, 0, 0, L, 0)
+        self.assertIsNotNone(win._box_p1)                  # 拖拽中=进行中框选
+        win.on_mouse_release(bx1, by1, L, 0)
+        self.assertIsNone(win._box_p0)
+        self.assertIsNone(win._box_p1)
+        self.assertIsNone(getattr(win, "_last_box", None))  # 松手=无残留白框
+        self.assertTrue(win.fsm.selected)                  # 选中态由角框承载
+        win.on_mouse_press(900, 400, L, 0)                 # 点空地=清选区
+        win.on_mouse_release(900, 400, L, 0)
+        self.assertEqual(win.fsm.selected, ())
+        self.assertIsNone(getattr(win, "_last_box", None))  # 清选区后仍无残留
+
+    def test_14_settings_page_click_back_button(self):
+        """〔2026-10-15 六条修正·问题1·GL 行为锚〕设置页 st_back 钮经真实
+        on_mouse_press 事件返回 config——修前该点击落入 _panel_click 被吞（页
+        不变）。"""
+        from sovs.ui import settings_page
+        win = self.win
+        win.fsm.page = "config"                    # 强制回 config（事件起点）
+        settings_page.open_settings(win)           # 含命中域重排（st_* 在册）
+        self.assertEqual(win.fsm.page, "settings")
+        btn = next(b for b in win._buttons if b.key == "st_back")
+        win.on_mouse_press((btn.x0 + btn.x1) / 2, (btn.yb + btn.yt) / 2,
+                           self.L, 0)
+        self.assertEqual(win.fsm.page, "config")   # 点击返回钮=退设置页
 
     def test_06_A7_group_assign_and_recall_via_events(self):
         win = self.win
@@ -447,6 +510,224 @@ class TestRedesignWindow(unittest.TestCase):
         win.on_key_press(arc.key.A, 0)                   # A 单独同效（并存非替换）
         self.assertAlmostEqual(_pan()[0], dax, places=6)
         win.on_key_release(arc.key.A, 0)
+
+
+class TestMovePathRendering(unittest.TestCase):
+    """B4 路线绘制无头断言（2026-10-13）：arcade 绘制调用全 mock——鸭子窗驱动，
+    不建窗；GL 显示依赖时随既有 GL 类跳过口径不适用（本类零 GL 需求）。
+    〔修复（2026-10-13 门禁红）：draw_trails 标签块经 fit_text→真 text_width
+    （arcade.Text 需活动窗——无显示会话 RuntimeError: No window is active）——
+    本类统一 patch hud_top.text_width 为确定性 CJK 估算量尺
+    （tests/test_hud_geometry._est_width 同款），断言口径=该量尺下的绘制调用。〕"""
+
+    @staticmethod
+    def _est_width(text, size):
+        return size * sum(2 if ord(ch) > 0x2E7F else 1 for ch in str(text))
+
+    @classmethod
+    def setUpClass(cls):
+        import unittest.mock as mock
+        from sovs.ui import hud_top, scene
+        # 双绑定全 patch：hud_top 模块全局（fit_text 内部解析）＋scene 自有
+        # `from .hud_top import text_width` 绑定（draw_trails 标签块直调）——
+        # 显示会话有无两态下均不触真 arcade.Text（需活动窗）。
+        cls._rulers = [mock.patch.object(hud_top, "text_width", cls._est_width),
+                       mock.patch.object(scene, "text_width", cls._est_width)]
+        for r in cls._rulers:
+            r.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        for r in cls._rulers:
+            r.stop()
+
+    @staticmethod
+    def _duck(unit_entry, trail=()):
+        from types import SimpleNamespace
+        return SimpleNamespace(
+            frame={"units": [unit_entry]},
+            fsm=SimpleNamespace(selected=(unit_entry["id"],)),
+            session=SimpleNamespace(cmd=SimpleNamespace(trail=list(trail))),
+            cm_to_px=lambda x, y: (float(x) / 100.0, float(y) / 100.0),
+            _viewport_px=lambda: (0, 0, 1280, 800))
+
+    def test_draw_move_paths_line_count_covers_waypoints(self):
+        """选中带 move_path 单位→draw_move_paths 无异常；draw_line 次数≥航点数
+        （2 航点=2 段实线）；追加排队令→虚线分段使调用数再增。"""
+        import unittest.mock as mock
+        from sovs.ui import scene
+        entry = {"id": 1, "team": 0, "pos_cm": [0, 0],
+                 "move_path": [[1000, 0], [1000, 1000]], "queued": []}
+        with mock.patch("arcade.draw_line") as dl, \
+                mock.patch("arcade.draw_circle_outline"), \
+                mock.patch("arcade.draw_circle_filled"):
+            scene.draw_move_paths(self._duck(entry))
+            solid = dl.call_count
+        self.assertGreaterEqual(solid, 2)                 # ≥航点数
+        entry["queued"] = [[[2000, 1000]]]                # Shift 排队令
+        with mock.patch("arcade.draw_line") as dl2, \
+                mock.patch("arcade.draw_circle_outline"), \
+                mock.patch("arcade.draw_circle_filled"):
+            scene.draw_move_paths(self._duck(entry))
+            dashed_total = dl2.call_count
+        self.assertGreater(dashed_total, solid)           # 虚线分段>纯实线段数
+
+    def test_trail_degenerates_when_real_path_present(self):
+        """trail 退化：单位有 move_path 时 draw_trails 不画该单位『当前位→落点』
+        直线（draw_line 计数 0）；无路径时 1 段。"""
+        import unittest.mock as mock
+        from sovs.ui import scene
+        trail = [{"kind": "move", "unit_ids": [1], "point_cm": [5000, 5000],
+                  "tick": 1, "mode": "NORMAL"}]
+        entry = {"id": 1, "team": 0, "pos_cm": [0, 0],
+                 "move_path": [[1000, 0]], "queued": []}
+        with mock.patch("arcade.draw_line") as dl, \
+                mock.patch("arcade.draw_circle_outline"), \
+                mock.patch("arcade.draw_text"), \
+                mock.patch("arcade.draw_lrbt_rectangle_filled"):
+            scene.draw_trails(self._duck(entry, trail))
+            self.assertEqual(dl.call_count, 0)            # 有路径=0 段
+        entry["move_path"] = []
+        with mock.patch("arcade.draw_line") as dl2, \
+                mock.patch("arcade.draw_circle_outline"), \
+                mock.patch("arcade.draw_text"), \
+                mock.patch("arcade.draw_lrbt_rectangle_filled"):
+            scene.draw_trails(self._duck(entry, trail))
+            self.assertEqual(dl2.call_count, 1)           # 无路径=1 段（旧行为）
+
+    def test_trail_cross_marker_strokes_locked(self):
+        """cross 分型痕迹标记（air_call/air_strike/air_airdrop——_TRAIL_STYLE）
+        两笔坐标锁：横笔 y0=y1=py、竖笔 x0=x1=px。〔终审第四批回归锁：B1 编辑
+        块曾误伤竖笔第三参 px→py（px≠py 落点竖笔变斜线，全量绿未拦——本类原只
+        测 move/circle）；落点特取 px≠py（50,30），笔误态 (50,22,30,38) 即红。〕"""
+        import unittest.mock as mock
+        from sovs.ui import scene
+        trail = [{"kind": "air_strike", "unit_ids": (),
+                  "point_cm": [5000, 3000], "tick": 1}]    # →px(50,30)
+        entry = {"id": 1, "team": 0, "pos_cm": [0, 0],
+                 "move_path": [], "queued": []}
+        with mock.patch("arcade.draw_line") as dl, \
+                mock.patch("arcade.draw_circle_outline"), \
+                mock.patch("arcade.draw_text"), \
+                mock.patch("arcade.draw_lrbt_rectangle_filled"):
+            scene.draw_trails(self._duck(entry, trail))
+            strokes = {tuple(c.args[:4]) for c in dl.call_args_list}
+        self.assertEqual(len(strokes), 2)                  # 恰两笔（无连线干扰）
+        self.assertIn((42.0, 30.0, 58.0, 30.0), strokes)   # 横笔 y 两端=py±8
+        self.assertIn((50.0, 22.0, 50.0, 38.0), strokes)   # 竖笔 x 两端=px±8
+
+
+class TestAirTrailFromAircraft(unittest.TestCase):
+    """〔2026-10-15 六条修正·问题6〕空中令 trail 线自**本机当前帧位置**起绘。
+
+    根因：trail.unit_ids 记飞机 id，而位置表只建自地面单位——单位/飞机两套
+    计数器都自 1 起，撞号时线从错误的地面单位位置起画、不撞号时不绘。修复=
+    draw_trails 按 kind 分流位置表（air_* 查飞机帧位）。无 GL 需求（arcade
+    绘制全 mock——TestMovePathRendering 同族口径）。"""
+
+    @staticmethod
+    def _est_width(text, size):
+        return size * sum(2 if ord(ch) > 0x2E7F else 1 for ch in str(text))
+
+    @classmethod
+    def setUpClass(cls):
+        import unittest.mock as mock
+        from sovs.ui import hud_top, scene
+        cls._rulers = [mock.patch.object(hud_top, "text_width", cls._est_width),
+                       mock.patch.object(scene, "text_width", cls._est_width)]
+        for r in cls._rulers:
+            r.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        for r in cls._rulers:
+            r.stop()
+
+    @staticmethod
+    def _duck(*, units=(), aircraft=(), trail=()):
+        from types import SimpleNamespace
+        return SimpleNamespace(
+            frame={"units": list(units), "aircraft": list(aircraft)},
+            fsm=SimpleNamespace(selected=()),
+            session=SimpleNamespace(cmd=SimpleNamespace(trail=list(trail))),
+            cm_to_px=lambda x, y: (float(x) / 100.0, float(y) / 100.0),
+            _viewport_px=lambda: (0, 0, 1280, 800))
+
+    def test_air_move_trail_starts_from_aircraft_not_colliding_unit(self):
+        """撞号回归锚：飞机 id=1 与地面单位 id=1 撞号——线须自飞机位 (50,50) 起，
+        不得自地面单位位 (10,0) 起（修前=错误地面起点）。"""
+        import unittest.mock as mock
+        from sovs.ui import scene
+        units = [{"id": 1, "team": 0, "pos_cm": [1000, 0],
+                  "move_path": [], "queued": []}]
+        aircraft = [{"id": 1, "team": 0, "pos_cm": [5000, 5000]}]
+        trail = [{"kind": "air_move", "unit_ids": [1],
+                  "point_cm": [9000, 9000], "tick": 1}]
+        with mock.patch("arcade.draw_line") as dl, \
+                mock.patch("arcade.draw_circle_outline"), \
+                mock.patch("arcade.draw_text"), \
+                mock.patch("arcade.draw_lrbt_rectangle_filled"):
+            scene.draw_trails(self._duck(units=units, aircraft=aircraft,
+                                         trail=trail))
+        starts = {(c.args[0], c.args[1]) for c in dl.call_args_list}
+        self.assertIn((50.0, 50.0), starts)        # 自飞机当前位起绘
+        self.assertNotIn((10.0, 0.0), starts)      # 不自撞号地面单位位起绘
+        self.assertIn((50.0, 50.0, 90.0, 90.0),
+                      {tuple(c.args[:4]) for c in dl.call_args_list})
+
+    def test_ground_trail_unchanged_by_air_table(self):
+        """地面令行为零变：无飞机帧时 move 线仍自地面单位位起绘。"""
+        import unittest.mock as mock
+        from sovs.ui import scene
+        units = [{"id": 2, "team": 0, "pos_cm": [2000, 0],
+                  "move_path": [], "queued": []}]
+        trail = [{"kind": "move", "unit_ids": [2],
+                  "point_cm": [8000, 0], "tick": 1, "mode": "NORMAL"}]
+        with mock.patch("arcade.draw_line") as dl, \
+                mock.patch("arcade.draw_circle_outline"), \
+                mock.patch("arcade.draw_text"), \
+                mock.patch("arcade.draw_lrbt_rectangle_filled"):
+            scene.draw_trails(self._duck(units=units, trail=trail))
+        self.assertIn((20.0, 0.0, 80.0, 0.0),
+                      {tuple(c.args[:4]) for c in dl.call_args_list})
+
+    def test_task_mark_lines_from_aircraft_all_three_kinds(self):
+        """三态任务线统一自飞机当前位置 (50,50) 起：patrol→圆心/strike→目标
+        （既有不回归）/airdrop→落点。"""
+        import unittest.mock as mock
+        from sovs.ui import scene
+        win = self._duck(aircraft=[{"id": 1, "team": 0,
+                                    "pos_cm": [5000, 5000]}])
+        win.cam_scale = 1.0
+        cases = (
+            ({"kind": "patrol", "center": [8000, 8000], "radius": 500},
+             (50.0, 50.0, 80.0, 80.0)),
+            ({"kind": "strike", "target": [6000, 6000]},
+             (50.0, 50.0, 60.0, 60.0)),
+            ({"kind": "airdrop", "drop": [7000, 7000]},
+             (50.0, 50.0, 70.0, 70.0)),
+        )
+        for task, want in cases:
+            with self.subTest(kind=task["kind"]):
+                a = {"id": 1, "task": task}
+                with mock.patch("arcade.draw_line") as dl, \
+                        mock.patch("arcade.draw_circle_outline"), \
+                        mock.patch("arcade.draw_text"):
+                    scene.draw_task_mark(win, a, 50.0, 50.0)
+                strokes = {tuple(c.args[:4]) for c in dl.call_args_list}
+                self.assertIn(want, strokes)       # (px,py)→任务点连线在册
+
+
+class TestBoxResidueRemoved(unittest.TestCase):
+    """B2 源码级断言（无头可跑，不建窗不导入渲染件）：残留白框属性全仓代码
+    引用归零——初始化/写入/绘制三分支删除后，scene/shell_window 源内不得再
+    出现该标识。"""
+
+    def test_no_last_box_token_in_sources(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for rel in ("sovs/ui/scene.py", "sovs/ui/shell_window.py"):
+            with open(os.path.join(root, rel), encoding="utf-8") as fh:
+                self.assertNotIn("_last_box", fh.read(), rel)
 
 
 if __name__ == "__main__":

@@ -371,5 +371,126 @@ class TestFieldSpot(unittest.TestCase):
         self.assertEqual(frames[0]["objectives"][1]["owner"], 0)
 
 
+class TestCapsSummary(unittest.TestCase):
+    """units[].caps 命令能力位（B3 修复块 2026-10-13——命令格三态过滤数据面）。
+
+    口径：己方全键（squad/smoke/reverse/ambush/sniper/seats/deploy_gun/
+    indirect/tow/transport/radar——值域 bool/int；radar=对空资格位，终审第四批
+    2026-10-13 加键——帧 1.1 加键不 bump 口径）；敌方条目**无 caps 键**（敌方
+    能力=对方私有情报，fire_mission 同款边界）；裁判全知（view=None）全量。
+    """
+
+    def test_own_caps_full_keys_and_domain(self):
+        w = fog_world()
+        f = state_frame(w, 0)
+        own = next(u for u in f["units"] if u["team"] == 0)
+        self.assertEqual(set(own["caps"]), {
+            "squad", "smoke", "reverse", "ambush", "sniper", "seats",
+            "deploy_gun", "indirect", "tow", "transport", "radar"})
+        for k, v in own["caps"].items():
+            self.assertIsInstance(v, (bool, int), k)
+
+    def test_enemy_entries_have_no_caps_key(self):
+        w = fog_world()
+        for pi in (0, 1):
+            f = state_frame(w, pi)
+            for u in f["units"]:
+                if u["team"] != f["view"]:
+                    self.assertNotIn("caps", u)
+
+    def test_referee_sees_caps_for_both_sides(self):
+        w = fog_world()
+        f = state_frame(w, None)
+        self.assertTrue(all("caps" in u for u in f["units"]))
+
+    def test_caps_reflect_engine_gate_predicates(self):
+        """判据与引擎真实门同源：SQUAD 元素位/曲射 mode_set 位/倒车 bp/
+        对空资格位（radar=tick._aa_eligible 同式，终审第四批）。"""
+        from tests.test_p1_mechanics import _aa_tpl
+        w = fog_world()
+        flak = add_unit(w, make_unit(w, _aa_tpl(), 0, 0, (80000, 30000)))
+        tank = add_unit(w, make_unit(w, TANK_TPL, 0, 0, (70000, 30000)))
+        f = state_frame(w, 0)
+        rifle = next(u for u in f["units"] if u["id"] == 1)   # RIFLE_TPL 班卡
+        self.assertTrue(rifle["caps"]["squad"])
+        self.assertFalse(rifle["caps"]["indirect"])
+        own_tank = next(u for u in f["units"] if u["id"] == tank.id)
+        self.assertFalse(own_tank["caps"]["squad"])           # 载具无班元素
+        self.assertTrue(own_tank["caps"]["reverse"])          # TRACK 类倒车 bp>0
+        self.assertFalse(rifle["caps"]["reverse"])            # FOOT 类恒 0
+        own_flak = next(u for u in f["units"] if u["id"] == flak.id)
+        self.assertTrue(own_flak["caps"]["radar"])            # AIR 弹 mask+对空光学
+        self.assertFalse(rifle["caps"]["radar"])
+        self.assertFalse(own_tank["caps"]["radar"])
+
+
+class TestAircraftCapabilityKeys(unittest.TestCase):
+    """aircraft[] 机型能力位（B3：alt_ceiling/can_afterburner/can_decoy）。"""
+
+    def test_yak9_capability_bits(self):
+        w = fog_world()
+        mk_air(w, "YAK9", team=0)
+        a = state_frame(w, 0)["aircraft"][0]
+        self.assertEqual(a["alt_ceiling"], "high")     # air.py 模板实测
+        self.assertTrue(a["can_afterburner"])
+        self.assertTrue(a["can_decoy"])
+        self.assertIsInstance(a["decoy_left"], int)
+
+    def test_po2_single_tier_no_caps(self):
+        w = fog_world()
+        mk_air(w, "PO2", team=0)
+        a = state_frame(w, 0)["aircraft"][0]
+        self.assertEqual(a["alt_ceiling"], "low")
+        self.assertFalse(a["can_afterburner"])
+        self.assertFalse(a["can_decoy"])
+
+
+class TestMovePathExport(unittest.TestCase):
+    """units[].move_path/queued（B4 修复块 2026-10-13——真实路线呈现数据面）。
+
+    口径：己方导出剩余航点+排队令航点（issue_move 写点直读）；敌方=移动意图
+    私有情报恒 []；值域 list[list[int]]（json 往返深度相等）。
+    """
+
+    def test_own_move_path_and_queued_exported(self):
+        from sovs.sim.movement import issue_move
+        from sovs.sim.types import MoveCmd
+        from sovs.sim.tables import CONFIG
+        w = make_world(73, phase=PHASE_COMBAT, size_cm=(200000, 100000))
+        u = add_unit(w, make_unit(w, RIFLE_TPL, 0, 0, (50000, 30000)))
+        issue_move(w, CONFIG, MoveCmd(unit=u,
+                                      path=[(60000, 30000), (70000, 30000)]))
+        issue_move(w, CONFIG, MoveCmd(unit=u, path=[(80000, 30000)],
+                                      queue=True))          # Shift 排队第二令
+        f = state_frame(w, 0)
+        e = next(x for x in f["units"] if x["id"] == u.id)
+        self.assertEqual(e["move_path"], [[60000, 30000], [70000, 30000]])
+        self.assertNotEqual(e["move_path"][0], e["pos_cm"])  # 首点≠当前位置
+        self.assertEqual(e["queued"], [[[80000, 30000]]])    # 第二令航点
+        json.dumps(f)                                        # 值域可序列化
+
+    def test_enemy_move_intent_not_leaked(self):
+        from sovs.sim.movement import issue_move
+        from sovs.sim.types import MoveCmd
+        from sovs.sim.tables import CONFIG
+        w = make_world(74, phase=PHASE_COMBAT, size_cm=(200000, 100000))
+        mine = add_unit(w, make_unit(w, RIFLE_TPL, 0, 0, (50000, 30000)))
+        issue_move(w, CONFIG, MoveCmd(unit=mine, path=[(60000, 30000)]))
+        mine.spotted_mask |= 1 << 1                          # 被队1发现（帧在场）
+        foe_view = state_frame(w, 1)
+        e = next(x for x in foe_view["units"] if x["id"] == mine.id)
+        self.assertEqual(e["move_path"], [])                 # 敌视角恒 []
+        self.assertEqual(e["queued"], [])
+        ref_view = state_frame(w, None)                      # 裁判全知全量
+        er = next(x for x in ref_view["units"] if x["id"] == mine.id)
+        self.assertEqual(er["move_path"], [[60000, 30000]])
+
+    def test_idle_unit_empty_lists(self):
+        w = fog_world()
+        for u in state_frame(w, 0)["units"]:
+            self.assertEqual(u["move_path"], [])
+            self.assertEqual(u["queued"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

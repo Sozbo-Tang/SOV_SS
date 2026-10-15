@@ -71,17 +71,43 @@ def _rng_states(w):
 
 class TestAirCommandDispatch(unittest.TestCase):
     def test_air_call_cmd(self):
-        # §F1 呼叫经命令流：扣费（本体+载荷价）/INBOUND/弹药初始化（GAP2-04）
+        # §F1 呼叫经命令流：扣费（2026-10-14 空袭按用计费块=本体价——BOMB 载荷
+        # 改投放侧逐发扣，见 resolve_bomb_release）/INBOUND/弹药初始化（GAP2-04）
         w = make_world(42)
         p = w.players[0]
         before = p.air_points
         a = call(w, p, IL2M, {"BOMB": 2})
         self.assertIsNotNone(a)
         self.assertIs(a.state, AirState.INBOUND)
-        self.assertEqual(p.air_points,
-                         before - (IL2M.cost_body + IL2M.payload_price["BOMB"] * 2))
+        self.assertEqual(p.air_points, before - IL2M.cost_body)   # 呼叫只付本体
         self.assertEqual(a.ammo_left["BOMB"], 2)
         self.assertEqual(a.ammo_left["STRAFE"], 24)   # weapons[] STRAFE 档弹量
+
+    def test_bomb_release_pays_per_bomb(self):
+        # 2026-10-14 空袭按用计费块：resolve_bomb_release 每发投放扣
+        # air_points=模板 payload_price["BOMB"]（max(0,·) 钳——点数耗尽免账不追缴）
+        from sovs.sim.air import PHASE_COMBAT, AirTask, resolve_bomb_release
+        w = make_world(42)
+        w.phase = PHASE_COMBAT
+        p = w.players[0]
+        before = p.air_points
+        a = call(w, p, IL2M, {"BOMB": 2})
+        self.assertIsNotNone(a)
+        self.assertEqual(p.air_points, before - IL2M.cost_body)   # 呼叫只付本体
+        p.air_points = 100
+        a.task = AirTask(kind=TaskKind.STRIKE, weapon="BOMB",
+                         target=(100000, 100000), phase=0,
+                         run_start=(90000, 90000), run_end=(110000, 110000))
+        resolve_bomb_release(w, a, a.task)
+        released = 2 - a.ammo_left["BOMB"]
+        self.assertGreater(released, 0)                           # 满投（弹数不掷骰）
+        self.assertEqual(p.air_points,
+                         100 - released * IL2M.payload_price["BOMB"])
+        p.air_points = 1
+        a.ammo_left["BOMB"] = 2
+        resolve_bomb_release(w, a, a.task)
+        self.assertEqual(p.air_points, 0)                         # 钳 0 不透支
+        self.assertEqual(a.ammo_left["BOMB"], 0)
 
     def test_air_call_cmd_paratroop_deck_slot(self):
         # D017/B-12：装机即扣 deck 份（命令流路径）

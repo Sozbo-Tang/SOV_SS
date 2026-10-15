@@ -15,6 +15,7 @@ GP-01 扩量（--smoke 剧本扩展面）：
 from __future__ import annotations
 
 from sovs.sim.air import PHASE_COMBAT, PHASE_DEPLOY
+from sovs.sim.geom import dist_cm
 from sovs.sim.types import UnitFlag
 from sovs.ui.shell_fsm import CREEP_SPEEDS_CM, ShellFsm
 
@@ -104,6 +105,14 @@ class StandardPlay:
         else:
             self.fsm.select_units([u["id"] for u in mine])
         sel = list(self.fsm.selected)
+        # 2026-10-14 探测增量块适配（证据采集面）：已下 B（rtb_pending）的单位移出
+        # 选区——真实玩家不会对已令撤回者续发推进令；反复右键拉走会使其永不停步，
+        # system_rtb「停止即到场退款」无法触发。
+        rtb_ids = {u.id for u in self.session.world.units if u.rtb_pending}
+        if rtb_ids:
+            self.fsm.selected = tuple(uid for uid in self.fsm.selected
+                                      if uid not in rtb_ids)
+            sel = list(self.fsm.selected)
         if not sel:
             return
         # ② 右键移动（窗口语义=直接 cmd.move）——断言入队
@@ -184,46 +193,37 @@ class ScriptedPilot:
         self.p1 = {"rtb_issued": False, "rtb_observed": False,
                    "decoy_issued": False, "decoy_observed": False,
                    "ab_issued": False, "ab_observed": False,
-                   "rtb_truck_id": None}
+                   "rtb_carriers": []}
 
     def _p1_beat(self, bus) -> None:
         """P1 机制发令节拍（--smoke 判据面；一次性）：
-        - 地面 RTB：对一辆我方卡车下 B（到场退款——观测=单位消失+points 增加+
-          refund_log 落账）；
+        - 地面 RTB：最多 3 名并行载体下 B（到场退款——观测=refund_log 落账）；
         - 诱饵/加力：对在空战斗机各下一次（观测=decoy_left 减/afterburner 置位）。"""
         w = self.session.world
         mine = self._mine()
-        # 〔终审修复块 2026-10-13〕暴击恢复后软目标卡车在途损毁成为正常战果
-        # （crit 改写交战轨迹——首发卡车未必能活着到场）：首发卡车已亡且未观测
-        # 到退款时换下一辆可动卡车重发（证据采集重试面，非判据放宽）。
-        rtb_truck_gone = (self.p1["rtb_truck_id"] is not None
-                          and not any(u.id == self.p1["rtb_truck_id"]
-                                      and u.alive for u in w.units))
-        if not self.p1["rtb_issued"] or (rtb_truck_gone
-                                         and not self.p1["rtb_observed"]):
-            truck = next((u for u in mine
-                          if u.template.category == 4
-                          and u.template.speed_tier > 0
-                          and u.template.cost > 0
-                          and not u.rtb_pending
-                          and u.id != self.p1["rtb_truck_id"]), None)
-            # 卡车判定：category=4 后勤且可动（空投箱 cost=0 不可 RTB——引擎门同判）
-            if truck is None and self.p1["rtb_truck_id"] is not None:
-                # 卡片耗尽无卡车可换——退化为「离出生锚最近的存活己方单位」承载
-                # 证据（B 退款为全单位语义非卡车专属；旅程最短=生存概率最高）
-                from sovs.sim.geom import dist_cm
-                from sovs.sim.tick import _deploy_anchor
-                anchor = _deploy_anchor(self.session.world, 0)
+        # 地面 RTB 退款证据采集：最多 3 名并行载体（离出生锚最近优先），在册载体
+        # 殁于半途即补位重发——证据采集重试面，非判据放宽〔终审修复块 2026-10-13
+        # 先例：暴击恢复后软目标卡车在途损毁成为正常战果；2026-10-14 探测增量块
+        # 后交战轨迹再变，单车顺发屡屡全灭，改并行+补位〕。
+        if not self.p1["rtb_observed"]:
+            from sovs.sim.tick import _deploy_anchor
+            anchor = _deploy_anchor(w, 0)
+            alive_ids = {u.id for u in mine}
+            self.p1["rtb_carriers"] = [cid for cid in self.p1["rtb_carriers"]
+                                       if cid in alive_ids]
+            if len(self.p1["rtb_carriers"]) < 3:
+                skip = set(self.p1["rtb_carriers"])
                 cands = [u for u in mine if u.alive and not u.rtb_pending
+                         and u.id not in skip
                          and not (u.elements
                                   and all(e.mounted_in is not None
                                           for e in u.elements))]
-                truck = (min(cands, key=lambda u: dist_cm(u.pos, anchor))
-                         if cands else None)
-            if truck is not None:
-                if bus.ground_rtb([truck.id]):
-                    self.p1["rtb_issued"] = True
-                    self.p1["rtb_truck_id"] = truck.id
+                if cands:
+                    carrier = min(cands, key=lambda u: dist_cm(u.pos, anchor))
+                    if bus.ground_rtb([carrier.id]):
+                        self.p1["rtb_carriers"].append(carrier.id)
+            if self.p1["rtb_carriers"]:
+                self.p1["rtb_issued"] = True
         fighter = next((a for a in w.aircraft if a.team == 0
                         and (a.template.can_afterburner
                              or a.template.decoy_charges > 0)
@@ -305,16 +305,19 @@ class ScriptedPilot:
         # 标准玩法：取组剪尸→右键移动→Q 攻击移动→G 组合（逐条断言入 script）
         self.script.battle_beat()
         sel = list(self.script.fsm.selected) or [u.id for u in mine]
-        # 移动族：未机动单位向中央占点推进
-        idle = [u for u in mine if not u.moving()]
+        # 移动族：未机动单位向中央占点推进（rtb_pending 已令撤回者除外——
+        # 2026-10-14 探测增量块适配，同 StandardPlay 选区过滤口径）
+        idle = [u for u in mine if not u.moving() and not u.rtb_pending]
         if idle:
             self._issue("move", bus.move([u.id for u in idle],
                                          (100000, 50000)))
             if self._move_probe is None:
                 self._move_probe = (idle[0].id, idle[0].pos)
         # 攻击：射程内最近 (shooter, foe) 对（观测锚=A12 指定对——引擎门 ⑨ 超
-        # max_range 即 REJECT 不落瞄准，故只对射程内目标下令；曼哈顿距离≤射程
-        # 是欧氏距离的保守上界）
+        # max_range 即 REJECT 不落瞄准，故只对射程内目标下令；距离=欧氏精确式，
+        # 原曼哈顿保守上界弃用）。发现门=引擎门④同款全队 spotted_mask（fire
+        # control 组网口径）——2026-10-14 探测增量块后团级视野收窄，不另加射手
+        # 私视门（加门=超引擎语义过度收紧证据面）。
         foes = self._foes_spotted()
         if foes:
             best = None
@@ -325,7 +328,7 @@ class ScriptedPilot:
                 if rng <= 0:
                     continue
                 for f in foes:
-                    d = abs(f.pos[0] - u.pos[0]) + abs(f.pos[1] - u.pos[1])
+                    d = dist_cm(u.pos, f.pos)
                     if d <= rng and (best is None or d < best[2]):
                         best = (u, f, d)
             if best is not None:
@@ -334,6 +337,15 @@ class ScriptedPilot:
                 if cmds:
                     self._attack_pairs.append((shooter.id, target.id))
                 self._issue("attack", cmds)
+        # 持令重发（2026-10-14 探测增量块适配，证据采集面）：引擎门⑩射界外每令
+        # 仅转车体一步——单发令常止于旋转而永不落瞄准。首个配对（双方存活＋敌
+        # 保持全队发现）持续重发，直至武器锁定被观测或目标消亡。
+        if self._attack_pairs and not self.evidence["attack"]["observed"]:
+            sid, fid = self._attack_pairs[0]
+            s = next((u for u in mine if u.id == sid), None)
+            f = next((u for u in w.units if u.id == fid and u.alive), None)
+            if s is not None and f is not None and (f.spotted_mask & 1):
+                self._issue("attack", bus.attack(sid, fid))
         # 炮击任务（GP-01 §3 模式队列）：首个 INDIRECT 单位逐模式各下一次任务
         # （POINT→LINE→CREEP——当前模式任务体**已被观测**即撤令换下一模式：
         # ZiS-3 六发任务自然打完耗时整段实战，等 fire_mission=None 会让

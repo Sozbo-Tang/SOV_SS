@@ -213,6 +213,32 @@ class SkirmishSession:
         return air_roster_mod.build_air_roster(self.world, HUMAN_INDEX,
                                                self.human_deck)
 
+    def deck_slot_meta(self) -> dict[int, dict]:
+        """呼援轨六页签分类面（2026-10-14 呼援轨页签块）：template_id→
+        {category:int, supply:bool}——帧 deck 槽无类目字段，经本 glue 面
+        取 sim 模板类目（ui 层不 import sim）。"""
+        from sovs.sim.types import UnitFlag
+        out: dict[int, dict] = {}
+        for p in self.world.players:
+            for s in p.deck_slots:
+                t = s.template
+                if t.template_id not in out:
+                    out[t.template_id] = {
+                        "category": t.category,
+                        "supply": bool(t.flags & UnitFlag.HAS_SUPPLY)}
+        return out
+
+    def air_bomb_price(self, template_id: int) -> int:
+        """空袭按用计费呈现面（2026-10-14 计费块）：机型炸弹单价查询
+        （空中选中卡「余弹价值」行用——ui 层不 import sim）。
+        〔2026-10-15 勘正：CARD_OBJECTS 实址=sovs.sim.air_data（原误引
+        air_roster 模块属性——纯空中路径未触、在空列表路径首跑即炸）。〕"""
+        from sovs.sim.air_data import CARD_OBJECTS
+        for t in CARD_OBJECTS.values():
+            if t.template_id == template_id:
+                return t.payload_price.get("BOMB", 0)
+        return 0
+
     def cooldown_labels(self) -> list[tuple]:
         """冷却段数据（顶栏 HUD——[(机型名, 剩余秒)]）。"""
         return air_roster_mod.cooldown_labels(self.world, HUMAN_INDEX,

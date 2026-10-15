@@ -511,6 +511,46 @@ class TestRealCardSupplyChain(unittest.TestCase):
                          100 * CONFIG.supply_round_weight_g
                          + 20 * CONFIG.med_weight_per_unit_g)   # 100×1+20×5=200g
 
+    @staticmethod
+    def _spawn_via_purchase(w, p, tpl):
+        """购卡→推进至 spawn_step 消费拍（tick 0 起 10 拍：world.tick=10 过
+        %10 经济门＋%10 出牌节流门双关）。返回出场单位。"""
+        from sovs.sim.tick import DeckSlot, cmd_purchase
+        p.points = tpl.cost + 100
+        p.deck_slots.append(DeckSlot(template=tpl, copies_left=1))
+        assert cmd_purchase(w, p, tpl, (5000, 5000))
+        for _ in range(10):
+            world_tick(w)
+        return next(u for u in w.units if u.template is tpl)
+
+    def test_su_truck_purchase_spawns_full_cargo(self):
+        """〔2026-10-15 六条修正·问题2 正锚〕真库 SU_TRUCK 经 cmd_purchase+
+        world_tick 出场＝满载补给（mode=CARGO＋supply_weight_g=舱位上限；「max 档」
+        同语义——rounds=cap≤门③、medical=0≤门④、min()≤门⑤ 载重闸）。"""
+        from sovs.sim.card_loader import load_library
+        from sovs.sim.tick import DeckSlot  # noqa: F401（_spawn_via_purchase 内用）
+        lib = load_library("data/gen/cards_ground.v1.json")
+        tpl = lib["SU_TRUCK"].unit_template
+        w = make_world(12)
+        truck = self._spawn_via_purchase(w, w.players[0], tpl)
+        e = truck.elements[0]
+        self.assertIs(e.mode, Mode.CARGO)               # 拾取扫描门（system_supply）
+        self.assertEqual(e.supply_weight_g, min(
+            e.template.cargo_rounds_max * CONFIG.supply_round_weight_g,
+            e.template.cargo_weight_max))               # 4000×1 vs 4000 → 恰满
+        self.assertEqual(e.supply_weight_g, 4000)
+        self.assertLessEqual(e.supply_weight_g, e.template.cargo_weight_max)
+
+    def test_no_flag_template_spawns_direct_and_empty(self):
+        """〔问题2 负锚〕无 HAS_SUPPLY 合成模板（TRUCK_NOFLAG_TPL——舱位在位无旗）
+        出场 mode 仍 DIRECT、supply_weight_g 仍 None（直构路径不变——
+        test_su_truck_buy_supplies_e2e 的 make_unit 后 None 断言另锚）。"""
+        w = make_world(13)
+        truck = self._spawn_via_purchase(w, w.players[0], TRUCK_NOFLAG_TPL)
+        e = truck.elements[0]
+        self.assertIs(e.mode, Mode.DIRECT)
+        self.assertIsNone(e.supply_weight_g)
+
 
 if __name__ == "__main__":
     unittest.main()

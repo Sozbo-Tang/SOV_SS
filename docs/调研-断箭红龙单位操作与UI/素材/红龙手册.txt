@@ -1,0 +1,1071 @@
+=== [PDF第1页] ===
+MANUAL
+
+=== [PDF第2页] ===
+2
+3
+CONTENTS
+BASICS ......................................................................................................3
+Launching the game  ........................................................................................... 3
+Progression in the game  ...................................................................................... 3
+UNDERSTANDING THE INTERFACE  ......................................................... 4
+Satellite View  ...................................................................................................... 4
+Ground View  ....................................................................................................... 6
+Deploying units  ................................................................................................... 7
+Unit icon display  ................................................................................................. 8
+Line of sight and Line of ﬁ re  ................................................................................ 8
+UNITS  ...................................................................................................... 9
+Unit Panel  ........................................................................................................... 9
+Unit Information Panel  ...................................................................................... 11
+Unit categories .................................................................................................. 13
+Warships management  ...................................................................................... 14
+Planes management  .......................................................................................... 15
+Infantry management  ....................................................................................... 16
+Units Labels and Icons  ...................................................................................... 16
+TUTORIAL  .............................................................................................. 20
+CAMPAIGN MODE  .................................................................................. 20
+Playing the Campaign ........................................................................................ 20
+Using the Strategic Map  .................................................................................... 20
+Infrastructure  ................................................................................................... 22
+Battle Groups  .................................................................................................... 23
+Battle  ............................................................................................................... 24
+MULTIPLAYER MODE  ............................................................................. 25
+Join/Create a game  ........................................................................................... 25
+Objectives  ........................................................................................................ 27
+The different stages of the game  ....................................................................... 27
+Behavior and banishment  ................................................................................... 27
+SKIRMISH MODE  ................................................................................... 28
+DECKS  .................................................................................................... 29
+CONTROLS  ............................................................................................. 32
+TIPS  ....................................................................................................... 34
+Army composition  ............................................................................................. 34
+Moving on the battleﬁ eld  ................................................................................... 34
+Fighting  ............................................................................................................ 34
+Managing your army  ......................................................................................... 35
+Naval battle  ...................................................................................................... 35
+BASICS
+LAUNCHING THE GAME
+EUGEN.NET
+When you start the game, you’re asked to connect to Eugen.net game server.
+Eugen.net handles Wargame: Red Dragon multiplayer system, as well as your friend 
+list. You must be connected in order to play multiplayer games.
+CREATE YOUR RED DRAGON PLAYER ACCOUNT
+You’ll have the choice to create a EugeNet account for Red Dragon or to link your 
+existing account from European Escalation.
+• For European Escalation Players: If you have a EugeNet account from 
+European Escalation, click on “Link account”, then enter your login/password and 
+the “Red Dragon CD Key” provided by Steam.
+• For Airland Battle Players: If you have a EugeNet account from Airland Battle, 
+click on “Link account”, then enter your login/password and the “Red Dragon CD 
+Key” provided by Steam.
+• If you don’t have a EugeNet account, click on “New Account” and ﬁ ll out the 
+information as well as the “Red Dragon CD Key” provided by Steam.
+PROGRESSION IN THE GAME
+PLAYER LEVEL
+Your player level increases based on your progress in the single player campaign, on 
+your successes in multiplayer mode and skirmish mode.
+
+=== [PDF第3页] ===
+4
+5
+UNDERSTANDING THE INTERFACE
+SATELLITE VIEW
+During a battle, you can use the satellite view to have a better view of the battleﬁ eld 
+1. REMAINING DEPLOYMENT POINTS: These points may be used to call in for 
+reinforcements. You receive additional points for every Command Zone controlled 
+by your team.
+2. MINIMAP: When zoomed in, the minimap allows you to keep an eye on the 
+whole battleﬁ eld. Orders may be given to your units directly on the minimap.
+3. TIME AND TEAM SCORES: Displays the score for each team and each player, 
+and shows how long the battle has been raging. In solo mode, this is where you can 
+also change the pace of the game.
+4. COMMAND ZONES / OBJECTIVES ZONES: Take control of these zones for 
+your team by sending a Command Unit (the Command Unit needs to stay still). Each 
+zone grants your team a different amount of Deployment points over time, which is 
+represented by the white number (the higher, the better). Each zone is also named 
+by a call sign for easy coordination with your team. If both Sides have placed a 
+Command Unit in the same Zone, the zone remains neutral. Depending on the game 
+mode, the command zones behave differently.
+5. ZONE UNDER CONTROL: Zones under your team’s control are displayed in Sat 
+View in the color of your team. A zone under control gives you reinforcement points.
+6. REINFORCEMENTS ENTRIES: White arrows indicate possible entry points 
+for reinforcements. In order to call for reinforcements, your team needs to seize 
+control of a zone with an entry point. (If multiple entry points are under control, 
+reinforcements will take the shortest path to reach the battleﬁ eld.) Long and thin 
+arrows are entry points for planes and ships, and short, wide arrows represent 
+entry points for ground units. Be careful, if you don’t control at least one entry 
+point for planes, you don’t have access to the airport panel. Similarly, if you have 
+no entry point to the sea, you cannot ask for naval reinforcements. Lastly, if you 
+don’t control at least one entry point for ground units, you do not have access to 
+the deployment menu.
+7. UNITS COMMAND PANEL: See below for more information
+8. GAME PANEL: Here you can ﬁ nd the HQ and CHAT buttons, plus the AIR COMM 
+button, which allows you to send your planes to missions on the battleﬁ eld once 
+the battle starts.
+9. AIRPORT PANEL: You have 9 available spots for your planes. In this panel, you 
+can see the status of your planes.
+10. UNIT VIEW: This panel displays the unit under your cursor. You can also 
+display the information panel by clicking on i.
+
+=== [PDF第4页] ===
+6
+7
+GROUND VIEW
+Clever use of the landscape provides a substantial advantage over your opponent. 
+Below is some information about the battleﬁ eld:
+1. Spotted but unidentiﬁ ed enemy units appear as black “ghosts”. You can use your 
+own personal knowledge to identify the units from their outlines.
+2. You can hide your units in Forests to beneﬁ t from heavy cover. Infantry units may 
+also hide in buildings once you unload them from their vehicles.
+3. Rivers cannot be crossed by land vehicles, but only by amphibious vehicles and river boats. 
+4. The type of terrain (crop ﬁ elds, roads, forests, clumps…) has an impact on the 
+units’ speed. Be advised that units may momentarily get stuck in difﬁ cult terrain.
+5. Roads can be used to move your units faster, with the “Move Fast” command 
+(Press “;”+left click).
+6. Terrain has a strong impact on units’ line of sight and shooting range. Clumps, 
+shrub hedges, houses, and other elements of the landscape decrease and block the 
+line of sight of units. Remember to take terrain relief into account: place your units 
+high up to get a better view of the battleground or hide them in natural recesses.
+7. Your units. There can be different icons above your unit, providing you with 
+useful information:
+     • Target icon indicates the unit is aiming/shooting at a target.
+     • Tool icon means a unit is damaged.
+     • Fuel icon shows the unit is running out of gas.
+     • Ammo icon indicates the unit is about to run out of ammunition. 
+      Use your supply vehicles (or FOB) to reﬁ ll ammo and fuel, or to repair your units.
+8. Unit Panel of the selected unit (see below for more info).
+9. Units Commands Panel: give speciﬁ c orders to your units.
+DEPLOYING UNITS
+DEPLOYMENT POINTS:
+Deployment points are used to call up reinforcements in Single player and Multiplayer 
+games. Each game unit has a point value, depending on its type and its experience. 
+Use your deployment points to select your new troops, and place them on the 
+battleﬁ eld. You can buy your units using the deployment panel shown below. The
+Units you can deploy have different ranks – higher ranked units are more efﬁ cient.
+You start the game with an amount of points to deploy your units. These points are 
+based on the mission or the game setting. Note that unused deployment points are 
+still available after the start of the game. You’ll need to control Command Zones with 
+a command unit in order to get additional Deployment Points. These points will let 
+you call for reinforcements at any time of the game providing the command zone 
+you (or anyone on your team) control has reinforcement entries.
+UNITS PLACEMENT
+Here is a step-by-step guide to deal with reinforcements:
+● Left click on the Deployment points Icon (top left corner) to open the
+Deployment Menu.
+● Left click on an icon to open the corresponding category.
+● Left click to buy a unit and then left click on the ground to place it there.
+● Right click cancels the purchase. Right click on the unit on the ground (during 
+the deployment phase only) cancels the purchase and the placement of the unit.
+Right click also works for planes on the airport panel.
+● By pressing ctrl while you left click on the deployment menu, you can select a 
+full platoon of units (for example, 4 units of infantry instead of 1, or 2 helicopters 
+instead of 1).
+● By holding shift while placing units on the battleﬁ eld, you can clone this group 
+thanks to left click and deploy the same group again.
+
+=== [PDF第5页] ===
+8
+9
+UNIT ICON DISPLAY
+You can change the display of the unit’s icons, and the style of the labels in the game. 
+In Options, go to GUI/HUD. Here, you can select several icon styles: RTS, NATO; 
+as well as label styles: Red Dragon, European Escalation , or create a custom style.
+LINE OF SIGHT AND LINE OF FIRE
+Fog of War isn’t displayed in Wargame. Therefore you may move your camera anywhere 
+on the battleﬁ eld to check out the landscape and prepare your strategies accordingly. 
+However, you won’t see enemy units until they are in the line of sight of one of your units.
+Landscape elements have a huge impact on your unit’s line of sight. Some elements, 
+like buildings, will block it. Others, like hedges or clumps, decrease the quality of 
+the unit’s view.
+We recommend you use Reconnaissance units in addition to other units to gain a 
+better view of the battleﬁ eld. These units have better optics equipment that is able 
+to more rapidly detect small or hidden enemy units.
+In Wargame, modern radio communications are simulated, so an enemy detected 
+by an allied unit will automatically be seen by the entire army.
+Once an enemy is spotted, your unit automatically starts aiming. Moving the mouse 
+cursor over the enemy will display the line of ﬁ re. This line is composed of 2 parts: 
+the targeting icon and the line of sight.
+Targeting icon: if the targeting icon is red, you can’t shoot the enemy. A text 
+will indicate the reason why the shot is not possible: invalid target (the weapons 
+can’t be used against this unit); out of range (the target is too far); no line of sight 
+(something is blocking the view of the unit or of the line of ﬁ re), or inefﬁ cient 
+(weapons can be used against the target but at this distance the penetration power 
+is not big enough).
+Line of sight: can be composed of 3 different parts:
+1. White opaque line: weapon in effective range. Can shoot and cause damage.
+2. White transparent line: your target is in your line of sight, but you are out 
+of range.
+3. White dotted line: something is blocking the unit view or the target is out of range.
+UNITS
+UNIT PANEL
+The Unit panel is displayed at the bottom center of the screen when the unit is 
+selected. It sums up the detailed information you can ﬁ nd on the complete Unit 
+Information Panel. On this example, an anti-tank missile launcher is selected:
+1. NAME: name of the unit’s commander.
+2. RANK: Units gain experience through battle. Ranked units have better accuracy, 
+faster reloading and aiming speed, higher capacity of detection and greater morale.
+3. EXPERIENCE PROGRESS: displays the progress to the next rank.
+4. CONDITION: represents the unit’s condition. Full bar means the unit is in top 
+condition. Once the bar is empty, the unit is destroyed.
+5. STATUS: There are 5 Status that can possibly affect a Unit.
+• Units react perfectly to orders when they are Calm.
+• Under ﬁ re, they can stress and may start to be Worried, reducing slightly accuracy 
+and reloading speed.
+• When Panicked, accuracy and reloading speed is dramatically reduced.
+• When Stunned, the unit is temporarily immobilized and incapable of reacting.
+• Worst case scenario and the unit will Rout, in which case they will attempt to ﬂ ee 
+the battle. You can’t give an order to a unit with the «Rout» status.
+6. FUEL: Fuel capacity is displayed here. If a unit runs out of fuel, you need 
+to supply it before it can move again.
+7. UNIT MODEL: Name and type of the unit.
+8. WEAPON 1: Displays the type of weapon, the remaining ammo and the caliber.
+Click the icon to switch OFF the weapon to prevent your unit to ﬁ re this weapon. 
+Click again to switch the weapon back ON.
+9. WEAPON 2: Same as for the weapon 1. A unit can have up to three weapons.
+
+=== [PDF第6页] ===
+10
+11
+When your Units are dealing with some heavy trouble, a speciﬁ c orange icon will display:
+This icon indicates that your unit has received a critical hit. Some embarked 
+systems may be temporarily or permanently damaged. The crew of vehicles 
+can also get hit, making the unit unable to operate.
+This icon indicates that your Unit is stressed. Stressed units are much less 
+efﬁ cient in battle.
+This icon indicates that your unit is Rout. This means that it will attempt to ﬂ ee 
+the battle and won’t respond to your commands.
+This icon indicates that your unit is running out of fuel. You need to reﬁ ll its 
+fuel tank to keep moving.
+ 
+UNIT INFORMATION PANEL
+When you select a unit, you can press I to display useful and more detailed 
+information on a speciﬁ c unit. This panel is really useful as it allows you to see your 
+units’ strengths and weaknesses. It also gives you the same information about the 
+enemy units in order to adapt your strategy accordingly. Learn how to counter each 
+unit and you’ll gain an incredible advantage over your opponent. When moving the 
+cursor over an element of this panel, you have access to detailed information about 
+this element.
+On this example, you’ll see the Unit Information Panel for a M1A1 Abrams:
+
+=== [PDF第7页] ===
+12
+13
+1- WEAPONS: Describe the weapons available on this Unit. You can have up to 
+three weapons on a single Unit.
+2- WEAPONS’ RANGES: Indicates the range of the weapons. On this example, 
+we can see that the M68 has a range of 1925m against ground units, and the M2 
+Browning has a range of 1050m against ground units.
+Against helicopter, only the M2 Browning can be used, with a range of 875m. 
+This Unit has only 2 weapons, and none of them is capable of dealing damage to 
+airplanes.
+3- WEAPONS’ POWER: Here are all the information regarding:
+Accuracy of the weapons
+AP Power: damage done to armored enemy
+HE power: damage done to non-armored enemy
+Suppression: damage done to enemy’s morale
+Rate of Fire: number of rounds the unit can ﬁ re per minute
+4- ARMOR: The unit’s resistance to damage depending on where it get hits.
+5- GENERAL INFORMATION:
+Strength: The number of members in the squad or the amount of Hit points.
+Size: The size of the unit. Big units can get hit more easily.
+Optics: The better the optics, the more chance you have to detect enemy units.
+Speed: The unit’s off-road speed.
+Road Speed: The unit’s speed while on the road.
+Stealth: The stealthier the Unit, the less chance you have to be detected by an 
+enemy unit.
+Fuel capacity: The amount of fuel needed to reﬁ ll its fuel tank.
+Autonomy: The autonomy of the unit in KM when the fuel tank is full.
+Stabilizer: The better the stabilizer, the more accurate the unit will be while ﬁ ring 
+on the move.
+Year: Year of production of the Unit.
+Type: Type of combat groups the Unit belongs to.
+The colors displayed on this Unit Information Panel follow this speciﬁ c code:
+Red: low characteristic
+Orange: average characteristic
+Green: good characteristic
+Blue: excellent characteristic
+UNIT CATEGORIES
+Logistics [LOG]: Logistics group Supply and Command units. Command units are 
+very important as they allow you to take control of command zones.
+Reconnaissance [REC]: Reconnaissance units have superior optics and special 
+training enabling them to spot hidden enemies.
+Tanks [TNK]: Tanks are your main strike force, and often make up the core of a 
+balanced army.
+Infantry [INF]: Infantry units will join your command along with their land or 
+air transport vehicle. Use the [UNLOAD] function to unload the infantry units from 
+their vehicles.
+Support [SUP]: Support combines artillery units and anti-air vehicles. They are 
+very useful for supporting your primary ﬁ ghting force from afar (artillery) and 
+defending them from enemy air units.
+Vehicles [VHC]: Vehicles combine lighter and faster vehicles. While they do not 
+pack as much punch as most main battle tanks, their mobility and lower cost make 
+up for it.
+Helicopters [HEL]: Helicopters are extremely mobile, and offer a large line of 
+sight. Some are specialized in ground attacks (gunships), anti-air, transport, etc.
+Planes [AIR]: You buy planes like every other unit but you don’t have to deploy 
+them. When you buy planes, you can call them in for “missions” from the “Air 
+Comm” menu, located at the bottom left of your screen.
+Naval Support [NAV]: Includes anti-naval ships, planes and helicopters, 
+and landing troops. These units can only be deployed on maps with a naval 
+reinforcement area.
+
+=== [PDF第8页] ===
+14
+15
+WARSHIPS MANAGEMENT 
+The naval units fulﬁ l various roles: coastal attack, anti-air defense, troop landings and 
+bombardment at extremely long range similar to land artillery. However, remember 
+that not all the ships can go everywhere, and you must take the depth of the sea or 
+river bed into account: destroyers can’t navigate a small waterway to penetrate deep 
+inland, so this is the perfect mission for a gunboat with a minimal draft.
+Here’s the different types of naval units you can use in Wargame Red Dragon :
+Frigates: Frigates are medium-sized warships that perform 
+numerous functions similar to multirole ﬁ ghters: maritime 
+reconnaissance, defense against enemy ﬂ eets/anti-surface 
+warfare and anti-air defense. Reasonably fast and well 
+armored, frigates form the spearhead of any naval force.
+Destroyers: Larger than frigates and more heavily 
+armored, destroyers are designed chieﬂ y to attack 
+enemy ﬂ eets. Their multiple cannons have a rapid ﬁ ring 
+rate that can pierce the armor plating of any hull and sink 
+any ship... provided it isn’t moving too quickly!
+Corvettes: Corvettes are fast, maneuverable vessels 
+with a lower tonnage than frigates, generally deployed 
+to defend more substantial buildings and structures. 
+They mainly perform an anti-air role and are bristling 
+with anti-air missiles and an array of guns that can 
+intercept enemy air-sea missiles in mid-air.
+Patrol craft: Patrol craft are vessels with a very 
+low tonnage, smaller than corvettes, and with a very 
+shallow draft that allows them to use waterways that 
+would be impassable for larger vessels.
+Landing craft: As their name indicates, you can use 
+landing craft to deploy troops from the sea if the shore 
+is suitable for this type of maneuver. Landing craft can 
+transport squads of infantry and heavier equipment 
+such as armored vehicles, but in lower numbers.
+Amphibious vehicles: Although impracticable in maritime 
+combat, amphibious vehicles are still able to cross (but 
+more slowly) bodies of water separating them from their 
+objective. Many vehicles can be amphibious, from transport 
+and light armored vehicles to even supply vehicles.
+PLANES MANAGEMENT
+You can manage your planes thanks to the airport panel. On this panel, you can check 
+all your planes and see their status. There are 3 main statuses for your planes:
+• Available (the icon is in full color)
+• In mission
+• Being refueled (a gauge indicates the progression of the refueling)
+When a plane is destroyed, it is removed from your airport panel so you can buy 
+a new one if you have more planes in your deck. You are limited to 9 planes in your 
+airport panel.
+When you send a plane on a “mission”, the plane will arrive quickly from an entry 
+point of the map. You can control it until it runs out of supply or is destroyed. 
+A plane that returns to reﬁ ll its supplies can be used later in the game; you just 
+have to call it in again. To activate the “Follow cam” on your plane while in mission, 
+double click on its icon in the airport panel.
+k
+k 
+
+=== [PDF第9页] ===
+16
+17
+INFANTRY MANAGEMENT
+Infantry can take cover in buildings, offering signiﬁ cant protection. The infantry 
+will take cover in a speciﬁ c district, which will be highlighted in Blue. The vehicles 
+remain outside.
+Infantry units are really useful to hold position in buildings or in forest, as they can 
+hide and beneﬁ t from heavy cover once you unload them.
+UNITS LABELS AND ICONS
+Each unit has a speciﬁ c label, which allows you to identify quickly what kind of unit 
+you have on the battleﬁ eld, and what unit you are facing. Some labels are similar, 
+but display an icon in one of the corners. These icons have a meaning.
+You can ﬁ nd the following icons in the game:
+Indicates a Command Unit
+Indicates a Supply Unit
+Indicates a Recon Unit
+Indicates an Elite Squad
+Indicates a Unit with Incendiary weapons
+Here are some examples for these icons:
+Recon Team: Infantry or jeep with a larger recon range than other units 
+and able to identify located units more rapidly. Recon teams are also less 
+conspicuous than line units.
+Combat Engineers: Line Infantry carrying ﬂ amethrowers instead of 
+antitank weapons. They are particularly effective against infantry.
+FOB: A secured facility capable of storing large amounts of supplies. Can 
+only be deployed during deployment phases.
+Light Command Vehicle: Light unit used to efﬁ ciently take control of an 
+area and collect reinforcement points, or to bring in reinforcements from 
+the edge of the map for reinforcement zones. Must be stationary in order to control 
+an area. (Also exists as “Recon”, “Supply” and “Vehicle”)
+Armored Command Vehicle: Same as above, but usually with more 
+armor and sometimes more weaponry. (Also exists as “Recon”, “Supply” 
+and “Vehicle”)
+Command Helicopter: Helicopter capable of capturing Command Zones. 
+This type of helicopter is more fragile than other command unit types, but 
+its high mobility enables you to rapidly secure forward areas.
+Command Infantry: This type of infantry can capture areas whilst 
+ﬁ nding shelter in buildings. Remember to disembark them from their 
+transport before you can secure the Command Zone.
+Destroyer: Larger than frigates and more heavily armored, destroyers are 
+designed chieﬂ y to attack enemy ﬂ eets. Their multiple cannons have a 
+rapid ﬁ ring rate that can pierce the armor plating of any hull and sink any ship... 
+provided it isn’t moving too quickly!
+Frigate: Frigates are medium-sized warships that perform numerous 
+functions similar to multirole ﬁ ghters: maritime reconnaissance, defense 
+against enemy ﬂ eets/anti-surface warfare and anti-air defense. Reasonably fast and 
+well armored, frigates form the spearhead of any naval force.
+Corvette: Corvettes are fast, maneuverable vessels with a lower tonnage 
+than frigates, generally deployed to defend more substantial buildings and 
+structures. They mainly perform an anti-air role and are bristling with anti-air 
+missiles and an array of guns that can intercept enemy air-sea missiles in mid-air.
+Patrol craft: Patrol craft are vessels with a very low tonnage, smaller than 
+corvettes, and with a very shallow draft that allows them to use waterways 
+that would be impassable for larger vessels.
+Landing craft: As their name indicates, you can use landing craft to 
+deploy troops from the sea if the shore is suitable for this type of maneuver. 
+Landing craft can transport squads of infantry and heavier equipment such as 
+armored vehicles, but in lower numbers.
+
+=== [PDF第10页] ===
+18
+19
+Amphibious vehicle: Although impracticable in maritime combat, 
+amphibious vehicles are still able to cross (but more slowly) bodies of water 
+separating them from their objective. Many vehicles can be amphibious, from 
+transport and light armored vehicles to even supply vehicles.
+Supply Vehicle: Trucks able to supply fuel and ammunition to combat 
+units, to repair vehicle damage and to replace lost infantry. They never 
+break down, but may be captured by the enemy.
+Transport Helicopter: Helicopter designed to transport squadrons/infantry 
+teams over battleﬁ elds. Must be grounded to load and unload troops.
+Armored Personnel Carrier: A reasonably well-armored and lightly 
+armed vehicle designed to transport squadrons/infantry teams within a 
+close vicinity of where combat is taking place.
+Support Vehicle: Designates several different types of vehicles. It often 
+refers to heavy weaponry mounted on tracked/wheeled vehicles that allow 
+them to follow the infantry they are supporting. Highly effective against infantry, but 
+less so against armored vehicles.
+Infantry Fighting Vehicle: An armored and generally well-armed vehicle 
+designed to transport squadrons/infantry teams to the heart of combat and 
+take part in the ﬁ ght.
+Anti-Aircraft Helicopter: Helicopter armed with either Strela or Stinger 
+anti-aircraft missiles, specialized in combating other helicopters. (Also 
+exists as a Recon Unit)
+Riﬂ emen: Line infantry armed with assault riﬂ es and a lightweight anti-
+tank weapon, and sometimes even with ATGMs. (Also exists as a Recon 
+Unit, Command Unit and Support Squad)
+Attack Helicopter: Helicopter heavily armed with a combination of 
+rockets, machine guns and/or anti-tank missiles, allowing them to engage 
+pretty much any ground target. (Also exists as a Command Unit)
+Tank Destroyer: Vehicle equipped exclusively with anti-tank weaponry. 
+Formidable against armored vehicles, but tend to be vulnerable to other 
+types of troops.
+Anti-Tank Team: Dismounted or mounted infantry carrying exclusively 
+anti-tank weaponry. Deadly against armored vehicles, but tend to be 
+particularly vulnerable to other types of troops.
+MBT (Main Battle Tank): Relatively heavy and well-armed combat tank 
+designed for combating other armed vehicles.
+Cavalry Tank: Light tank that tends to be faster than MBTs, although with 
+much less armor. They are mostly used to support infantry, lead dangerous 
+reconnaissance missions and harassment.
+Anti-Aircraft Missile: Infantry armed with MANPADS or SAM vehicles. 
+Engages anti-aircraft units only from a greater distance than bullet-based 
+anti-aircraft armaments, however with slower ﬁ ring and aiming rates.
+Artillery: Vehicle capable of ﬁ ring at great distances above obstacles, with 
+high explosive power on impact. Artillery can ﬁ re without a line of sight on 
+its target, and can correct its precision if an allied unit does have a line of sight on 
+the target. Typically, artillery cannot ﬁ re below a minimum range, although some 
+last generation howitzers are capable of ﬂ at trajectory ﬁ re.
+Mortar: Same as above, but gives up a good deal of range in favor of 
+greater precision.
+Multiple Rocket Launcher: Vehicle capable of ﬁ ring a barrage of rockets 
+at a high rate. Causes less damage than artillery, but more damage to 
+enemy morale. Discharges very rapidly and requires a large amount of supply. 
+Cannot ﬁ re below a minimum range.
+Anti-Aircraft Artillery: Auto-cannon(s) with a high ﬁ ring rate, capable of 
+ﬁ ring within a very short time span, although with less precision and 
+damage. Capable of engaging ground targets.
+Anti-Aircraft Artillery with RADAR: same as above but with RADAR 
+detection.
+SAM Artillery: Artillery ﬁ ring Surface to Air Missiles, designed to suppress 
+enemy aircrafts.
+SAM Artillery with RADAR: same as above but with RADAR detection.
+Air Superiority / Interceptor: Aircraft designed to engage enemy 
+aircrafts. These aircrafts allow you to control the air warfare and air power 
+over enemy forces.
+SEAD: Aircraft designed to suppress the enemy air defenses, to make him 
+vulnerable to air attacks.
+Close Air Support: Aircrafts designed to provide support to your ground 
+units on the battleﬁ eld. These aircrafts are useful to support your units 
+while attacking enemy forces.
+Ground Attack: Aircrafts designed to perform strategic strikes on enemy‘s 
+ground forces. Ground attack aircrafts are either bombers or attack aircrafts.
+Multirole Combat Aircraft: Aircraft capable of both air defense and 
+tactical strikes. Although it is a versatile aircraft, it is slightly less efﬁ cient in 
+each role than an aircraft speciﬁ cally designed for a role.
+Unidentiﬁ ed Unit: This label will be displayed whenever you spot an 
+enemy unit which can be seen but not identiﬁ ed.
+
+=== [PDF第11页] ===
+20
+21
+TUTORIALS
+In this game, you will ﬁ nd information sheets that are arranged by chapter.
+If you are playing Wargame for the ﬁ rst time, we strongly recommend you read chapter 
+‘Getting started’ before starting a multiplayer game or even playing the campaign.  
+CAMPAIGN MODE 
+PLAYING THE CAMPAIGN
+Wargame : Red Dragon campaign was designed to be played solo against the AI. 
+You can choose among several operations that take place in Asia from the end of 
+the 70’s to the beginning of the 90’s. Each operation features a different challenge. 
+These campaigns take place in an alternative world in which historical events did not 
+unfold exactly as we remember them.
+Campaigns are played both on a Strategic and a Tactical aspect. These two aspects 
+are complementary and create a link between the turn-based phase and the real-
+time battles.
+USING THE STRATEGIC MAP
+When you start a campaign, you can see a Strategic map. This map is divided into 
+zones. The goal of the campaign is either to take control of the enemy’s zones, 
+or to resist the enemy’s invasion. The ﬁ rst phase of the campaign is a turn-based 
+phase. You have some Battle Groups (BG) under your command. A Battle Group 
+works like a Deck, except that lost units will be lost for the rest of the campaign. 
+Select your Battle Groups and move them on the map using roads. On the upper 
+left side of your screen, you’ll ﬁ nd your political points that work pretty much like 
+the deployment points in a battle.
+Once you have given all the necessary orders, click End Turn. Your opponent’s turn 
+then starts: the system starts moving units on the map. The campaign continues 
+until one of the two camps meets their initial objective. 
+1 – Political Points : Political points are crucial elements of your war effort. Spend 
+political points to buy reinforcements. Each battlegroup comes at a cost in political 
+points. You earn political points by controlling sectors.
+2- Battlegroup information panel
+3- Area: the color of an area indicates the camp that controls it. If it is under 
+BLUFOR control, it appears in blue. If it is under REDFOR control, it appears in red. 
+Some sectors are primary or secondary campaign objectives. A primary objective 
+must absolutely be held in order to win the victory. A secondary objective enables 
+you to win a greater victory. The ﬁ gure next to the area name indicates the number 
+of political points earned from this area per turn.
+4- Every battle causes losses among your ranks. Infrastructures thus enable 
+battlegroups to recover their initial numbers via the “Reﬁ t” command. Reﬁ t actions 
+cost political points and immobilize your group for a turn.
+
+=== [PDF第12页] ===
+22
+23
+INFRASTRUCTURES
+Airports: 
+Air squadrons that you buy are deployed in airports. 
+They can also carry out repairs via the “Reﬁ t” command. 
+If an airport is captured by the enemy, all the squadrons 
+that were based in that airport are destroyed.
+Harbors:
+Land battlegroups that you buy are deployed in harbors. 
+They can also carry out repairs via the “Reﬁ t” command. 
+Ports can also be used to embark or disembark land units 
+that are transported by boat.
+Naval repairs:
+These infrastructures are off the coast and represent 
+a harbor’s capacity to repair naval units via the “Reﬁ t” 
+command.
+Sea routes:
+Naval battlegroups that you buy are deployed in sea 
+routes. Sea routes also enable you to repair your ships 
+via the “Reﬁ t” command.
+BATTLE GROUPS
+Managing your Battle Groups is a crucial aspect of the Campaign. Battle Groups are 
+deﬁ ned by 2 major characteristics: Morale and Initiative.
+The Morale of a Battle Group represents its resistance. The victory points when you 
+face a Battle Group are calculated thanks to this formula: Victory points = Total forces 
+x 10% x Morale average of pawns engaged in combat. The higher your Morale, the 
+harder it is for your opponent to win. If the Morale of a BG falls to 1, it cannot retreat 
+anymore and will be destroyed if it routs.
+A Battle Group can also rout if it suffers a Total Defeat or if you give order to retreat. 
+When a BG routs, it will be automatically destroyed if it is attacked by another BG.
+Initiative points are spent by combat groups during each action on the strategic 
+map. When a group has no initiative points left, it displays in grey. The total of 
+initiative points is regained at the beginning of the following turn.
+Cohesion points earn you command points in tactical combat.
+For each cohesion point, the Alliance receives one additional command point every 
+4 seconds of tactical combat. On the strategic map, use the R&R option to miss a 
+turn for this unit and enable it to recover 2 Cohesion points.
+This is the Information Panel of a Battle Group:
+ 
+1- Name of the Battle Group
+2- Cohesion du BG 
+3- Morale of the BG
+4- Initiative of the BG
+5- Amount of units available in this BG
+6- List of units in this BG
+
+=== [PDF第13页] ===
+24
+25
+BATTLE 
+When a battle breaks out in a sector, all the battlegroups take part in certain 
+conditions:
+• There must be at least 1 operational command unit among the pawns.
+• The pawns that are part of the faction that starts the battle (the “attacker”) 
+must have at least 1 available initiative point (the “defenders” take part even with 
+0 initiative points). So be particularly careful of units that have 2 initiative points: 
+since a move costs 2 points, they cannot take part in a battle at this turn. Lighter 
+battlegroups can, however, because they have 3 initiative points.
+Before a battle, the game indicates how many Destruction points an army must 
+accumulate in order to inﬂ ict defeat on its opponent. Destroying a unit earns Destruction 
+points to the camp responsible for destroying it. Therefore, the aim is to inﬂ ict maximum 
+losses on the opponent whilst avoiding losing too many units.
+Once battle commences, you switch to a tactical view to ﬁ ght in real time, and your forces 
+comprise all the battle groups you have selected for this confrontation. These remain 
+with you throughout the campaign and the units involved will gain experience that makes 
+them more effective with every battle... but bear in mind that losses are also permanent!
+This is where the strategic aspect of the campaign (position on the map and use of your 
+Battle Groups) meets the tactical aspect of the ﬁ ghts. The entry points you hold at the 
+beginning of the ﬁ ght depend on the roads you control on the strategic map. And if 
+the battle goes on for more than one turn, you keep control of the zones which were 
+under your control at the end of the previous turn. If you drop a Battle Group in a zone 
+under enemy control on the Strategic map (Parachutists or Marines), this Battle Group will 
+automatically be placed in a zone in the middle of the tactical map once the ﬁ ght starts. 
+You’ll then have either to take control of a road or to hold position till reinforcements come.
+Battles produce 4 different outcomes:
+Total victory/total defeat: the victors have obtained their target points and the 
+defeated have obtained less than 30% of theirs.
+Major victory/major defeat: the victors have obtained their target points and 
+the defeated have obtained less than 60% of theirs.
+Minor victory/minor defeat: the victors have obtained their target points and 
+the defeated have obtained less than 90% of theirs.
+Tie: one camp has obtained its target points, but the other camp has obtained 90% 
+or more of theirs.
+Moreover, if no camp obtains its target points, the battle always ends in a tie after 
+20 minutes, whatever the amount of points obtained by the opponents. Note that 
+if you win a total victory, your opponent’s Battlegroups are removed from the area 
+and you take control of this area.
+SAVING
+During a campaign, the game is saved automatically at the start and at the end of 
+every battle. However, you can also save your progress manually in Campaign mode 
+or during a battle by using the Pause menu.
+MULTIPLAYER MODE
+Wargame: Red Dragon allows you to play against other players all around the world.
+You need to be connected to Eugen.net game server to play multiplayer games.
+Friendly games are possible in order to take part in a short and fun skirmish 
+between friends, but competition is also very present, supported with ofﬁ cial 
+rankings calculated through an Elo system.
+JOIN/CREATE A GAME
+To play a multiplayer game, click on the “Multi” button on the panel at the bottom 
+left of your screen. You’ll see a list of multiplayer sessions that are waiting for 
+players. In order to join the game, select a session and click on the “Join” button 
+on the bottom of the panel.
+If you want to host a game, click on “Create” to host the game.
+• Game type: Select the number of players you would like to play with. Note that 
+you can change the settings afterward.
+• Game visibility: If you select “Private”, players will not see the session on the 
+multiplayer menu and therefore cannot join you. You have to invite your friends to 
+join the game.
+• Game name: Enter the name of your game.
+Please note that game options force you to use certain deck types: National 
+decks, Coalition decks, Themed decks or Period decks. You must imperatively have 
+compatible BLUFOR and REDFOR decks (one of each) in order to create and join a 
+game with such rule limitations.
+
+=== [PDF第14页] ===
+26
+27
+After conﬁ rming the global settings, you enter the lobby where you can set the 
+game settings and the associated victory conditions.
+Map Selection: Once you’re in the lobby, you can select the map for the game. The 
+availability of the maps depends on the number of players selected in the Host 
+Game settings, as the size of the map is linked to the number of players who can 
+play on it. Use the map preview function to check the terrain, the position and the 
+value of Command Zones, and the starting zones on the map. The starting position 
+of each side is chosen randomly in red and blue zones.
+You can also choose the type of camp in the opposition option:
+• BLUFOR: All players will play with BLUFOR.
+• REDFOR: All players will play with REDFOR.
+• Confrontation: Players can choose BLUFOR or REDFOR.
+You can also modify the ‘gain speed’ option which enables you to vary the speed at 
+which you gain command points. If the value is high, the players can deploy their 
+units faster.
+Before launching the game, make sure you have selected the right army deck and 
+that all players are ready to play.
+Avant de lancer la partie, assurez-vous d’avoir bien choisi votre deck et que tous les 
+joueurs sont prêts à en découdre.
+OBJECTIVES
+While creating a multiplayer game, you can set the game’s victory requirements:
+• Destruction: In this mode, the goal is to be the ﬁ rst to obtain the victory points 
+earned by destroying enemy units. You win victory points by destroying your 
+opponent’s units. The number of victory points you win depends on the value of the 
+units you destroyed. Once a player achieves the required number of victory points, 
+the game is over.
+• Economy: The victory condition is achieved by gathering reinforcement points.
+• Conquest: Each zone is worth points that can be gained with a command unit. 
+When your team gains more points than your opponent, you start earning conquest 
+points. The winning team is the ﬁ rst team that reaches the limit score, or comes 
+ﬁ rst at the end of the allocated time. The number of deployment points obtained 
+every 4 seconds is ﬁ xed and not linked to zones. Destruction points are not taken 
+into account.
+THE DIFFERENT STAGES OF THE GAME
+When you start a multiplayer game in Wargame: Red Dragon, you will face two 
+different phases: the deployment phase and the battle phase.
+• Deployment phase: in this phase you deploy your units on the battleﬁ eld thanks 
+to your reinforcement points. When a player presses the “launch battle” button, 
+a 2-minute timer starts. At the end of these 2 minutes, or if each player has pressed 
+“launch battle”, the deployment phase ends.
+• Battle phase: in this phase you can freely move your units, take control 
+of the different command zones and call for reinforcements. This is the real-time 
+strategy phase.
+BEHAVIOR AND BANISHMENT
+In multiplayer games, we ask players NOT to: 
+ 
+• Be abusive, disrespectful, harassing or hostile to other players.
+• Write messages containing anything hateful or racist, promoting illegal 
+   activities or supplying links to sites containing such messages.
+• Use offensive language (including Internet jargon).
+• Take an alias containing terms lined to pornography or racial hatred.
+• Undertake team-killing, i.e. destroying units belonging to an allied player.
+Any players who do not respect these social rules will be temporarily or indeﬁ nitely 
+banned from their EugeNet account.
+
+=== [PDF第15页] ===
+28
+29
+SKIRMISH MODE 
+Wargame: Red Dragon includes a Skirmish mode that lets you play against the AI 
+from 1v1 to 4v4.
+It is possible to choose the AI level in order to set the difﬁ culty of the game. The 
+game conditions are the same as in multiplayer, except that you can only play 
+against the AI.
+This mode allows you to develop strategies, test your decks, and gain experience 
+with the maps.
+The Skirmish mode is available from the SOLO menu, and you don’t need to be 
+connected to Eugen.net server to play it.
+Once you access the Skirmish menu, you’ll ﬁ nd the same options as for a multiplayer 
+game. The conditions of victory and defeat are also the same as in multiplayer.
+DECKS
+At the start of a multiplayer game, each player must deploy his units, thereby 
+making up the army he will use to confront his enemy/enemies. The Army Deck 
+is a selection of units from which you can choose for the deployment phase or 
+for reinforcements. As the game includes more than 800 different units, this Deck 
+system makes it easier to manage reinforcements and allows you to create your 
+own army. To create a Deck, press the “Deck” button in the main menu. You can 
+create your own decks or see existing decks. When you create your deck, you are 
+given an amount of activation points. Each type of unit costs a speciﬁ c amount of 
+activation points to be added to your deck.
+Note that naval units cost no Activation points.
+Here are some screenshots that will help you create your decks and build your 
+own army.
+Overview of the Deck creation:
+1- The name of your deck.
+2- The amount of activation points already used/The amount of activation points allowed.
+3- The amount of activation points spent in this category.
+4- The cost to add a new unit in this category.
+5- Units already in your deck.
+
+=== [PDF第16页] ===
+30
+31
+Selecting the units:
+1- The category of units selected.
+2- Units can be ﬁ ltered according to their period, theme, role, and many other parameters
+3- The name of your Deck
+4- The amount of activation points already used/The amount of activation points allowed.
+5- Units already added to your deck. You can remove them by using the “delete” command.
+6- The available ranks of the selected unit. They have the same cost but not the 
+same availability.
+7- The units you can add to your deck.
+The Deck system allows you to create speciﬁ c decks with bonuses. 
+You can restrict yourself to the units from a single nation or to the units of a given 
+coalition. In return, you access the Prototype units of these nations and you receive 
+an availability bonus for all the units in the deck, according to the selected country.
+You can specialize in one theme by using only a certain type of unit. In return, you 
+beneﬁ t from more experienced units, and you can access additional squares at a 
+lesser cost in the deck building screen. This enables you to specialize in the role 
+you have selected.
+You can select a year limit for the units that you use. When you restrict your deck to 
+the least modern units, you beneﬁ t from addition activation points that enable you 
+to add more units to your deck.
+Decks are separated for BLUFOR and REDFOR. Mixing BLUFOR and REDFOR units 
+is not possible. When you start the game, you have access to Starter decks. Starter 
+decks are displayed in white and cannot be removed nor edited, but you can make 
+a copy in order to customize your own version. The Army Decks offer you different 
+categories and values of units. While keeping in mind the number of command 
+points you deﬁ ned at the beginning of the game, select the units with which you 
+want to face your opponent and place them on the map.
+Once you have created your deck, you can export it in the form of a text string in 
+order to share it with other players.
+
+=== [PDF第17页] ===
+32
+33
+CONTROLS
+CAMERA CONTROLS
+Moving the camera:
+• WASD or arrows > Move the camera
+• Mouse wheel > Zoom in/out
+• Keep the mouse wheel pressed down > Rotate the camera in any direction.
+• Left click on the minimap > Move the camera to the selected spot.
+MAIN COMMANDS
+Basic Commands:
+• Select a unit / multiple units: left click on the unit, or lasso over multiple units 
+to select one or more units.
+• Move: when a unit is selected, right click on the ground/minimap.
+• Attack: when a unit is selected, right click on an enemy unit.
+• Shift (held down): queue up orders
+Unit Groups:
+• Create a group: when multiple units are selected, press Ctrl + 1 to 9.
+• Select a group: when you have set up groups, press 1 to 9
+COMMANDS PANEL
+[Note] These commands are executed by a left click
+• Move and Attack: Press “Q”. The unit moves to the selected location, but 
+whenever it runs into an enemy within ﬁ ring range, it will stop and engage it.
+• Move Fast: Press “;”. The unit takes the fastest route possible by taking roads, 
+to the selected location. It will not stop and ﬁ ght if it encounters an enemy unit.
+• Fire on Position: Press T. The selected unit(s) will shoot with applicable weapons 
+on the selected position. Particularly useful for artillery or barrage attacks.
+• Stop: Press E. Selected units stop and forget their current orders.
+ADVANCED COMMANDS
+To use those commands you have to open the Menu “Display Formations” 
+on the lower right side of the screen.
+Unit Squad:
+• Regroup units: To group units of the same type, select one of the units, press 
+“R”, then left click on another unit. A squad is instantly created. Doing a left click 
+on the ground after clicking on Regroup will give the order for the units to group 
+together at that location. The units must be close enough to regroup.
+• Split units: While a squad is selected, hold X and left click on the ground to split 
+your squad into small squads of 1 unit. If you hold X and then click on the label 
+of the squad, the unit breaks away from the squad and becomes its own squad. 
+You can also use the Split button from the interface.
+• Spread units: While a squad is selected, you can use the command “Spread” 
+to keep distance between your units. If you have selected more than one squad, 
+the squads will spread and you can repeat this command as many times as you want.
+Transport:
+• Load an infantry unit: Either select the infantry and then click on transport, 
+or vice versa. Both units come together and the infantry gets into the transport.
+• Unload an infantry unit: While the transport is selected, hold U and click 
+on the infantry unit to instantly unload it at the location where the transport is. 
+You can also use the Unload button in the interface.
+Other:
+• Activate/deactivate weapons: When a unit is selected, click on a weapon’s 
+icon to activate or deactivate it.
+• Multiple selection interface: When several units are selected, use the multiple 
+selection interface and click on the unit’s icon to select one in particular. If the 
+selection takes up several “pages,” use the “Previous” and “Next” buttons to go back 
+and forth through all selected units.
+• Select/Remove units in the multiple selection interface: Shift + left click 
+in the interface deletes units from the multiple selection.
+• Ctrl + left click on a unit’s icon keeps every unit of the same type selected.
+
+=== [PDF第18页] ===
+34
+35
+TIPS
+Here are a few tips to help you build your army and use your units on the battleﬁ eld.
+ARMY COMPOSITION
+• Try to have a balanced army. You need to be able to face any kind of situation. 
+Be sure to have anti-air (AA) units to face helicopters and planes, and recon units to 
+see what your opponent is doing.
+• Recon units are often essential in an army, as they give vision for all your units 
+on the map.
+• Be patient and set up defenses to protect your Command Vehicles and the zones 
+you control.
+• Don’t spend all your reinforcement points unnecessarily. You may need to buy 
+units if you have to deal with an unexpected attack, or if you want to adapt to your 
+opponent’s army.
+MOVING ON THE BATTLEFIELD
+• Use your recon units before moving to avoid ambushes.
+• Use the “Fast Move” command to get far more quickly to a target destination, 
+using the main roads. But be careful of enemy ambushes as your supply trucks 
+could be captured and your other units destroyed.
+• Your units move faster when they use the infrastructures of the game like roads 
+and highways. When you move in the ﬁ elds, your units might encounter problems 
+with the environment (mud, forests, and mountains).
+• The environment affects your units. Forests offer cover, but reduce your movement 
+speed. Infantry units can also hide in villages and urban areas. Make sure to choose 
+wisely where you move your units.
+FIGHTING
+• Always try to ﬁ gure out the position of enemy units on the map thanks to recon 
+units. Use cover to hide your units. Units last longer when under cover and can 
+sometimes shoot without being seen.
+• You can unload your infantry units in urban areas so they can hide in buildings; 
+or unload them in forests so they can ambush passing enemies.
+• Infantry units are useful to defend positions if they are under heavy cover.
+• Take into account the Morale of your enemy. Use artillery to panic enemy units 
+and make them less efﬁ cient in ﬁ ghts.
+MANAGING YOUR ARMY
+• Always keep in mind that you need to provide ammunition and fuel to your units. Logistic 
+units might not be really useful in ﬁ ghts, but they are essential to support your army.
+• Don’t forget that your planes have to come to your base between each mission. 
+Use them wisely to develop their full potential.
+• When your supplies are empty, you can send them back to your FOB to reﬁ ll them. 
+Only then can they return to supply your units on the battleﬁ eld.
+Cover your reinforcement lines. A unit entering the battleﬁ eld can easily be ambushed.
+NAVAL BATTLE
+• Ships are large units armed with three main weapon types:
+- Cannons with high rate of ﬁ re and a large amount of ammunition. 
+These are excellent coastal support weapons that cause vast amounts of stress, 
+but they are ineffective against a destroyer or a frigate.
+- Anti-naval missiles (Surface to Surface Missiles, ‘SSM’ and Air to Surface Missiles, 
+‘ASM’), large missiles capable of damaging large ships. Because of their size, there 
+are few of them, and they can be intercepted by defensive weapons. 
+Please note that these missiles cannot target ground or airborne units. 
+- Defensive weapons (Close In Weapon Systems, or ‘CIWS’) are precision weapons 
+capable or targeting anti-naval missiles. However, anti-tank missiles are too small 
+to be intercepted.
+These weapons are positioned on various turrets that have their own individual 
+ﬁ ring angle. To understand how a ship must be used, you need to know the layout 
+of its weaponry. The best way to obtain this information consists in going to the 
+armory and observing the 3D model of your unit.
+• The most effective way of sinking an enemy ship is to ﬁ re your SSMs at it. 
+But in order to do that, you need to confuse its anti-missile defense system: 
+Focus its ﬁ ring power on several targets and take that opportunity to ﬁ re as many 
+missiles as possible. It is thus very important to adequately coordinate your planes, 
+your helicopters and your anti-naval ships.
+• Also bear in mind that a ship that has been submitted to stress is less effective in 
+its defense and attack. It is therefore possible to keep hold of your missiles and to 
+use your cannons ﬁ rst. Afterwards, when your opponent’s stress level is relatively 
+low, ﬁ re your missiles for maximum effect.
+• Not all ships can sail everywhere. The largest ones are restricted to high seas 
+while the smaller ones can sail under bridges and sneak up canals and rivers.
+Smaller boats are equipped with less powerful weapons, but they are more ﬂ exible 
+in combat and can sail around obstacles or set up ambushes.
+
+=== [PDF第19页] ===
+36
+37
+EUGEN SYSTEMS
+Creative Director
+Alexis Le Dressay
+Technical Director
+Cedric Le Dressay
+Producer
+Julien Elma
+Associate Producer
+Romain ‘Wister’ Ginocchio
+Assistant Producers
+Sébastien Lebourcq
+Matthieu ‘MadMat’ Brevet
+Lead Game Designer
+Stephan Hernandez
+Game & Level Designers
+Vincent ‘Buburak’ Cambedouzou
+Fabien Reiner
+Félix ‘FLX’Habert
+3D Programming
+Paul Quemin
+Arnaud Vallerent
+Baptiste Delestre
+Adrien Font
+AI Leads
+Nicolas Cofﬁ not
+Majda Lahlil
+AI Programming
+Paul Chabas
+Mehdi Chihaoui
+Miguel Melan
+Laurent Vanaerde
+Jonathan Connell
+Thomas Feigler
+Mathias Labeyrie
+Marion Not
+Pierre-Olivier Konecki
+Jason Maréchal
+Baptiste Decain
+Cédric Famin
+Gaétan Voirgard
+Network Programming
+Christophe Cavalaria
+Arnaud Lecocq
+Art Director
+Thierry Dunter
+Artists
+Frédéric Thière
+Constant Le Gall
+Hardware & Technical Maintenance
+Franz ‘Furios’ Weber
+Level Build
+Thibaut Robin
+Additionnal Level Build
+Steve Coelho
+Bernard Sour
+Edgar Soubiran
+Additional Programming
+Timothée Raulin
+Maxime Coste
+Florent Isaia
+Francis Lam
+Nicolas Kniebihler
+Li Haonan
+Léo Yvin
+Cédric Boyer
+Testing
+Geoffrey Marion
+Nikita Diament
+CREDITS
+FOCUS HOME INTERACTIVE
+Commander in Chief
+Cédric Lagarrigue
+Intelligence unit
+Thomas Barrau
+Anne-Sophie Vernhes
+Tristan Hauvette
+Xavier Assémat
+Adrien Rotondo
+Sandra Mauri
+Anthony Rebouh
+Nicolas Weil
+Task Force
+Luc Heninger
+Mohad Semlali
+Nathalie Phung
+Thierry Ching
+Florent D’Hervé
+Théophile Gaudron
+Maxime Béjat
+Front-line soldiers
+Ugo Ribaud
+Marie-Thérèse Nguyen
+Alexandre Kapusta
+Xavier Sanson
+Paul Fiat
+Sébastien Montagné
+Laura Forget
+Propaganda
+Marie-Caroline Le Vacon
+French Foreign Legion
+John Bert
+Aurélie Rodrigues
+Aline Janzekovic
+Vincent Chataignier
+Yann Le Guellaut
+Stéphanie Olbé
+Vincent Duhnen
+Submariners
+François Weytens
+Manon Lestrade
+Katioucha
+Stéphan Le Gac Savoye
+Camille Lallement
+Maxime Guémon
+Heavy Artillery Regiment
+Jean-Michel Hellendorff
+Damien Duca
+Dimitri Robert
+Mechanics
+Jean-Joseph Garcia
+Gildas Souka
+Nicolas Dieppedalle
+Reservists
+Nathalie Jérémie
+Adrien Bro
+Florette Nsele
+Stéphane Figon
+Maureen Bolger
+Areski Ouazir
+Lasconie Lukusa M.
+Vice Admiral
+Deborah Bellangé
+Admiral
+Jean-Pierre Bourdon
+
+=== [PDF第20页] ===
+©2014 Eugen Systems and Focus Home Interactive. Developed by Eugen Systems. Published by Focus Home Interactive. Wargame: Red Dragon, Focus, Focus Home 
+Interactive and their respective logos are trademarks or registered trademarks of Focus Home Interactive. All rights reserved. All other names, trademarks and logos 
+are property of their respective owners.
+www.wargame-RD.com

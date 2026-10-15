@@ -21,8 +21,8 @@ from sovs.ui.shell_fsm import ShellFsm  # noqa: E402
 
 try:
     import arcade                                    # noqa: F401（探针）
-    import pyglet.display
-    HAS_GL_WINDOW = len(pyglet.display.get_display().get_screens()) > 0
+    from tests._gl_probe import gl_window_available
+    HAS_GL_WINDOW = gl_window_available()
 except Exception:                                    # noqa: BLE001
     HAS_GL_WINDOW = False
 

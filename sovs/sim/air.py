@@ -436,7 +436,12 @@ def cmd_air_call(world, player, template: AircraftTemplate, payload: dict,
     cd = player.air_cooldowns.get(template.template_id, 0)
     if world.tick < cd:
         return None
-    cost = template.cost_body + payload_price_of(template, payload)
+    # 2026-10-14 空袭按用计费块（用户拍板「要扣空投和炸弹的花费」）：BOMB 载荷
+    # 不再呼叫预付——改 resolve_bomb_release 每发投放扣 air_points（单价=模板
+    # payload_price["BOMB"]，max(0,·) 钳同空投作业费款式；被击落剩余弹未付费=
+    # 按用实付自洽）。SUPPLY 仍呼叫预付（空投作业费=另一作业面，不双计）。
+    cost = template.cost_body + payload_price_of(
+        template, {"SUPPLY": payload.get("SUPPLY", 0)})
     if player.air_points < cost:
         return None
     paratroop_tpl = payload.get("PARATROOP")
@@ -795,6 +800,9 @@ def resolve_bomb_release(world, a: AircraftInstance, s: AirTask,
                                     cloud_tier=getattr(world, "cloud_tier", 0))
     r_minor = r_major * cfg.bomb_ellipse_ratio_bp // 10000
     k = dir_index(s.run_end[0] - s.run_start[0], s.run_end[1] - s.run_start[1])
+    # 按用计费（2026-10-14 空袭按用计费块——呼叫价已剔除 BOMB，见 cmd_air_call）
+    player = world.players[a.player_index]
+    price = a.template.payload_price.get("BOMB", 0)
     for _i in range(w.salvo):
         if a.ammo_left.get("BOMB", 0) <= 0:
             break
@@ -807,6 +815,7 @@ def resolve_bomb_release(world, a: AircraftInstance, s: AirTask,
             speed_cm_tick=w.projectile_speed_cm_tick, trajectory=Trajectory.BALLISTIC,
             hit_target=None, will_hit=False))
         a.ammo_left["BOMB"] -= 1                                       # GAP-15：每发递减
+        player.air_points = max(0, player.air_points - price)          # 弹费按发扣
 
 
 def resolve_strafe(world, a: AircraftInstance, s: AirTask,

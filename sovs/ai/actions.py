@@ -657,11 +657,12 @@ def _aircraft_by_id(world, aircraft_id: int):
 
 
 def _air_cost(tpl, payload: dict) -> int:
-    """§F1 出动价：机体价 + 载荷价（空降兵不计价——D017 预备队池已付，跳过
-    非整型载荷值——HeadlessAI 同口径）。"""
+    """§F1 出动价（呼叫时点）：机体价 + 非弹药载荷价。〔2026-10-14 空袭按用
+    计费块：BOMB 改投放时逐发扣 air_points，不进呼叫价；空降兵不计价——D017
+    预备队池已付，跳过非整型载荷值——HeadlessAI 同口径。〕"""
     return tpl.cost_body + sum(tpl.payload_price.get(k, 0) * v
                                for k, v in payload.items()
-                               if isinstance(v, int))
+                               if isinstance(v, int) and k != "BOMB")
 
 
 def _cluster_point(foes, fallback) -> tuple[int, int]:
@@ -783,19 +784,20 @@ def air_candidates(world, player_index: int, *, enemy_anchor,
             continue
         role = tpl.role
         if role in (AirRole.ATTACK, AirRole.BOMBER):
-            price = tpl.payload_price.get("BOMB", 0)
+            # 2026-10-14 空袭按用计费块：满载呼叫（弹费投放时逐发扣 air_points，
+            # 不再按点数预算钳挂弹——点数耗尽后投放侧 max(0,·) 钳=免账不追缴，
+            # manual_silent 留痕）；点数门=呼叫价（_air_cost 已剔除 BOMB）
             n_bomb = tpl.payload_max_bombs
-            if price > 0:                     # 买得起的最大载弹（至少 1 发）
-                n_bomb = min(n_bomb, max(0, (p.air_points - tpl.cost_body) // price))
             if n_bomb <= 0:
                 continue
             payload = {"BOMB": n_bomb}
-            out.append(Candidate(
-                key=f"call_{key.lower()}", kind="air_call",
-                desc=f"呼叫 {tpl.name}（{n_bomb} 弹，{_air_cost(tpl, payload)} 点）"
-                     + ("打击可见敌情" if foes else "待命敌情"),
-                utility=50 if foes else 25,
-                params={"key": key, "payload": payload}))
+            if p.air_points >= _air_cost(tpl, payload):
+                out.append(Candidate(
+                    key=f"call_{key.lower()}", kind="air_call",
+                    desc=f"呼叫 {tpl.name}（{n_bomb} 弹，{_air_cost(tpl, payload)} 点＋弹费按发）"
+                         + ("打击可见敌情" if foes else "待命敌情"),
+                    utility=50 if foes else 25,
+                    params={"key": key, "payload": payload}))
         elif role is AirRole.FIGHTER:
             if p.air_points >= _air_cost(tpl, {}):
                 out.append(Candidate(

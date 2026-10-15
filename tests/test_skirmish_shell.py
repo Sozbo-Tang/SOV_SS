@@ -20,11 +20,12 @@ from tools import skirmish_shell  # noqa: E402
 
 try:
     import arcade                                    # noqa: F401（探针）
-    import pyglet.display
     # 显示会话探针：仅 GL 窗口/截图类需要；逻辑类（build_world/smoke/cli）无显示也可跑。
-    # （探针修复：pyglet 2.x 删 pyglet.canvas——pyglet.display.get_display() 现行 API。）
-    HAS_GL_WINDOW = len(pyglet.display.get_display().get_screens()) > 0
-    HAS_ARCADE = True
+    # （探针修复：pyglet 2.x 删 pyglet.canvas；2026-10-13 加固——共享 _gl_probe
+    #  双检：屏幕枚举＋隐藏窗实试，建不起来=整类跳过而非 setUpClass ERROR。）
+    from tests._gl_probe import gl_window_available
+    HAS_GL_WINDOW = gl_window_available()
+    HAS_ARCADE = HAS_GL_WINDOW
 except Exception:                                    # noqa: BLE001（缺渲染栈或无显示会话=跳过）
     HAS_ARCADE = False
     HAS_GL_WINDOW = False

@@ -16,7 +16,8 @@ from __future__ import annotations
 import arcade
 
 from .hud_bottom import Btn, draw_button  # noqa: E402（按钮原语共享）
-from .palette import (DECK_BAD, DECK_OK, HUD_PANEL,  # noqa: E402
+from .hud_top import fit_text  # noqa: E402（B1 提升共享——汇总行/卡组钮截宽）
+from .palette import (BTN_FONT, DECK_BAD, DECK_OK, HUD_PANEL,  # noqa: E402
                       HUD_TEXT, MARGIN, ORDER_ARMED, TOP_H)
 
 _TAB_CN = {"RECON": "侦察", "INFANTRY": "步兵", "ARMOR": "装甲",
@@ -119,8 +120,10 @@ def draw_deck_edit_page(win) -> None:
     y = win.height - TOP_H - 54
     for card_key, n in list(state.get("cards", ()))[:_MAX_SUM_ROWS]:
         c = by_key.get(card_key, {})
-        arcade.draw_text("· %s ×%d（%d分）" % (c.get("name", card_key), n,
-                                             c.get("cost", 0) * n),
+        # B1 修复块：汇总行截宽（长卡名「…」收尾——右缘不溢 1280 屏）
+        arcade.draw_text(fit_text("· %s ×%d（%d分）" % (c.get("name", card_key),
+                                                      n, c.get("cost", 0) * n),
+                                  win.width - (sx + 56) - MARGIN - 8, 11),
                          sx + 56, y, HUD_TEXT, 11)
         y -= 26
     # 点数条/配额条
@@ -164,6 +167,9 @@ def handle_config_click(win, x, y) -> None:
         if btn.hit(x, y):
             if btn.key == "deck_edit":
                 open_deck_editor(win)
+            elif btn.key == "settings":
+                from .settings_page import open_settings
+                open_settings(win)
             elif btn.key.startswith("dk_"):
                 handle_deck_edit_button(win, btn.key)
             elif btn.key.startswith("deck:"):
@@ -185,7 +191,7 @@ def layout_config_page(win) -> None:
     decks = win.session.deck_list()[:6]
     x, y = cx - 330, 430
     for key in decks:
-        label = "卡组：%s" % key
+        label = fit_text("卡组：%s" % key, 200 - 8, BTN_FONT)   # B1：截宽防溢
         win._buttons.append(Btn(x, y, 200, 34, "deck:%s" % key, label,
                                 tone="focus" if key == win.fsm.deck_key
                                 else "normal"))
@@ -194,6 +200,8 @@ def layout_config_page(win) -> None:
             x, y = cx - 330, y - 40
     win._buttons.append(Btn(cx - 330, 374, 200, 34, "deck_edit",
                             "编辑卡组（新建/改卡）"))
+    win._buttons.append(Btn(cx - 120, 374, 160, 34, "settings",
+                            "设置（改键）"))
     win._buttons.append(Btn(cx - 330, 330, 152, 34, "kev_rule", "KEV：规则兜底"))
     win._buttons.append(Btn(cx - 162, 330, 152, 34, "kev_local", "KEV：0.5B 本地"))
     win._buttons.append(Btn(cx - 110, 190, 220, 52, "start", "开始部署（Enter）"))
@@ -222,13 +230,18 @@ def draw_config_page(win) -> None:
     arcade.draw_text("开始后：60s 盲部署（600t）→ 实战 → 结算",
                      cx, 120, HUD_TEXT, 13, anchor_x="center")
     x0, y0 = 24, 300
-    arcade.draw_text("键位速查（F1=完整面板）", x0, y0, ORDER_ARMED, 13)
-    rows = ("左键 选/框选｜右键 移动/盘旋", "A+点 攻击｜T 炮击（参数条）｜F 行军",
-            "K+点/画线 空袭｜O 空投｜U 卸载", "X 烟幕｜G 组合｜H 纪律｜N 狙击",
-            "飞机 V 高度·B 返航·J 对空·Y 脱离", "Ctrl+1..9 建组｜1..9 取组",
+    arcade.draw_text("键位速查（F1=完整面板｜主菜单「设置」可改键）", x0, y0,
+                     ORDER_ARMED, 13)
+    rows = ("左键 选/框选｜右键 移动/盘旋",
+            "{Q}+点 攻击｜{T} 炮击（参数条）｜{F} 行军",
+            "{K}+点/画线 空袭｜{O} 空投｜{U} 卸载",
+            "{X} 烟幕｜{G} 组合｜{H} 纪律｜{L} 狙击·{N} 激光",
+            "飞机 {V} 高度·{B} 返航·{J} 对空·{Y} 脱离",
+            "Ctrl+1..9 建组｜1..9 取组",
             "SPACE 暂停（下令照收）｜± 调速", "方向键/贴边 平移｜滚轮 缩放")
+    from . import keybinds
     for i, r in enumerate(rows):
-        arcade.draw_text(r, x0, y0 - 22 - i * 20, HUD_TEXT, 12)
+        arcade.draw_text(keybinds.sub(r), x0, y0 - 22 - i * 20, HUD_TEXT, 12)
     x0, y0 = 24, 118
     arcade.draw_text("胜利裁决（D031 三级）", x0, y0, ORDER_ARMED, 13)
     for i, r in enumerate(("第一级：占点分", "第二级：剩余单位分值",

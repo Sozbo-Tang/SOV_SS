@@ -22,12 +22,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     import arcade                                    # noqa: F401（探针）
-    import pyglet.display
     # 显示会话探针：arcade 可导入但 WindowServer 不可达（合盖/无头）时，建窗会在
     # pyglet cocoa get_default_screen 处 IndexError——以屏幕枚举预判并整类跳过。
-    # （探针修复：pyglet 2.x 删 pyglet.canvas——pyglet.display.get_display() 现行 API。）
-    HAS_GL_WINDOW = len(pyglet.display.get_display().get_screens()) > 0
-    HAS_ARCADE = True
+    # （探针修复：pyglet 2.x 删 pyglet.canvas——pyglet.display.get_display() 现行 API。
+    #  2026-10-13 加固：枚举通过但建窗撞 WindowServer 瞬态=整类 ERROR——改共享
+    #  _gl_probe 双检：枚举＋隐藏窗实试，建不起来=整类跳过。）
+    from tests._gl_probe import gl_window_available
+    HAS_GL_WINDOW = gl_window_available()
+    HAS_ARCADE = HAS_GL_WINDOW or arcade is not None
 except Exception:                                    # noqa: BLE001（缺渲染栈或无显示会话=跳过）
     HAS_ARCADE = False
     HAS_GL_WINDOW = False

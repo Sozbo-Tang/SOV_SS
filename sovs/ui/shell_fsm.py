@@ -178,7 +178,7 @@ class ShellFsm:
 
     def __init__(self, *, deploy_ticks: int = DEPLOY_TICKS_IMPL):
         self.deploy_ticks = int(deploy_ticks)
-        self.page = "config"            # config|deck_edit|deploy|battle|settle
+        self.page = "config"            # config|deck_edit|settings|deploy|battle|settle
         # 战前配置态（config 页可改；start_deploy 后冻结为本局配置）
         self.deck_key = "su_min"        # 卡组键（data/gen/decks 下任意——编辑器产出即时可选）
         self.kev_level = "rule"         # KEV 档位：rule=规则兜底（缺省零依赖）|local=0.5B
@@ -220,7 +220,7 @@ class ShellFsm:
 
         config/deck_edit/settle 页不吃帧（尚无世界/停驻）。
         """
-        if self.page in ("config", "deck_edit", "settle"):
+        if self.page in ("config", "deck_edit", "settings", "settle"):
             return
         self.frame = frame
         phase = frame.get("phase")
@@ -495,6 +495,16 @@ class ShellFsm:
 
     # ── deck_edit 编辑器页（GP-01 §7——数据经 sovs/app/deck_editor 后端注入）──
 
+    def open_settings(self) -> None:
+        """设置页（改键——2026-10-14 设置改键块）：只允许自 config 进入。"""
+        assert self.page == "config", "设置页只允许自 config 页进入（当前 %s)" \
+            % self.page
+        self.page = "settings"
+
+    def close_settings(self) -> None:
+        assert self.page == "settings", "设置页未开（当前 %s）" % self.page
+        self.page = "config"
+
     def open_deck_edit(self, state: dict) -> None:
         """config→deck_edit（state={deck_key,faction,cards,tab,errors}——窗口层
         自后端装填；fsm 只持纯数据态）。"""
@@ -645,7 +655,7 @@ class ShellFsm:
             self.cancel_exit_confirm()            # 任意键先撤销退出确认
         if self.page == "settle":
             return None                           # 本页无命令通道（拦而静默）
-        if self.page in ("config", "deck_edit"):
+        if self.page in ("config", "deck_edit", "settings"):
             if name in COMBAT_KEYS or name == "TAB":
                 self.notify("编辑器页无战斗令（ESC 返回）" if self.page == "deck_edit"
                             else "战斗令在部署/实战页可用", tone="error")

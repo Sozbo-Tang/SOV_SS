@@ -322,13 +322,17 @@ def draw_scene(win) -> None:
                              AIR_NAME_TEXT, 9)
         draw_task_mark(win, a, px, py)
     draw_trails(win)
+    draw_move_paths(win)          # B4：选中单位真实路线（折线/虚线分层）
     draw_fire_mission_marks(win)
     draw_selection_marks(win)
 
 
 def draw_task_mark(win, a: dict, px: float, py: float) -> None:
     """飞机任务标记（GP-01 §4 ①段 task 摘要的可视面）：patrol=盘旋圈/strike=
-    目标十字+run 轴线/airdrop=落点叉——「在空飞机在干什么」一眼可读。"""
+    目标十字+run 轴线/airdrop=落点叉——「在空飞机在干什么」一眼可读。
+    〔问题6·2026-10-15：三态任务线统一从**飞机当前位置** (px,py) 起绘（strike
+    既有 346 行同款）——patrol 补 →圆心连线、airdrop 补 →落点连线（TASK_MARK_
+    COLOR 宽 1）：空中路线不再只见图/叉读不出「从机起向哪去」。〕"""
     task = a.get("task")
     if not task:
         return
@@ -338,6 +342,7 @@ def draw_task_mark(win, a: dict, px: float, py: float) -> None:
         arcade.draw_circle_outline(cx, cy, max(6.0, task["radius"]
                                                * win.cam_scale),
                                    TASK_MARK_COLOR, 1)
+        arcade.draw_line(px, py, cx, cy, TASK_MARK_COLOR, 1)
     elif kind == "strike":
         tx, ty = win.cm_to_px(task["target"][0], task["target"][1])
         arcade.draw_line(tx - 9, ty, tx + 9, ty, TASK_MARK_COLOR, 2)
@@ -347,6 +352,7 @@ def draw_task_mark(win, a: dict, px: float, py: float) -> None:
         dx, dy = win.cm_to_px(task["drop"][0], task["drop"][1])
         arcade.draw_line(dx - 7, dy - 7, dx + 7, dy + 7, TASK_MARK_COLOR, 2)
         arcade.draw_line(dx - 7, dy + 7, dx + 7, dy - 7, TASK_MARK_COLOR, 2)
+        arcade.draw_line(px, py, dx, dy, TASK_MARK_COLOR, 1)
 
 
 def _crosshair(px: float, py: float, r: float) -> None:
@@ -416,13 +422,57 @@ def draw_fire_mission_marks(win) -> None:
         arcade.draw_line(ux, uy, ax, ay, (240, 160, 60, 110), 1)
 
 
+_TRAIL_MARK_TTL = 60           # 移动族痕迹自隐时限（拍——10 拍/秒 ≈ 6s「短暂显示」）
+_MOVE_FAMILY = {"move", "reverse", "march",
+                "air_move", "air_patrol", "air_alt", "air_rtb"}
+
+
+def visible_trail_entries(trail, now_tick: int) -> list:
+    """痕迹**呈现层**过滤（2026-10-15 用户报障「改了路线后旧途径点还保留/变位」）：
+    移动族标记=断箭「短暂显示」语义（basics/调研报告 02 §4：下令后短暂显示、
+    Shift 重显）——① 同单位已有**更晚的移动族令**→旧标即时隐去（换路即换标，
+    cmd_bus 数据面不动——回放/断言零扰动）；② 超过 _TRAIL_MARK_TTL 自隐。
+    战斗类标记（attack/fire_mission/smoke/air_call 等）不受 TTL 约束（任务区
+    持续呈现）。纯函数供 draw_trails 与无头锚共用。"""
+    latest_move = {}                     # uid → 最新移动族令下标
+    for i, tr in enumerate(trail):
+        if tr.get("kind") in _MOVE_FAMILY:
+            for uid in tr.get("unit_ids", ()):
+                latest_move[uid] = i
+    out = []
+    for i, tr in enumerate(trail):
+        if tr.get("kind") in _MOVE_FAMILY:
+            if now_tick - tr.get("tick", now_tick) > _TRAIL_MARK_TTL:
+                continue                                  # ② 短暂显示：超时自隐
+            uids = tr.get("unit_ids", ())
+            if uids and all(latest_move.get(uid, i) > i for uid in uids):
+                continue                                  # ① 换路即取代旧标
+        out.append(tr)
+    return out
+
+
 def draw_trails(win) -> None:
     """已下达命令痕迹（分型标记）：最近数条（单位→落点线+分型落点标记）。
     同文同点标签去重（battle.png 复检②：脚本驾驶每 100t 重发同令，8 条
-    move 痕迹曾叠出 3 组重字——同 (label,落点) 只画一次文字）。"""
+    move 痕迹曾叠出 3 组重字——同 (label,落点) 只画一次文字）。
+    〔B4 修复块（2026-10-13）：move/reverse/march 族且该单位帧内已有真实
+    move_path 时跳过「当前位→落点」意图直线——真实绕障折线由 draw_move_paths
+    呈现（落点标记与标签保留）；attack/fm 等意图标记不受影响。〕
+    〔2026-10-15 排障轮：入口改经 visible_trail_entries 过滤——移动族标记
+    短暂显示（换路取代+TTL 自隐），旧标签去重集随文字块一并失去消费面。〕"""
+    trail = visible_trail_entries(win.session.cmd.trail[-8:],
+                                  win.frame.get("tick", 0))
     pos_by_id = {u["id"]: u["pos_cm"] for u in win.frame.get("units", ())}
-    labeled: set[tuple[str, int, int]] = set()
-    for tr in win.session.cmd.trail[-8:]:
+    # 〔问题6·2026-10-15：空中令（air_*）trail 的 unit_ids 记的是**飞机 id**——
+    # 单位/飞机两套计数器都自 1 起（tick next_unit_id/next_aircraft_id），撞号时
+    # 线从错误的地面单位位置起画、不撞号时 src=None 干脆不绘。位置表按 kind
+    # 分流：air_* 查飞机帧位（pos_cm=实时值），空中令线恒从本机当前位置起绘；
+    # 地面令行为零变（kind 不以 air_ 开头仍查 pos_by_id）。〕
+    air_pos_by_id = {a["id"]: a["pos_cm"]
+                     for a in win.frame.get("aircraft", ())}
+    path_by_id = {u["id"]: (u.get("move_path") or [])
+                  for u in win.frame.get("units", ())}
+    for tr in trail:
         point = tr.get("point_cm")
         if point is None:
             continue
@@ -441,22 +491,88 @@ def draw_trails(win) -> None:
                                                py + 10, color, 2)
         else:
             arcade.draw_circle_outline(px, py, 6, color, 2)
-        label = kind + ("/" + tr["mode"] if tr.get("mode") else "")
-        key = (label, round(px / 6), round(py / 6))
-        if key not in labeled:
-            labeled.add(key)
-            arcade.draw_text(label, px + 8, py - 6, color, 9)
+        # 2026-10-15 二轮拍板（用户截图反馈）：痕迹只画几何标记——move/NORMAL
+        # 类自动状态文字标签整体撤屏（B1 深底衬/截宽/视口翻转折返块随之失去
+        # 消费面；命令语义仍由 _TRAIL_STYLE 色/形承载）
         for uid in tr.get("unit_ids", ()):
-            src = pos_by_id.get(uid)
+            src = (air_pos_by_id if kind.startswith("air_")
+                   else pos_by_id).get(uid)
             if src is None:
                 continue
+            if kind in ("move", "reverse", "march") and path_by_id.get(uid):
+                continue                  # B4：真实路线折线已呈现（见头注）
             sx, sy = win.cm_to_px(src[0], src[1])
             arcade.draw_line(sx, sy, px, py, color if style != "circle"
                              else TRAIL_LINE, 2)
 
 
+# ── B4 修复块（2026-10-13）：真实移动路线呈现 ──
+# 虚线程序化参数（零图片纪律）：周期 10px，画 6px 跳 4px
+_DASH_PERIOD_PX = 10.0
+_DASH_ON_PX = 6.0
+
+
+def _dashed_segment(x0, y0, x1, y1, color, width) -> None:
+    """程序化虚线段（每 10px 画 6 跳 4——排队令段与当前执行段的视觉区分）。"""
+    length = math.hypot(x1 - x0, y1 - y0)
+    if length <= _DASH_ON_PX:
+        arcade.draw_line(x0, y0, x1, y1, color, width)
+        return
+    drawn = 0.0
+    while drawn < length:
+        seg_end = min(drawn + _DASH_ON_PX, length)
+        f0, f1 = drawn / length, seg_end / length
+        arcade.draw_line(x0 + (x1 - x0) * f0, y0 + (y1 - y0) * f0,
+                         x0 + (x1 - x0) * f1, y0 + (y1 - y0) * f1,
+                         color, width)
+        drawn += _DASH_PERIOD_PX
+
+
+def draw_path_polyline(to_px, pos_cm, path, queued, *, line_color,
+                       mark_color) -> None:
+    """移动路线折线（B4）：当前执行段=实线（pos→逐航点，帧 move_path 每拍 pop
+    前段=剩余路线）；排队段=逐令虚线（Shift 排队令航点，段接点 3px 实心点）；
+    末端=6px 空心圈（与 draw_trails 落点同款）。to_px=cm→px 变换函数
+    （shell=win.cm_to_px；viewer=_to_px——本函数纯绘制无 win 依赖，两窗共用）。"""
+    pts = [to_px(pos_cm[0], pos_cm[1])] + [to_px(p[0], p[1]) for p in path]
+    for a, b in zip(pts, pts[1:]):                    # 当前段：实线
+        arcade.draw_line(a[0], a[1], b[0], b[1], line_color, 2)
+    cur = pts[-1]
+    drew = len(pts) > 1
+    for cmd_path in queued:                           # 排队段：逐令虚线
+        arcade.draw_circle_filled(cur[0], cur[1], 1.5, mark_color)  # 段接点
+        for wp in cmd_path:
+            nxt = to_px(wp[0], wp[1])
+            _dashed_segment(cur[0], cur[1], nxt[0], nxt[1], line_color, 2)
+            cur = nxt
+            drew = True
+    if drew:
+        arcade.draw_circle_outline(cur[0], cur[1], 6, mark_color, 2)  # 末点
+
+
+def draw_move_paths(win) -> None:
+    """选中己方单位的真实移动路线（B4 修复块 2026-10-13）：帧 units[].move_path
+    （A* 绕障剩余航点）+queued（Shift 排队令航点）→ 折线呈现。仅绘**选中**己方
+    单位（选区=注意力焦点——basics.txt:59 Selection panel 信息聚焦口径；本作
+    拍板「常显选中者」强于断箭「短暂显示+Shift 重显」社区口径（D 级无时长依据，
+    manual_silent 留痕）；手册锚 manual.txt:552「SHIFT Queue orders」。"""
+    by_id = {u["id"]: u for u in win.frame.get("units", ())}
+    for uid in win.fsm.selected:
+        u = by_id.get(uid)
+        if u is None:
+            continue
+        path = u.get("move_path") or []
+        queued = u.get("queued") or []
+        if not path and not queued:
+            continue
+        draw_path_polyline(win.cm_to_px, u["pos_cm"], path, queued,
+                           line_color=TRAIL_LINE, mark_color=TRAIL_MARK)
+
+
 def draw_selection_marks(win) -> None:
-    """进行中框选/画线预览矩形 + 最近一次框选痕迹（白框）+ 选中单位角框。"""
+    """进行中框选/画线预览矩形 + 选中单位角框（B2 修复块 2026-10-13：框选
+    松手后橡皮筋即消失——不再重画「最近一次框选」残留白框，选中态由角框与
+    选中卡承载；SELECT_BOX 仅在拖拽进行中呈现）。"""
     box_p0, box_p1 = win._box_p0, win._box_p1
     if win._line_p0 is not None and win._line_p1 is not None:   # 画线预览（K/T）
         x0, y0 = win._line_p0
@@ -464,15 +580,12 @@ def draw_selection_marks(win) -> None:
         arcade.draw_line(x0, y0, x1, y1, FM_MARK, 3)
         arcade.draw_circle_filled(x0, y0, 4, FM_MARK)
         arcade.draw_circle_filled(x1, y1, 4, FM_MARK)
-    elif box_p0 is not None and box_p1 is not None:
+    elif box_p0 is not None and box_p1 is not None:             # 框选拖拽中
         arcade.draw_lrbt_rectangle_outline(min(box_p0[0], box_p1[0]),
                                            max(box_p0[0], box_p1[0]),
                                            min(box_p0[1], box_p1[1]),
                                            max(box_p0[1], box_p1[1]),
                                            SELECT_BOX, 2)
-    elif win._last_box is not None:
-        x0, y0, x1, y1 = win._last_box
-        arcade.draw_lrbt_rectangle_outline(x0, x1, y0, y1, SELECT_BOX, 2)
     for u in win.frame.get("units", ()):
         if u["id"] not in win.fsm.selected:
             continue

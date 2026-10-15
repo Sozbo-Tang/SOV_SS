@@ -20,7 +20,8 @@ from .glyphs import (draw_aircraft_glyph, draw_objective_glyph,
                      draw_projectile_glyph, draw_smoke_glyph, draw_unit_glyph)
 from .palette import (BACKGROUND, DEPLOY_BAND, GRID_LINE, HUD_PANEL, HUD_TEXT,
                       MAP_BORDER, PHASE_COLORS, TEAM_COLORS, TIMELINE_FILL,
-                      TIMELINE_TRACK)
+                      TIMELINE_TRACK, TRAIL_LINE, TRAIL_MARK)
+from .scene import draw_path_polyline
 from .timeline import PlaybackController
 
 VIEW_CYCLE: tuple[str, ...] = ("blue", "red", "ref")
@@ -191,6 +192,7 @@ class ViewerWindow(arcade.Window):
                                 spotted=a["spotted"],
                                 facing_deg=a.get("facing"))   # 帧 1.1 机头向
             self._draw_air_task_mark(a, px, py)
+        self._draw_move_paths(frame)
         self._draw_margin_mat(left, bottom, right, top)
         if show_hud:
             self._draw_top_bar(frame)
@@ -199,6 +201,20 @@ class ViewerWindow(arcade.Window):
                 self._draw_settle_panel(frame["result"])
 
     _TASK_MARK = (240, 224, 96, 200)      # 任务标记色（patrol 圈/strike 十字/airdrop 叉）
+
+    def _draw_move_paths(self, frame: dict):
+        """B4 修复块（2026-10-13）：地面单位移动路线（帧 units[].move_path/
+        queued——实线当前段+虚线排队段，scene.draw_path_polyline 同源画法）。
+        视角语义天然成立：蓝/红视角帧敌方条目恒 []（移动意图=私有情报），
+        仅本方折线入画；裁判全知帧（view=None）双方全画。观战器无选区概念
+        ——在路线者全画（逐拍步进可见前段随推进缩短=pop 语义）。"""
+        for u in frame.get("units", ()):
+            path = u.get("move_path") or []
+            queued = u.get("queued") or []
+            if not path and not queued:
+                continue
+            draw_path_polyline(self._to_px, u["pos_cm"], path, queued,
+                               line_color=TRAIL_LINE, mark_color=TRAIL_MARK)
 
     def _draw_air_task_mark(self, a: dict, px: float, py: float):
         """飞机任务标记（GP-01 §4 ①段帧 1.1 task 摘要——观战器同步渲染）：

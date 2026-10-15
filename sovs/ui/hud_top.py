@@ -33,6 +33,19 @@ def text_width(text: str, font_size: float) -> float:
     return w
 
 
+def fit_text(text: str, max_px: float, size: float) -> str:
+    """截宽到 max_px（超出以「…」收尾——实测宽逐字符退）。
+
+    B1 修复块（2026-10-13）自 selection_panel 提升共享：命令痕迹标签/呼援轨/
+    部署卡槽/编辑器汇总行等一切「定宽容器内文字」经此收口，超宽显式「…」
+    而非无声截断或溢出屏缘（原 battle.png 复检③口径——面板行文字收口范式）。"""
+    if text_width(text, size) <= max_px:
+        return text
+    while text and text_width(text + "…", size) > max_px:
+        text = text[:-1]
+    return text + "…"
+
+
 def flow_positions(start: float, widths, gap: float = TOP_SEG_GAP):
     """流式段位：各段起点=前段起点+宽+gap（顶栏三段零叠压排布，纯算术可测）。"""
     x = start
@@ -44,9 +57,10 @@ def flow_positions(start: float, widths, gap: float = TOP_SEG_GAP):
 
 
 def draw_top_bar(win) -> None:
-    """顶栏（§11 断箭式重排，实机参照 out/refs/ba_shot4.jpg）：中央=大计时＋
-    己方/敌方点数（己左敌右，队色方块标认）＋占点指示行；左=相位/速度徽标＋
-    操作提示；右=空援点数＋冷却流。量尺 TOP_H=56 双行。"""
+    """顶栏（§11 断箭式重排，实机参照 out/refs/ba_shot4.jpg；BA 复刻轮
+    2026-10-15 左上角加增援点数块）：左上=空援点数（黄大字——BA 增援点数
+    位）＋相位/速度徽标＋操作提示；中央=大计时＋双方点数＋占点指示行；
+    右=冷却流。量尺 TOP_H=56 双行。"""
     arcade.draw_lrbt_rectangle_filled(0, win.width, win.height - TOP_H,
                                       win.height, HUD_PANEL)
     frame = win.frame
@@ -89,7 +103,17 @@ def draw_top_bar(win) -> None:
                                           TEAM_COLORS.get(o.get("owner"),
                                                           (150, 150, 150, 255)))
 
-    # ── 左段：相位/速度徽标＋操作提示 ──
+    # ── 左上角：增援点数块（BA 复刻轮 2026-10-15——shot4 左上：图标＋黄色
+    #    大数字；SP 语境=空援点数，购买/呼援共用此池）──
+    pts_px0 = MARGIN
+    if own is not None:
+        arcade.draw_text("空援", MARGIN, y1, (170, 170, 160, 255), 12)
+        pts_px0 = MARGIN + text_width("空援", 12) + 8
+        arcade.draw_text("%d" % own.get("air_points", 0), pts_px0, y1,
+                         (240, 216, 96, 255), 20)
+        pts_px0 += text_width("%d" % own.get("air_points", 0), 20)
+
+    # ── 左段：相位/速度徽标（随点数块右移——BA 左上以点数为先）──
     if win.fsm.page in ("deploy", "battle") and not win.ctrl.playing:
         state = "|| 命令照收"
     else:
@@ -98,19 +122,16 @@ def draw_top_bar(win) -> None:
         head = "盲部署｜点槽装弹→点地放卡（兵出场后自动开进）·右键撤回"
     else:
         head = ("右键移动/盘旋·Q攻·T炮击·K空袭·V高度·B返航·Ctrl+数字编组"
-                "·选中卡在左")
-    x0, x1 = flow_positions(MARGIN, (text_width(state, 13),
-                                     text_width(phase.upper(), 13)))
+                "·选中卡在右下")
+    x0, x1 = flow_positions(pts_px0 + TOP_SEG_GAP,
+                            (text_width(state, 13), text_width(phase.upper(), 13)))
     arcade.draw_text(state, x0, y1, HUD_TEXT, 13)
     arcade.draw_text(phase.upper(), x1, y1, col, 13)
     arcade.draw_text(head, MARGIN, y2, (170, 170, 160, 255), 11)
 
-    # ── 右段：空援点数＋冷却流（右锚）──
-    segs = []
-    if own is not None:
-        segs.append("空援 %d" % own.get("air_points", 0))
-    for name, secs in getattr(win.session, "cooldown_labels", lambda: [])():
-        segs.append("%s 冷却%ds" % (name, secs))     # GP-01 §4 冷却可视化
+    # ── 右段：冷却流（右锚；空援点数已迁左上角——BA 增援点数位）──
+    segs = ["%s 冷却%ds" % (name, secs)        # GP-01 §4 冷却可视化
+            for name, secs in getattr(win.session, "cooldown_labels", lambda: [])()]
     xr = win.width - 10
     for i, seg in enumerate(segs):
         arcade.draw_text(seg, xr, y1 if i == 0 else y2, HUD_TEXT,
@@ -134,24 +155,30 @@ def draw_toasts(win) -> None:
 
 # F1 帮助面板键位速查（两栏；核心键＋镜头/飞机族——GP-01 §4/§6 扩容后全集；
 # P0 键位纠偏块 2026-10-13：Q 攻/SHIFT 排队/U 双击/O 画区/WASD 平移——手册
-# HOTKEYS manual.txt:547-580）
+# HOTKEYS manual.txt:547-580。2026-10-14 设置改键块：键位 token 化——{Q}/{S}…
+# 槽位经 keybinds.sub 渲染为当前生效键（改键后面板即时不一致消除））
 _HELP_KEYS_LEFT = (
     "左键：点选/框选（Shift 点己方=加减选）", "右键：移动（Shift=追加路径点）",
-    "Q+左键：攻击移动/齐射   S：停止   E：取消", "R+左键：倒车   F+左键：行军",
-    "T+左键/拖拽：炮击（点/线/徐进/精确）", "K+左键/拖拽：空袭（点目标/画攻击轴）",
-    "O+左键拖拽：空投画区（单击=点投）", "X：自卫烟幕   G：组合",
-    "H：纪律（受击才还击·保持瞄准）   L：狙击观测", "U：卸载（再按=就地卸载）",
-    "N+点敌：激光照射   P+点地：精密打击（近激光位）",
-    "M+点己方载具：登车   B：回基地（到场退款≥20%）",
-    "C：诱饵（手动投放）   Z：冲刺/加力/雷达（按单位分派）",
+    "{Q}+左键：攻击移动/齐射   {S}：停止   {E}：取消",
+    "{R}+左键：倒车   {F}+左键：行军",
+    "{T}+左键/拖拽：炮击（点/线/徐进/精确）",
+    "{K}+左键/拖拽：空袭（点目标/画攻击轴）",
+    "{O}+左键拖拽：空投画区（单击=点投）", "{X}：自卫烟幕   {G}：组合",
+    "{H}：纪律（受击才还击·保持瞄准）   {L}：狙击观测",
+    "{U}：卸载（再按=就地卸载）",
+    "{N}+点敌：激光照射   {P}+点地：精密打击（近激光位）",
+    "{M}+点己方载具：登车   {B}：回基地（到场退款≥20%）",
+    "{C}：诱饵（手动投放）   {Z}：冲刺/加力/雷达（按单位分派）",
     "Shift+确认：命令入队（连续下令排队执行）",
 )
 _HELP_KEYS_RIGHT = (
-    "飞机：V 高度(toggle) B 返航 J 对空 Y 脱离", "Z（飞机）：加力 toggle   C：诱饵",
+    "飞机：{V} 高度(toggle) {B} 返航 {J} 对空 {Y} 脱离",
+    "{Z}（飞机）：加力 toggle   {C}：诱饵",
     "左轨空援卡＋地面呼援卡（实战随时可呼）", "选中补给堆：买1t/4t/满+四开关",
     "SPACE：暂停（下令照收）   +/-：调速", "方向键/WASD：平移   贴边：边缘滚动",
     "滚轮：缩放（下限=整图适配）", "小地图：左键跳转 / 右键下令",
-    "Ctrl+1..9：建组   1..9：取组   TAB：子选（下令只对焦点）", "F1：本面板   ESC：分层取消",
+    "Ctrl+1..9：建组   1..9：取组   TAB：子选（下令只对焦点）",
+    "F1：本面板   ESC：分层取消   主菜单「设置」改键",
 )
 
 
@@ -166,11 +193,13 @@ def draw_help_overlay(win) -> None:
                                        ORDER_TEXT, 2)
     arcade.draw_text("键位与操作（F1/ESC 关闭）", win.width / 2,
                      y0 + h - 36, ORDER_ARMED, 18, anchor_x="center")
+    from . import keybinds                 # 改键动态渲染（settings 改后即时一致）
     for i, line in enumerate(_HELP_KEYS_LEFT):
-        arcade.draw_text(line, x0 + 36, y0 + h - 78 - i * 30, HUD_TEXT, 13)
-    for i, line in enumerate(_HELP_KEYS_RIGHT):
-        arcade.draw_text(line, x0 + w / 2 + 26, y0 + h - 78 - i * 30,
+        arcade.draw_text(keybinds.sub(line), x0 + 36, y0 + h - 78 - i * 30,
                          HUD_TEXT, 13)
+    for i, line in enumerate(_HELP_KEYS_RIGHT):
+        arcade.draw_text(keybinds.sub(line), x0 + w / 2 + 26,
+                         y0 + h - 78 - i * 30, HUD_TEXT, 13)
     arcade.draw_text("页面门：部署期可 S/E/R/Z/F+编组；战斗令在实战页开放"
                      "（G 组合含禁火姿态）；炮击三段式=T 待令→参数条→点地/画线",
                      win.width / 2, y0 + 14, (170, 170, 160, 255), 11,

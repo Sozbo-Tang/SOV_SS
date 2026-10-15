@@ -597,6 +597,33 @@ class TestPendingExpand(unittest.TestCase):
         self.assertLess(d1, d0)
 
 
+class TestMinimapShiftQueue(unittest.TestCase):
+    """小地图右键下令的 Shift 排队透传（2026-10-14 小地图 Shift 锚——GP-02
+    §10.4「小地图点击下令已在册」勘注的行为面：左键跳相机/右键下令不变）。"""
+
+    def test_right_click_passes_shift_queue(self):
+        from types import SimpleNamespace
+        from unittest import mock
+        import arcade
+        from sovs.ui import shell_window as sw
+        calls = []
+
+        class _Cmd:
+            def move(self, ids, cm, queue=False):
+                calls.append(("move", tuple(ids), cm, queue))
+
+        win = SimpleNamespace(
+            fsm=SimpleNamespace(selected=[7, 9], selected_air=[]),
+            session=SimpleNamespace(cmd=_Cmd()))
+        win._minimap_click = sw.ShellWindow._minimap_click.__get__(win)
+        with mock.patch.object(sw, "minimap_to_cm", return_value=(1234, 5678)):
+            win._minimap_click(30, 30, arcade.MOUSE_BUTTON_RIGHT,
+                               arcade.key.MOD_SHIFT)
+            win._minimap_click(30, 30, arcade.MOUSE_BUTTON_RIGHT, 0)
+        self.assertEqual(calls[0][3], True)    # Shift+右键=排队
+        self.assertEqual(calls[1][3], False)   # 无修饰=替换令
+
+
 class TestAirRosterAffordability(unittest.TestCase):
     """A9：空呼点数预判（air_roster 生成处——修 max(1,..) 缺陷）。"""
 
@@ -607,8 +634,11 @@ class TestAirRosterAffordability(unittest.TestCase):
         roster = {e["key"]: e for e in session.air_roster()}
         attack = next(e for k, e in roster.items() if "BOMB" in e["payload"])
         self.assertFalse(attack["affordable"])       # 灰显
+        # 2026-10-14 空袭按用计费块：呼叫价=本体价（弹费投放时逐发扣——满载
+        # 呼叫，不再按点数预算钳挂弹）
+        self.assertEqual(attack["cost"], attack["template"].cost_body)
         self.assertGreater(attack["cost"], 10)
-        self.assertEqual(attack["payload"]["BOMB"], 0)   # 不再虚标 1 弹
+        self.assertGreater(attack["payload"]["BOMB"], 0)   # 满载呼叫
 
     def test_ample_air_points_affordable(self):
         session = SkirmishSession(seed=42)

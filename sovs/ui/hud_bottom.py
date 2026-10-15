@@ -11,21 +11,31 @@ from __future__ import annotations
 
 import arcade
 
-from .palette import (BOTTOM_H, BTN_FONT, GROUP_DEAD, GROUP_SLOT, HUD_TEXT,  # noqa: E402
-                      MARGIN, MINIMAP_W, ORDER_ARMED, ORDER_GRID_BTN_H,
-                      ORDER_GRID_BTN_W, ORDER_GRID_COLS, ORDER_PANEL,
-                      ORDER_TEXT, RAIL_W, TOP_H)
+from .order_filter import eligible_orders
+from .order_icons import badge_for, draw_badge, draw_order_tile, draw_tooltip
+from .palette import (BOTTOM_H, BTN_FONT, GROUP_BAR_GAP, GROUP_DEAD,  # noqa: E402
+                      GROUP_PITCH, GROUP_SLOT, GROUP_SLOT_H, HUD_TEXT,
+                      MARGIN, MINIMAP_W, ORDER_ARMED, ORDER_EMPTY_ROWS,
+                      ORDER_GAP, ORDER_PANEL,
+                      ORDER_TEXT, ORDER_TILE, RAIL_W, TOP_H)
 
 # 底栏按钮 → fsm 键位语义（热键一一镜像：按钮=按键同门同令；GP-01 §4/§6 扩容；
 # P0 键位纠偏块 2026-10-13：attack A→Q——手册 HOTKEYS「Q Attack Move」；
-# P1 机制块 2026-10-13 +air_ab/decoy/laser/precision/mount_z 分派键（镜像 fsm.key））
+# P1 机制块 2026-10-13 +air_ab/decoy/laser/precision/mount_z 分派键（镜像 fsm.key）。
+# 〔B3 修复块 2026-10-13 勘正：本表=按钮→热键的**分派**映射，非呈现许可——
+# 按钮=order_filter 三态过滤的呈现面（hide 不布局/grey 灰显）；热键=全量通道
+# （shell_fsm.key 不经过滤——热键宽容拍板留痕）；引擎资格门=唯一权威
+# （rejections→toast 事后反馈链）。〕
+# 〔终审第四批 2026-10-13 +radar：ABILITIES Radar（manual.txt:534-539）补菜单
+# 面——manual.txt:482-485「They can be found in the orders menu」；镜像 Z 同门
+# 同令（地面选区经 _ground_z_dispatch 分流，雷达优先双发口径不变）。〕
 PANEL_KEY_MIRROR = {"stop": "S", "cancel": "E", "reverse": "R", "sprint": "Z",
                     "smoke_x": "X", "stance_h": "H", "attack": "Q", "fm": "T",
                     "strike": "K", "drop": "O", "march": "F", "unload": "U",
                     "sniper": "L", "air_alt": "V", "air_rtb": "B",
                     "air_engage": "J", "air_disengage": "Y",
                     "air_ab": "Z", "decoy": "C", "laser": "N", "precision": "P",
-                    "mount": "M"}
+                    "mount": "M", "radar": "Z"}
 
 # 待令组按钮 → fsm 待令组（armed 高亮映射；移动族右键直达无按钮）
 ARM_KEYMAP = {"reverse": "reverse", "attack": "attack", "fm": "fire_mission",
@@ -34,6 +44,75 @@ ARM_KEYMAP = {"reverse": "reverse", "attack": "attack", "fm": "fire_mission",
               "laser": "laser", "mount": "mount", "precision": "precision"}
 
 LANE_NAMES = ("西翼", "中央", "东翼")
+
+# 呼援轨页签（2026-10-14 呼援轨页签块——断箭 REC/INF/VEH/SUP 呼援轨范式
+# 〔02 调研 §1〕；2026-10-15 两处修正·其一：可见性按阶段与可放置性收敛——
+# _rail_visible_tabs（deploy 无 AIR／无可放置卡类别整签不渲染／HEL 无旋翼机
+# 数据不渲染）。页签态 win._rail_tab 两页共享（rail_tab_of 对不可见页签回退 ALL）
+_RAIL_TABS = (("ALL", "全部"), ("REC", "侦察"), ("INF", "步兵"),
+              ("VEH", "车辆"), ("SUP", "补给"), ("HEL", "直升机"),
+              ("AIR", "固定翼"))
+
+
+def _slot_tab(meta: dict) -> str:
+    """模板→呼援轨页签：类目 0 侦察/1 步兵直映；2 装甲/3 火支→VEH；4 防空后勤
+    按 HAS_SUPPLY 分流（有物资槽=补给卡车→SUP，否则防空车→VEH）。"""
+    cat = meta.get("category")
+    if cat == 0:
+        return "REC"
+    if cat == 1:
+        return "INF"
+    if cat == 4:
+        return "SUP" if meta.get("supply") else "VEH"
+    return "VEH"
+
+
+def _rail_visible_tabs(win) -> list:
+    """当前阶段可见页签（2026-10-15 两处修正·其一——用户拍板「不同阶段展现
+    不同类别；无法放置的单位类别不出现」）：
+    - 阶段差分：deploy=地面类别（航空=实战呼入——断箭参照〔02 调研 §2/§5〕部署
+      期地面部署、飞行器战斗中呼援；引擎 cmd_air_call 无相位拦，UI 入口随阶段
+      收口=纯呈现面，引擎不动）；battle=地面＋AIR（空援 roster 非空时）。
+    - 无法放置不出现：地面页签须有 ≥1 可放置卡（非空降限定且余量>0——余量尽/
+      纯空降类别整签不渲染）；HEL=1944 无旋翼机数据，整签不渲染（占位文案同批
+      移除）；「全部」=可见类别之并的前置签（无任何可见类别时不渲染）。
+    duck 窗（session 无 deck_slot_meta）保持既有兜底：无类别面→有任一可放置卡
+    即四个地面页签全可见（测试兼容口径）。"""
+    page = win.fsm.page
+    known = hasattr(win.session, "deck_slot_meta")
+    meta = win.session.deck_slot_meta() if known else {}
+    counts: dict = {}
+    unclassified = 0
+    for p in win.frame.get("players", ()):
+        for slot in p.get("deck", ()):
+            if slot.get("airdrop") or slot.get("copies_left", 0) <= 0:
+                continue
+            if known:
+                tk = _slot_tab(meta.get(slot["template_id"], {}))
+                counts[tk] = counts.get(tk, 0) + 1
+            else:
+                unclassified += 1
+    visible = []
+    for tk, _cn in _RAIL_TABS:
+        if tk in ("ALL", "HEL"):
+            continue
+        if tk == "AIR":
+            if page == "battle" and list(win.session.air_roster()):
+                visible.append(tk)
+            continue
+        if (counts.get(tk, 0) > 0) if known else (unclassified > 0):
+            visible.append(tk)
+    if visible:
+        visible.insert(0, "ALL")
+    return visible
+
+
+def rail_tab_of(win) -> str:
+    """当前呼援页签（窗口层态——两页共享；缺省 ALL=不过滤平铺）。2026-10-15：
+    落在不可见页签（跨阶段残留——如上局实战切 AIR 后回部署、或类别余量耗尽）
+    时回退 ALL，不留悬空态。"""
+    tab = getattr(win, "_rail_tab", "ALL")
+    return tab if tab in _rail_visible_tabs(win) else "ALL"
 
 # 战斗页右下命令格（§11：行序=航空上下文（置顶）/作战/机动/支援/杂项——短标签
 # 对齐断箭图标菜单密度；热键字母随标签保留，帮助面板 F1 仍载全文）
@@ -45,7 +124,8 @@ _ORDER_ROW_AIR = (("air_alt", "高度(V)"), ("air_rtb", "返航(B)"),
                   ("air_ab", "加力(Z)"), ("decoy", "诱饵(C)"))
 _ORDER_ROW_COMBAT = (("attack", "攻击(Q)"), ("fm", "炮击(T)"), ("strike", "空袭(K)"),
                      ("drop", "空投(O)"), ("smoke_x", "烟幕(X)"),
-                     ("laser", "照射(N)"), ("precision", "精确(P)"))
+                     ("laser", "照射(N)"), ("precision", "精确(P)"),
+                     ("radar", "雷达(Z)"))
 _ORDER_ROW_MANEUVER = (("stop", "停止(S)"), ("cancel", "取消(E)"),
                        ("reverse", "倒车(R)"), ("sprint", "冲刺(Z)"),
                        ("march", "行军(F)"))
@@ -82,12 +162,26 @@ def button_width(label: str) -> float:
     return 16 + 11 * len(label)
 
 
-def order_grid_rect(win, rows: int):
-    """右下命令格矩形 (x0,y0,x1,y1)：锚右下角（手册 P18 命令菜单位），纯算术。"""
-    w = ORDER_GRID_COLS * (ORDER_GRID_BTN_W + 5) + 8
-    h = rows * (ORDER_GRID_BTN_H + 6) + 8
+def order_grid_rect(win, rows: int, cols: int = 8):
+    """右下命令格矩形 (x0,y0,x1,y1)：锚右下角（手册 P18 命令菜单位），纯算术。
+    断箭式图标格（2026-10-14）：cols=最宽行格数（≤8），格=ORDER_TILE 方形＋
+    ORDER_GAP 缝。"""
+    w = 16 + cols * ORDER_TILE + (cols - 1) * ORDER_GAP
+    h = 16 + rows * ORDER_TILE + (rows - 1) * ORDER_GAP
     x1 = win.width - MARGIN
     return (x1 - w, MARGIN, x1, MARGIN + h)
+
+
+def order_panel_rect(win):
+    """命令面板矩形（问题5·2026-10-15 用户拍板常驻右下）：有行=按行数/列数
+    实足印（现状公式）；空选区=**满配 6×8 足印**占位（364×286——与 fm 参数条
+    让位算术自洽：286+8=294=fm y0，面板高度不随选区跳变）。布局/绘制/空中卡
+    锚（air_panel_geom）三消费面同源此函数——空态形态唯一事实源。"""
+    rows = _battle_rows(win)
+    if rows:
+        cols = max(len(r) for r in rows)
+        return order_grid_rect(win, len(rows), cols)
+    return order_grid_rect(win, ORDER_EMPTY_ROWS, 8)
 
 
 def _supply_selected(win) -> bool:
@@ -100,23 +194,48 @@ def _supply_selected(win) -> bool:
     return False
 
 
+def _battle_rows(win) -> list[tuple]:
+    """右下命令格行集（B3 修复块 2026-10-13）：经 order_filter.eligible_orders
+    三态过滤——hide 键不布局、grey 键 tone=disabled（余量尽/前置缺失可恢复）；
+    补给行维持 _supply_selected 浮出条件（P1 范式样板）。返回 [(key,label,
+    tone), ...] 行列表（布局/绘制共用一源——行数与键集零漂移）。"""
+    states = eligible_orders(win.frame, win.fsm.selected, win.fsm.selected_air)
+    base = (_ORDER_ROW_AIR if win.fsm.selected_air else None,
+            _ORDER_ROW_COMBAT, _ORDER_ROW_MANEUVER, _ORDER_ROW_SUPPORT,
+            _ORDER_ROW_SUPPLY if _supply_selected(win) else None,
+            _ORDER_ROW_AUX)
+    rows = []
+    for row in base:
+        if not row:
+            continue
+        filtered = tuple((key, label,
+                          "disabled" if states.get(key) == "grey" else "normal")
+                         for key, label in row if states.get(key) != "hide")
+        if filtered:
+            rows.append(filtered)
+    return rows
+
+
 def layout_battle_buttons(win) -> None:
     """右下命令格＋左缘呼援轨（§11）：格行=航空上下文（置顶）/作战/机动/支援/
     杂项＋补给行（P1——选中补给载具浮出）；轨=空援卡+地面呼援卡竖排（P1 战中
-    呼援 basics:165-168——战斗页同轨追加地面卡）。"""
-    rows = [r for r in (_ORDER_ROW_AIR if win.fsm.selected_air else None,
-                        _ORDER_ROW_COMBAT, _ORDER_ROW_MANEUVER,
-                        _ORDER_ROW_SUPPORT,
-                        _ORDER_ROW_SUPPLY if _supply_selected(win) else None,
-                        _ORDER_ROW_AUX) if r]
-    gx0, _gy0, _gx1, gy1 = order_grid_rect(win, len(rows))
+    呼援 basics:165-168——战斗页同轨追加地面卡）。
+    〔B3 修复块（2026-10-13）：格键经 order_filter 三态过滤——菜单只列选区
+    可被下达的命令（manual.txt:344-346/482-485）。空选区=无命令钮可排（空循环）
+    ——面板常驻足印由 order_panel_rect/draw_order_panel 承载（B3 勘注
+    2026-10-15：原「空选区不绘命令格（basics.txt:62）」推读被用户拍板推翻——
+    空选区绘满配足印提示格，manual.txt:344-346 未规定空选区形态；三态过滤
+    行为保留）；呼援轨仍常驻（basics.txt:53 独立面）。〕"""
+    rows = _battle_rows(win)
+    cols = max((len(r) for r in rows), default=0)
+    gx0, _gy0, _gx1, gy1 = order_grid_rect(win, len(rows), cols)
     for ri, row in enumerate(rows):                     # 行自顶向下
-        y = gy1 - 8 - ORDER_GRID_BTN_H - ri * (ORDER_GRID_BTN_H + 6)
+        y = gy1 - 8 - ORDER_TILE - ri * (ORDER_TILE + ORDER_GAP)
         x = gx0 + 8
-        for key, label in row:
-            win._buttons.append(Btn(x, y, ORDER_GRID_BTN_W, ORDER_GRID_BTN_H,
-                                    key, label))
-            x += ORDER_GRID_BTN_W + 5
+        for key, label, tone in row:
+            win._buttons.append(Btn(x, y, ORDER_TILE, ORDER_TILE,
+                                    key, label, tone=tone))
+            x += ORDER_TILE + ORDER_GAP
     layout_air_rail(win)
 
 
@@ -124,47 +243,76 @@ def layout_air_rail(win) -> None:
     """左缘呼援轨（§11 断箭位）：空援卡竖排（顶部对齐呼援点数下沿）。
     〔P1 机制块 2026-10-13：battle 页在空援轨下方续排**地面呼援卡**（basics:
     165-168「战斗全程随时可呼」——deploy 页左栏卡轨的实战页同构；两段式点击
-    （点槽装弹→点地确认）与部署期共用 handle_confirm_purchase。〕"""
+    （点槽装弹→点地确认）与部署期共用 handle_confirm_purchase。〕
+    〔B1 修复块 2026-10-13：循环末记录 win._rail_bottom=末卡下缘——左侧选中卡
+    panel_geom 据此动态让位（卡下探多深、面板就让多矮），两面板互不遮盖；
+    每帧布局无条件重写（陈旧值不留）。标签经 fit_text 截宽 RAIL_W-8——
+    「（在空N）/（冷却Ns）」后缀再长也不溢出轨道。〕"""
+    from .hud_top import fit_text
     y = win.height - TOP_H - 34
-    for entry in win.session.air_roster():
-        affordable = entry.get("affordable", True)
-        label = entry["label"]
-        if entry.get("in_air"):
-            label += "（在空%d）" % entry["in_air"]       # GP-01 §4 在空态
-        elif entry.get("cooldown_ticks", 0) > 0:
-            label += "（冷却%ds）" % ((entry["cooldown_ticks"] + 9) // 10)
-        win._buttons.append(Btn(MARGIN, y, RAIL_W, 24, "air:" + entry["key"],
-                                label,
-                                tone="normal" if affordable else "disabled"))
-        y -= 28
-    if win.fsm.page == "battle":                     # P1：实战期地面呼援轨
-        y -= 20
+    top = y
+    visible = _rail_visible_tabs(win)
+    tab = rail_tab_of(win)
+    xi = 0
+    for tk, cn in _RAIL_TABS:                          # 页签行（仅可见类别）
+        if tk not in visible:
+            continue
+        win._buttons.append(Btn(MARGIN + xi * 30, y - 20, 28, 20,
+                                "railtab_%s" % tk, cn,
+                                tone="focus" if tk == tab else "normal"))
+        xi += 1
+    y -= 46                                          # 页签带 y-20..y——卡片顶
+    # 缘须低于页签带（首卡 yb=y-46 跨 y-46..y-22，与页签带零交——重叠会让
+    # 首卡中心点击命中先布局的页签钮，toast/呼入吞事件）
+    if tab == "AIR" or (tab == "ALL" and "AIR" in visible):
+        # 固定翼空援卡（deploy 不列——阶段差分见 _rail_visible_tabs）
+        for entry in win.session.air_roster():
+            affordable = entry.get("affordable", True)
+            label = entry["label"]
+            if entry.get("in_air"):
+                label += "（在空%d）" % entry["in_air"]       # GP-01 §4 在空态
+            elif entry.get("cooldown_ticks", 0) > 0:
+                label += "（冷却%ds）" % ((entry["cooldown_ticks"] + 9) // 10)
+            win._buttons.append(Btn(MARGIN, y, RAIL_W, 24, "air:" + entry["key"],
+                                    fit_text(label, RAIL_W - 8, BTN_FONT),
+                                    tone="normal" if affordable else "disabled"))
+            y -= 28
+    if tab != "AIR":                                 # 地面卡（AIR 页签不混地面）
+        # duck 窗（测试 SimpleNamespace session）无 deck_slot_meta 面——不过滤
+        # 全展示（stub 场景惯例；真 session 恒有=按页签过滤）；ALL=可见类别之并
+        # （隐藏类别的 ×0 卡不进——与页签可见性同口径）
+        known = hasattr(win.session, "deck_slot_meta")
+        meta = win.session.deck_slot_meta() if known else {}
+        if not known:
+            allowed = None
+        elif tab == "ALL":
+            allowed = set(visible) - {"ALL"}
+        else:
+            allowed = {tab}
         for p in win.frame.get("players", ()):
             for slot in p.get("deck", ()):
                 if slot.get("airdrop"):
                     continue                          # 空降限定卡仍只经空投
+                if allowed is not None and _slot_tab(
+                        meta.get(slot["template_id"], {})) not in allowed:
+                    continue
                 win._buttons.append(
                     Btn(MARGIN, y, RAIL_W, 24,
                         "buy:%d|%s" % (slot["template_id"], slot["name"]),
-                        "%s ×%d" % (slot["name"], slot["copies_left"]),
+                        fit_text("%s ×%d" % (slot["name"], slot["copies_left"]),
+                                 RAIL_W - 8, BTN_FONT),
                         tone="normal" if slot.get("copies_left", 0) > 0
                         else "disabled"))
                 y -= 28
+    win._rail_bottom = y + 28 if y < top else top    # B1：末卡下缘（无卡=轨顶）
 
 
 def layout_deploy_panel(win) -> None:
-    """部署页：左栏卡槽按钮（三池余量实时）+ 车道按钮（地图下缘）+ 底栏移动族。"""
+    """部署页：左栏卡槽按钮（三池余量实时）+ 车道按钮（地图下缘）+ 底栏移动族。
+    〔B1 修复块 2026-10-13：卡槽标签 fit_text 截宽 LEFT_W-2*MARGIN-8——长卡名
+    以「…」收尾不溢出 244px 卡槽；空降后缀压缩「（空投）」。〕"""
     from .palette import LEFT_W
-    y = win.height - TOP_H - 56
-    for p in win.frame.get("players", ()):
-        for slot in p.get("deck", ()):
-            win._buttons.append(
-                Btn(MARGIN, y, LEFT_W - 2 * MARGIN, 28,
-                    "buy:%d|%s" % (slot["template_id"], slot["name"]),
-                    "%s ×%d%s" % (slot["name"], slot["copies_left"],
-                                  "（预备队·空投）" if slot["airdrop"] else ""),
-                    tone="disabled" if slot["airdrop"] else "normal"))
-            y -= 32
+    layout_air_rail(win)                 # §六页签轨（2026-10-14）——部署/实战同款
     x = LEFT_W + 12
     for i, name in enumerate(LANE_NAMES):
         win._buttons.append(Btn(x, MARGIN, 92, 30,
@@ -173,37 +321,80 @@ def layout_deploy_panel(win) -> None:
     spec = (("stop", "停止(S)"), ("cancel", "取消(E)"), ("reverse", "倒车(R)"),
             ("sprint", "冲刺(Z)"), ("march", "行军(F)"))
     x = MARGIN + MINIMAP_W + 40
-    for key, label in spec:                       # 机动行在车道行上方（避让同高）
-        win._buttons.append(Btn(x, MARGIN + 40, ORDER_GRID_BTN_W,
-                                ORDER_GRID_BTN_H, key, label))
-        x += ORDER_GRID_BTN_W + 5
+    for key, label in spec:        # 机动行（部署页文字按钮——图标格仅实战页）
+        win._buttons.append(Btn(x, MARGIN + 40, 92, 24, key, label))
+        x += 92 + 5
 
 
 def layout_group_bar(win) -> None:
     """编组列（§11 断箭位）：小地图右侧竖排 1..9 槽（占用=活实体数角标，全灭
-    灰显，点击=取组）——右移避开选中卡（卡 x≤252），仍邻小地图。"""
-    x = MARGIN + MINIMAP_W + 56
-    y = MARGIN + 4
+    灰显，点击=取组）。〔问题4·2026-10-15 对齐式：x 缝 GROUP_BAR_GAP=8、钮高
+    GROUP_SLOT_H=14、pitch=GROUP_PITCH=17——列底=首钮 yb=MARGIN=小地图底、
+    列顶=末钮 yt=MARGIN+MINIMAP_H=小地图顶（(150-14)/8=17 整除，顶底双齐）；
+    旧位 x+56/高 20/pitch 24（列顶冒出小地图 66px）就此废止。〕"""
+    x = MARGIN + MINIMAP_W + GROUP_BAR_GAP
+    y = MARGIN
     for n in range(1, 10):
-        win._buttons.append(Btn(x, y, 26, 20, "grp:%d" % n, str(n)))
-        y += 24
+        win._buttons.append(Btn(x, y, 26, GROUP_SLOT_H, "grp:%d" % n, str(n)))
+        y += GROUP_PITCH
+
+
+def order_tile_buttons(win, rect):
+    """命令格矩形内的图标格按钮集（**四边全含**判定）。
+
+    崩溃勘正（2026-10-14 实机复现）：旧判定只有下界（yb>=gy0）无上界——炮击
+    待令态浮出的参数条按钮（fm_salvo_HALF，格上方 y≈320）漏进图标格绘制，键
+    不在 ICON_FUNCS 走 fallback 崩 tilt_angle。抽成纯函数供回归测试锚定。"""
+    gx0, gy0, gx1, gy1 = rect
+    return [b for b in win._buttons
+            if b.x0 >= gx0 - 1 and b.x1 <= gx1 + 1
+            and b.yb >= gy0 - 1 and b.yt <= gy1 + 1]
 
 
 def draw_order_panel(win) -> None:
-    """右下命令格底板＋按钮（armed 高亮）＋待令提示＋左缘呼援轨（§11）。
-    〔P1：rows 动态化——补给行随选中补给载具浮出（layout_battle_buttons 同判）。〕"""
-    rows = 4 + (1 if win.fsm.selected_air else 0) \
-        + (1 if _supply_selected(win) else 0)
-    gx0, gy0, gx1, gy1 = order_grid_rect(win, rows)
+    """右下命令格（断箭式图标格·2026-10-14）：底板＋图标格（armed 高亮/悬停
+    提亮/禁用去饱和）＋行间细分隔线＋右上余量角标＋悬停 tooltip＋待令提示＋
+    左缘呼援轨（§11）。
+    〔B3 修复块（2026-10-13）：行集走 _battle_rows（order_filter 三态过滤同源）
+    ——菜单只列选区可被下达的命令。B3 勘注（2026-10-15 用户拍板常驻）：原「空
+    选区不绘命令格（basics.txt:62）」推读推翻——空选区绘**满配 6×8 足印占位
+    格**（order_panel_rect）＋居中灰字提示（不伪造可用性暗示——无按钮布局、
+    命中面仅底板）；三态过滤行为保留（空选区仍无钮可下达）。
+    呈现规格=实机 ba_shot4 读图：方形图标格/矢量图标/热键角/角标数字/灰显/
+    悬停 tooltip/行间分隔线——图标绘制与 tooltip 在 order_icons.py。〕"""
+    rows = _battle_rows(win)
+    gx0, gy0, gx1, gy1 = order_panel_rect(win)
+    if not rows:
+        arcade.draw_lrbt_rectangle_filled(gx0, gx1, gy0, gy1, ORDER_PANEL)
+        arcade.draw_lrbt_rectangle_outline(gx0, gx1, gy0, gy1, ORDER_TEXT, 1)
+        arcade.draw_text("点选单位后列出可用命令", (gx0 + gx1) / 2,
+                         (gy0 + gy1) / 2 - 7, (150, 150, 150, 255), 13,
+                         anchor_x="center")
+        draw_air_rail(win)
+        return
     arcade.draw_lrbt_rectangle_filled(gx0, gx1, gy0, gy1, ORDER_PANEL)
     arcade.draw_lrbt_rectangle_outline(gx0, gx1, gy0, gy1, ORDER_TEXT, 1)
+    for ri in range(len(rows) - 1):        # 行间细分隔线（断箭同款）
+        yd = gy1 - 8 - ORDER_TILE - ri * (ORDER_TILE + ORDER_GAP) \
+            + ORDER_TILE + ORDER_GAP / 2
+        arcade.draw_line(gx0 + 6, yd, gx1 - 6, yd, (60, 66, 60, 255), 1)
     armed = win.fsm.armed_order
-    for btn in win._buttons:
-        if btn.x0 >= gx0 - 1 and btn.yb >= gy0 - 1 and btn.x1 <= gx1 + 1:
-            # 仅映射键参与高亮——旧式 `get(key) == armed` 在无待令（None）时
-            # 会把全部未映射键误判成 armed（金色满格假高亮，§7 像素采样实锤）
-            mapkey = ARM_KEYMAP.get(btn.key)
-            draw_button(btn, armed=mapkey is not None and mapkey == armed)
+    mx, my = getattr(win, "_mouse_xy", None) or (-1, -1)
+    hovered_btn = None
+    for btn in order_tile_buttons(win, (gx0, gy0, gx1, gy1)):
+        # 仅映射键参与高亮——旧式 `get(key) == armed` 在无待令（None）时
+        # 会把全部未映射键误判成 armed（金色满格假高亮，§7 像素采样实锤）
+        mapkey = ARM_KEYMAP.get(btn.key)
+        is_armed = mapkey is not None and mapkey == armed
+        hov = btn.hit(mx, my)
+        if hov:
+            hovered_btn = btn
+        draw_order_tile(btn, armed=is_armed, hovered=hov)
+        badge = badge_for(win, btn.key)
+        if badge:
+            draw_badge(btn, badge)
+    if hovered_btn is not None and armed is None:
+        draw_tooltip(hovered_btn, win)     # 待令态隐藏 tooltip（避免与提示语叠）
     label = {None: None, "reverse": "倒车→点地", "attack": "攻击→点敌单位/点地=攻击移动",
              "fire_mission": "炮击→点地（LINE/CREEP=拖拽画线）",
              "strike": "空袭→点目标/拖拽画攻击轴", "drop": "空投→按住左键拖拽画区/单击点投",
@@ -216,22 +407,31 @@ def draw_order_panel(win) -> None:
              "mount": "登车→点己方载具（M）",
              "precision": "精密打击→点地（靠近激光位；Shift 排队）"}.get(armed)
     if label:
+        # BA 复刻轮：待令提示行收进命令格顶与摘要行之间的 12px 缝
+        # （旧 gy1+8 会压摘要行 y0=格顶+12 的上缘）
         arcade.draw_text("待令：%s（右键/ESC 取消｜Shift+确认=入队续令）" % label,
-                         gx1, gy1 + 8, ORDER_ARMED, BTN_FONT, anchor_x="right")
+                         gx1, gy1 + 1, ORDER_ARMED, BTN_FONT, anchor_x="right")
     draw_air_rail(win)
 
 
 def draw_air_rail(win) -> None:
-    """左缘呼援轨绘制：标题+空援点数+卡按钮（disabled 灰显自带）。"""
-    arcade.draw_text("空援 %d（点卡呼入）" % my_air_points(win),
+    """左缘呼援轨绘制：页签行（仅可见类别）＋标题（空援点数）＋卡按钮。
+    2026-10-15 两处修正·其一：HEL 占位文案随「无法放置类别不出现」移除
+    （1944 无旋翼机，整签不渲染——_rail_visible_tabs）；railtab_/air:/buy:
+    一并绘制（实战页 buy: 卡旧缺口 2026-10-14 已收口）。"""
+    arcade.draw_text("呼援 %d（点卡呼入）" % my_air_points(win),
                      MARGIN + 4, win.height - TOP_H - 14, HUD_TEXT, 12)
     for btn in win._buttons:
-        if btn.key.startswith("air:"):
-            draw_button(btn)
+        if btn.key.startswith("railtab_") or btn.key.startswith("air:") \
+                or btn.key.startswith("buy:"):
+            draw_button(btn, armed=(btn.key == "railtab_" + rail_tab_of(win)
+                                    and btn.tone == "focus"))
 
 
 def draw_group_bar(win) -> None:
-    """编组栏：1..9 槽+活实体数角标；全灭灰显（组号保留）。"""
+    """编组栏：1..9 槽+活实体数角标；全灭灰显（组号保留）。〔问题4·2026-10-15：
+    槽高 14——文字基线 yb+2（11 号字 yb+2..yb+13 恰容）、角标 9 号字 yt-11 起
+    不越顶；两量在 14px 高内仍可读（量尺源 palette GROUP_SLOT_H）。〕"""
     for btn in win._buttons:
         if not btn.key.startswith("grp:"):
             continue
@@ -246,7 +446,7 @@ def draw_group_bar(win) -> None:
         arcade.draw_lrbt_rectangle_filled(btn.x0, btn.x1, btn.yb, btn.yt, bg)
         arcade.draw_lrbt_rectangle_outline(btn.x0, btn.x1, btn.yb, btn.yt,
                                            ORDER_TEXT, 1)
-        arcade.draw_text(btn.label, (btn.x0 + btn.x1) / 2, btn.yb + 3,
+        arcade.draw_text(btn.label, (btn.x0 + btn.x1) / 2, btn.yb + 2,
                          ORDER_TEXT, 11, anchor_x="center")
         if entry:
             arcade.draw_text(str(win.fsm.group_alive_count(n)),
@@ -330,6 +530,8 @@ def handle_panel_button(win, key: str) -> None:
                 on = not u["supply_gates"].get(which, True)
                 cmd.supply_switch([u["id"]], which, on)
                 fsm.notify("补给堆 %s=%s" % (which, "开" if on else "关"))
+    elif key.startswith("railtab_"):
+        win._rail_tab = key[8:]        # 页签切换（布局每帧重写即生效）
     elif key.startswith("lane"):
         handle_lane_move(win, int(key[4:]))
     elif key.startswith("air:"):
@@ -340,9 +542,7 @@ def handle_panel_button(win, key: str) -> None:
     elif key.startswith("grp:"):
         fsm.recall_group(int(key[4:]))
     elif key.startswith("sel:"):
-        uid = int(key[4:])
-        fsm.select_units([uid])
-        win._info_uid = uid
+        fsm.select_units([int(key[4:])])
     elif key.startswith("airsel:"):            # 飞机面板行=选中该机（§4 ④段）
         fsm.click_aircraft(int(key[7:]))
     elif key == "buy_cancel":
@@ -357,7 +557,7 @@ def draw_deploy_panel(win) -> None:
     top = win.height - TOP_H
     arcade.draw_lrbt_rectangle_filled(0, LEFT_W, BOTTOM_H, top,
                                       ORDER_PANEL)
-    arcade.draw_text("卡组三池（点槽装弹→点地放卡）", MARGIN + 6, top - 26,
+    arcade.draw_text("卡组呼援（点卡装弹→点地放卡）", MARGIN + 6, top - 26,
                      HUD_TEXT, 13)
     arcade.draw_text("空投限定卡灰显（经 O 键空投投送）", MARGIN + 6,
                      top - 44, (150, 150, 150, 255), 11)
@@ -367,7 +567,7 @@ def draw_deploy_panel(win) -> None:
                      and win.fsm.armed_purchase[0]
                      == int(btn.key[4:].split("|", 1)[0]))
             draw_button(btn, armed=armed)
-        elif btn.key.startswith("lane"):
+        elif btn.key.startswith("railtab_") or btn.key.startswith("lane"):
             draw_button(btn)
     if win.fsm.armed_purchase is not None:
         arcade.draw_text("待放：%s → 点地确认（右键撤回）"

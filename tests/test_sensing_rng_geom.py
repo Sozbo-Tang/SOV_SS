@@ -8,15 +8,16 @@ from sovs.sim.sensing import (detection_range_cm, effective_stealth_x10,
                               keep_range_cm)
 from sovs.sim.tables import CONFIG
 from sovs.sim.types import (ElementInstance, ElementTemplate, UnitInstance,
-                            UnitTemplate, Facing, MovementClass, UnitType)
+                            UnitTemplate, Facing, MovementClass, UnitFlag,
+                            UnitType)
 
 
-def make_unit(stealth=6, optics=1400, moving=False, category=1):
+def make_unit(stealth=6, optics=1400, moving=False, category=1, flags=0):
     et = ElementTemplate(element_type=2, unit_type=UnitType.INFANTRY, hp_max=10)
     ut = UnitTemplate(template_id=1, name="t", category=category, cost=50,
                       element_templates=(et,), optics_ground_cm=optics,
                       stealth_base=stealth, speed_tier=3,
-                      movement_class=MovementClass.FOOT)
+                      movement_class=MovementClass.FOOT, flags=flags)
     u = UnitInstance(id=1, team=0, template=ut, pos=(0, 0))
     e = ElementInstance(id=1, unit=u, template=et, pos=(0, 0), hp_current=10)
     u.elements.append(e)
@@ -129,13 +130,63 @@ class TestSensing(unittest.TestCase):
     def test_target_in_forest_stealth_up(self):
         # GAP-27：目标林内 +2 档——隐蔽 7 蹲林 → 有效隐蔽 90（查表 idx 9 = 6500bp；
         # 未蹲林 70 → idx 7 = 9000bp。注：审查文档 GAP-27 行文"9 档 8000bp"为笔误，表值以 tables 为准）
+        # 2026-10-14 探测增量块（basics:239）：林内另吃掩体减半乘区 → 910×5000//10000=455
         obs = make_unit(optics=1400)
         tgt = make_unit(stealth=7)
         self.assertEqual(effective_stealth_x10(CONFIG, tgt, in_forest=True), 90)
         self.assertEqual(detection_range_cm(CONFIG, obs, tgt, tgt_in_forest=True),
-                         1400 * CONFIG.stealth_factor_bp[9] // 10000)
+                         1400 * CONFIG.stealth_factor_bp[9] // 10000
+                         * CONFIG.cover_detect_mult_bp // 10000)
         self.assertEqual(detection_range_cm(CONFIG, obs, tgt, tgt_in_forest=False),
                          1400 * CONFIG.stealth_factor_bp[7] // 10000)
+
+
+class TestCoverAndMarked(unittest.TestCase):
+    """探测增量块 2026-10-14（basics:239 掩体减半 / basics:245-246 已发现更难隐藏）。
+
+    手推锚：obs optics=1400，tgt stealth=5（未标记 50 → idx5=10000 → 基线 1400）。
+    掩体减半在隐蔽因子乘区之后、穿林烟衰减之前；marked 隐蔽乘区在表查之前。"""
+
+    def test_constants_pinned(self):
+        # 钉值锚（同 TestManualSilentPlaceholders 纪律）：改值=有意推翻定标，先改登记面
+        self.assertEqual(CONFIG.cover_detect_mult_bp, 5000)
+        self.assertEqual(CONFIG.marked_stealth_mult_bp, 5000)
+
+    def test_cover_forest_halves(self):
+        obs = make_unit(optics=1400)
+        tgt = make_unit(stealth=5)
+        # 林内：eff 70 → idx7=9000 → 1260；掩体减半 → 630
+        self.assertEqual(detection_range_cm(CONFIG, obs, tgt, tgt_in_forest=True),
+                         1400 * 9000 // 10000 * 5000 // 10000)
+
+    def test_cover_garrison_halves(self):
+        obs = make_unit(optics=1400)
+        tgt = make_unit(stealth=5, flags=UnitFlag.CAN_GARRISON)
+        tgt.elements[0].garrison_in = 7
+        # 驻楼：eff 80 → idx8=8000 → 1120；掩体减半 → 560
+        self.assertEqual(detection_range_cm(CONFIG, obs, tgt),
+                         1400 * 8000 // 10000 * 5000 // 10000)
+
+    def test_cover_forest_plus_garrison(self):
+        obs = make_unit(optics=1400)
+        tgt = make_unit(stealth=5, flags=UnitFlag.CAN_GARRISON)
+        tgt.elements[0].garrison_in = 7
+        # 林内+驻楼：eff 100 钳顶 → idx10=5000 → 700；减半 → 350
+        self.assertEqual(detection_range_cm(CONFIG, obs, tgt, tgt_in_forest=True),
+                         1400 * 5000 // 10000 * 5000 // 10000)
+
+    def test_marked_stealth_penalty(self):
+        obs = make_unit(optics=1400)
+        tgt = make_unit(stealth=5)
+        # 上一帧被标记：隐蔽 50×5000//10000=25 → idx2=12000 → 1680（隐蔽减半经
+        # 档位表非线性放大——表距 10000→12000bp，非字面 ×2）
+        self.assertEqual(detection_range_cm(CONFIG, obs, tgt, tgt_marked=True),
+                         1400 * 12000 // 10000)
+
+    def test_unmarked_uncovered_unchanged(self):
+        obs = make_unit(optics=1400)
+        tgt = make_unit(stealth=5)
+        self.assertEqual(detection_range_cm(CONFIG, obs, tgt), 1400)
 
 
 if __name__ == "__main__":

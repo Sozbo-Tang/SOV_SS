@@ -124,14 +124,19 @@ class TestAirBeat(unittest.TestCase):
         w = world_at(PHASE_COMBAT)
         p = w.players[0]
         il2m = CARD_OBJECTS["IL2M"]
-        # 点数恰好=机体价+1 发炸弹价 → 只生成 1 弹档呼叫
-        p.air_points = il2m.cost_body + il2m.payload_price["BOMB"]
+        # 2026-10-14 空袭按用计费块：呼叫门=本体价（BOMB 弹费改投放时逐发扣，
+        # 挂弹不再按点数预算钳——满载呼叫）；该型点数差 1 点即静默
+        p.air_points = il2m.cost_body - 1
+        cands = air_candidates(w, 0, enemy_anchor=NORTH)
+        self.assertNotIn("call_il2m", {c.key for c in cands})
+        p.air_points = il2m.cost_body
         cands = air_candidates(w, 0, enemy_anchor=NORTH)
         calls = {c.key: c for c in cands if c.kind == "air_call"}
-        self.assertEqual(calls["call_il2m"].params["payload"]["BOMB"], 1)
-        # 呼叫价与点数门一致（§F1 口径）
+        self.assertEqual(calls["call_il2m"].params["payload"]["BOMB"],
+                         il2m.payload_max_bombs)       # 满载呼叫
+        # 呼叫价与点数门一致（§F1 现口径=本体价，弹费按发另结）
         self.assertEqual(_air_cost(il2m, calls["call_il2m"].params["payload"]),
-                         p.air_points)
+                         il2m.cost_body)
         p.air_points = 0
         self.assertEqual([c.kind for c in air_candidates(w, 0, enemy_anchor=NORTH)],
                          ["wait"])                    # 点数尽→静默

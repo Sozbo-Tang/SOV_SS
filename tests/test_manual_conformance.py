@@ -24,9 +24,9 @@
 - 其余仲裁 todo_p1 项（B 地面退款／K 全航道扫射／V 两态／O 逐一跳伞+自动
   空投／Z 加力燃油／X 自动触发事件口／C 诱饵／雷达／被动对策／TAB／战中
   呼援／登车／补给三档／补给堆四开关／飞机限制）同由 P1 块收口为 done。
-- deferred 现存 5 条（弹道红显／APS／通讯标记／收入维护费／损毁回卡组）与
-  manual_silent 6 条维持仲裁判——非实现面用「不存在锚」反向锁死（防半吊子
-  悄悄长出，也防登记蒸发）。
+- deferred 现存 6 条（ALT LOS 视野工具〔2026-10-13 补册〕／弹道红显／APS／通讯
+  标记／收入维护费／损毁回卡组）与 manual_silent 6 条维持仲裁判——非实现面用
+  「不存在锚」反向锁死（防半吊子悄悄长出，也防登记蒸发）。
 - **终审修复块（2026-10-13，GP-02 §三 6/8/10/13/14 判「与手册不符且非后置」
   的逐条收口）**：①MMB 相机旋转落地（2D 顶视=绕视口中心的视图旋转——
   manual.txt:594）；②严重损伤四类暴击恢复（D071「全拆+留口子」被推翻——
@@ -140,6 +140,20 @@ SPEC_DONE: tuple[tuple[str, str, str], ...] = (
     ("（无键——规则）", "basics/飞机限制（补给/燃油/观地）", "basics:310-315"),
     ("（无键——受击规则）", "basics/严重损伤四类暴击＋步兵轻AT必暴击",
      "basics:214-230＋manual.txt:339-341（终审修复块恢复并入登记面）"),
+    # ── 探测增量块（2026-10-14，用户拍板六项之探测两条；锚=basics §2.2 Detection）──
+    ("（无键——探测规则）", "basics/掩体减半（林/楼）",
+     "basics:239「Units in cover are twice harder to detect」——detection_range_cm "
+     "目标林内或任一元素 garrison_in → ×cover_detect_mult_bp（tables，钉值锚="
+     "tests/test_sensing_rng_geom.py TestCoverAndMarked）"),
+    ("（无键——探测规则）", "basics/已发现更难隐藏",
+     "basics:245-246「harder to hide once you have been spotted」——effective_stealth_x10 "
+     "上一扫描帧 mark≠NONE → ×marked_stealth_mult_bp（system_sensing 重置前快照防次序"
+     "依赖；行为锚=test_sensing_terrain.py TestMarkedPrevFrameChain）"),
+    # ── 设置改键块（2026-10-14，用户拍板六项之改键翻面：原 deviated #38）──
+    ("设置菜单（主菜单→设置）", "HOTKEYS/设置菜单改键",
+     "manual.txt:91,544-545「以下为默认值，键位可在设置菜单中修改」——2026-10-14 "
+     "设置改键块：主菜单「设置」→settings 页逐命令改键（COMBAT_KEYS 22 键；保留键"
+     "黑名单+占用拒绝），持久化 data/gen/keybinds.json（门禁=tests/test_settings_page.py）"),
 )
 
 # 走样登记（终审修复块 2026-10-13 新增分区）：题材/范围硬冲突的显式在册登记
@@ -149,12 +163,12 @@ SPEC_DEVIATED: tuple[tuple[str, str, str], ...] = (
     ("Z（高炮单位）——反辐射面", "deviated/SEAD 反辐射博弈",
      "manual.txt:537-539＋basics:331-335——1944 无反辐射弹种：仅落「雷达开机"
      "可视」易损标记位（radar_on 进帧），关机脱锁语义无载体（对空弹非辐射寻的）"),
-    ("设置菜单（无入口）", "deviated/设置菜单改键",
-     "manual.txt:91,544-545——菜单章节功能在 GP-01 六件需求之外（单机 1944 "
-     "题材无 Settings 面）；键位表为源码级常量（shell_fsm COMBAT_KEYS）"),
 )
 
 SPEC_DEFERRED: tuple[tuple[str, str, str], ...] = (
+    ("ALT", "basics/LOS 视野工具（选中队→光标视线可视）",
+     "basics:247——后置（终审三轮唯一残留覆盖缺口 2026-10-13 补册：引擎 LOS "
+     "判已有（sensing），缺 ALT 按住时的 UI 叠层可视化，宜与弹道遮拦红显同批"),
     ("随火任务（无独立键）", "ARTILLERY/弹道被遮拦红显告警",
      "manual.txt:467-471——后置：引擎级 LOS/弹道遮拦可视化，宜与弹道检测同批"),
     ("图标（全自动）", "ABILITIES/Active protection system（APS）",
@@ -196,6 +210,41 @@ SPEC_MANUAL_SILENT: tuple[tuple[str, str, str], ...] = (
      "basics:200「limited by your money」半边——手册未给补给单价：现购补给零扣点、"
      "买满仅受舱位钳制（行为锚=TestManualSilentPlaceholders.test_supply_purchase_"
      "free_of_points）；定价待口径裁决"),
+    # ── B1-B4 修复块（2026-10-13）拍板留痕六条（GP-02 §十；断箭实机一手验证
+    #    不可得——社区证据止 D 级，如实分级不虚构 A 级依据）──
+    ("（全键）", "manual_silent/热键宽容（菜单过滤不废热键）",
+     "manual/basics 均无「命令菜单过滤后热键是否失效」明文——本作拍板：按钮="
+     "order_filter 三态过滤呈现面，热键=全量通道（引擎门拒+rejections→toast），"
+     "行为锚=tests/test_order_filter.py TestHotkeyToleranceRealEngine"),
+    ("Shift（样式）", "manual_silent/排队令虚线样式",
+     "basics 无排队段虚线原文（Shift 仅见 basics:200）——排队段虚线（10px 周期"
+     "画 6 跳 4）系本作设计决定（与执行段实线视觉区分），不宣称断箭同款"),
+    ("（路径呈现）", "manual_silent/选中者路径常显时长",
+     "断箭路径线=社区口径「短暂显示+Shift 重显」（02 调研:94 引，D 级无时长"
+     "依据）——本作拍板常显选中者（选区=注意力焦点），manual_silent 留痕"),
+    ("C/X（余量尽）", "manual_silent/余量尽灰显不隐藏",
+     "manual.txt:499-509「ammo limited and can be resupplied」语义推定——诱饵/"
+     "烟幕余 0=grey 灰显（可恢复）不 hide，非手册明文"),
+    ("Z", "manual_silent/Sprint 门元素判据",
+     "manual.txt:577「Sprint (infantry)」限定词——门取 SQUAD 元素判据（CAN_SPRINT"
+     " 67 卡零配属实测、引擎无旗标门 tick.py cmd_sprint 两门=ROUTED/冷却）；数据"
+     "配属后可切换旗标判据"),
+    ("M", "manual_silent/Mount 门元素判据",
+     "basics:181-193——引擎真实门①=非 SQUAD 元素 CONTINUE（tick.py cmd_mount）；"
+     "HAS_MOUNT 67 卡零配属实测不作门，元素级承载同 Sprint 口径"),
+    # ── 空袭按用计费块（2026-10-14，用户拍板「要扣空投和炸弹的花费」）──
+    ("K/B 随弹（无独立值）", "manual_silent/炸弹按用计价",
+     "manual/basics 未载空袭弹药计费面——本作拍板：呼叫只付本体价，BOMB 每发"
+     "投放扣 air_points=模板 payload_price[\"BOMB\"]（max(0,·) 钳=免账不追缴；"
+     "被击落剩余弹不付费=按用实付自洽；SUPPLY 仍呼叫预付＋空投作业费另一作业面"
+     "不双计。行为锚=test_air_commands.test_bomb_release_pays_per_bomb）"),
+    # ── 六条修正块（2026-10-15，用户拍板问题2「主力部队卡车应以满载补给状态
+    #    出场」）──
+    ("补给卡车（无键）", "manual_silent/补给卡车出场满载",
+     "basics.txt:196-198 只载「资源经订购购入」未载出场载货面——用户拍板："
+     "HAS_SUPPLY 卡 spawn_step 出场即满载（mode=CARGO＋supply_weight_g=舱位"
+     "上限，「max 档」同语义——rounds=cap≤舱位门/medical=0/重量 min()≤载重闸）；"
+     "行为锚=test_support_commands.test_su_truck_purchase_spawns_full_cargo"),
 )
 
 MANUAL_SPEC: tuple[tuple[str, str, str], ...] = (SPEC_DONE + SPEC_DEFERRED
@@ -436,29 +485,36 @@ class _SpyCmd:
 # ════════════════════════════════════════════════════════════════════
 
 class TestSpecRegistry(unittest.TestCase):
-    """规格分区在册：36 done／5 deferred／11 manual_silent／2 deviated（终审修复块
+    """规格分区在册：39 done／6 deferred／19 manual_silent／1 deviated（终审修复块
     2026-10-13：crit 入 done 46→47＋走样分区 +2→49；复审第 2 轮同日：锚行号勘正
-    ＋manual_silent +5〔占位定标四项＋补给计价〕→54），零重名。"""
+    ＋manual_silent +5〔占位定标四项＋补给计价〕→54；B1-B4 修复块同日第三批：
+    +ALT LOS 补册 deferred 5→6→55，manual_silent +6〔修复块拍板留痕〕→61；探测
+    增量块 2026-10-14：basics 掩体减半/已发现暴露 +2 done→63；设置改键块同日：
+    #38 改键翻面 deviated→done；空袭按用计费块同日：manual_silent +1〔炸弹按用
+    计价〕→64〔39/6/18/1〕；六条修正块 2026-10-15：manual_silent +1〔补给卡车
+    出场满载〕→65〔39/6/19/1〕），零重名。"""
 
     def test_registry_partition_and_count(self):
-        self.assertEqual(len(MANUAL_SPEC), 54)              # 仲裁 46＋crit＋2 走样＋5 manual_silent
+        self.assertEqual(len(MANUAL_SPEC), 65)              # 64＋补给卡车出场满载 manual_silent＝65
         names = [n for _k, n, _r in MANUAL_SPEC]
         self.assertEqual(len(names), len(set(names)))       # 零重名（防增删互抵）
         self.assertEqual((len(SPEC_DONE), len(SPEC_DEFERRED),
                           len(SPEC_MANUAL_SILENT), len(SPEC_DEVIATED)),
-                         (36, 5, 11, 2))
+                         (39, 6, 19, 1))
 
     def test_deviated_registered_verbatim(self):
-        # 防静默蒸发：走样分区逐名在册（题材/范围硬冲突显式登记——增删任一即红）
+        # 防静默蒸发：走样分区逐名在册（题材/范围硬冲突显式登记——增删任一即红；
+        # 2026-10-14 设置改键翻面：原「deviated/设置菜单改键」入 SPEC_DONE）
         self.assertEqual(
             {n for _k, n, _r in SPEC_DEVIATED},
-            {"deviated/SEAD 反辐射博弈", "deviated/设置菜单改键"})
+            {"deviated/SEAD 反辐射博弈"})
 
     def test_deferred_registered_verbatim(self):
-        # 防静默蒸发：五条后置项逐名在册（增删任一即红）
+        # 防静默蒸发：六条后置项逐名在册（增删任一即红；2026-10-13 ALT LOS 补册）
         self.assertEqual(
             {n for _k, n, _r in SPEC_DEFERRED},
-            {"ARTILLERY/弹道被遮拦红显告警",
+            {"basics/LOS 视野工具（选中队→光标视线可视）",
+             "ARTILLERY/弹道被遮拦红显告警",
              "ABILITIES/Active protection system（APS）",
              "HOTKEYS/通讯标记 F1..F4",
              "basics/Income & Upkeep（收入/维护费）",
@@ -477,7 +533,18 @@ class TestSpecRegistry(unittest.TestCase):
              "manual_silent/诱饵规避窗时长",
              "manual_silent/空投作业费与自动延迟",
              "manual_silent/弹幕时长档换算式",
-             "manual_silent/补给计价（点数单价）"})
+             "manual_silent/补给计价（点数单价）",
+             # ── B1-B4 修复块（2026-10-13）拍板留痕六条（GP-02 §十）──
+             "manual_silent/热键宽容（菜单过滤不废热键）",
+             "manual_silent/排队令虚线样式",
+             "manual_silent/选中者路径常显时长",
+             "manual_silent/余量尽灰显不隐藏",
+             "manual_silent/Sprint 门元素判据",
+             "manual_silent/Mount 门元素判据",
+             # ── 空袭按用计费块（2026-10-14）──
+             "manual_silent/炸弹按用计价",
+             # ── 六条修正块（2026-10-15·问题2）──
+             "manual_silent/补给卡车出场满载"})
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -521,14 +588,21 @@ class TestHotkeyTable(unittest.TestCase):
                       src, re.S)
         self.assertIsNotNone(m)
         help_text = m.group(0)
-        for token in ("Q+左键：攻击移动", "E：取消", "H：纪律", "F+左键：行军",
-                      "R+左键：倒车", "T+左键/拖拽：炮击", "K+左键/拖拽：空袭",
-                      "O+左键拖拽：空投", "X：自卫烟幕", "U：卸载",
-                      "N+点敌：激光照射", "P+点地：精密打击", "M+点己方载具：登车",
-                      "B：回基地", "C：诱饵", "Z：冲刺/加力/雷达",
+        # 2026-10-14 设置改键块：帮助文案键位 token 化（{Q}={attack 槽当前键，
+        # keybinds.sub 渲染）——锚从字面键名改 token 键名（改键后面板动态一致，
+        # 槽位锚仍逐一在册不缺）
+        for token in ("{Q}+左键：攻击移动", "{E}：取消", "{H}：纪律",
+                      "{F}+左键：行军", "{R}+左键：倒车",
+                      "{T}+左键/拖拽：炮击", "{K}+左键/拖拽：空袭",
+                      "{O}+左键拖拽：空投", "{X}：自卫烟幕", "{U}：卸载",
+                      "{N}+点敌：激光照射", "{P}+点地：精密打击",
+                      "{M}+点己方载具：登车", "{B}：回基地", "{C}：诱饵",
+                      "{Z}：冲刺/加力/雷达",
                       "Shift+确认：命令入队", "Ctrl+1..9：建组", "TAB：子选",
                       "F1：本面板", "方向键/WASD：平移", "滚轮：缩放"):
             self.assertIn(token, help_text, token)
+        # 渲染面=token 经 keybinds.sub 出当前键（改键动态一致——draw 函数内）
+        self.assertIn("keybinds.sub", src)
 
     def test_fm_panel_buttons_mirror(self):
         # 参数条按钮镜像：弹药三档含 PRECISION（manual.txt:452-457）＋时长
@@ -1322,7 +1396,9 @@ class TestManualSilentPlaceholders(unittest.TestCase):
 
 class TestDeviatedRegistrations(unittest.TestCase):
     """走样分区锚（终审修复块 2026-10-13）：题材/范围硬冲突的已落地近似面＋
-    不存在锚双证——防半吊子悄悄长出，也防登记蒸发。"""
+    不存在锚双证——防半吊子悄悄长出，也防登记蒸发。〔2026-10-14 设置改键翻面：
+    原本类第二锚 test_settings_rebind_absent 随 #38 入 done 删除——正向门禁
+    移交 tests/test_settings_page.py。〕"""
 
     def test_sead_cut_anchors(self):
         # 已落地近似面：雷达开机=可视易损（radar_on 进状态帧——敌我共见）
@@ -1336,14 +1412,6 @@ class TestDeviatedRegistrations(unittest.TestCase):
         self.assertIsNone(re.search(r"\bSEAD_[A-Za-z]|\bsead_[a-z]", sim))
         # 关机脱锁语义的对空弹非辐射寻的（命中判定无 radar_on 因子——负锚）
         self.assertNotIn("radar_on", _src("sovs/sim/air.py"))
-
-    def test_settings_rebind_absent(self):
-        # 菜单章节功能在六件需求之外：无 settings/rebind 入口（负锚）；键位表=
-        # 源码级常量（改键=改 COMBAT_KEYS 源，无运行时改键面）
-        for rel in ("sovs/ui/shell_window.py", "sovs/ui/shell_fsm.py"):
-            src = _src(rel)
-            self.assertNotIn("rebind", src.lower(), rel)
-            self.assertNotIn("settings_menu", src.lower(), rel)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -1566,7 +1634,8 @@ class TestBasicsTransportsAndSupplies(unittest.TestCase):
 
 
 # ════════════════════════════════════════════════════════════════════
-# ④ deferred 现存五条：登记在册＋「不存在锚」反向锁死
+# ④ deferred 现存六条：登记在册＋「不存在锚」反向锁死（ALT LOS 补册后逐条
+#   对齐——六条目六锚，终审第四批勘正）
 # ════════════════════════════════════════════════════════════════════
 
 class TestDeferredNotImplemented(unittest.TestCase):
@@ -1601,6 +1670,16 @@ class TestDeferredNotImplemented(unittest.TestCase):
         for _ in range(100):
             world_tick(w)
         self.assertEqual(w.players[0].points, pts0)
+
+    def test_alt_los_tool_absent(self):
+        # basics:247「Hold Alt key to display the line of sight tool」——
+        # ALT LOS 后置项的不存在锚（终审第四批补：登记面补册后本类原 5 锚对
+        # 6 条目，半吊子 ALT 叠层长出不爆红，与「双保险」自述不符）：ALT 键
+        # 读入在两窗体 0 匹配（arcade 侧 ALT 面=LALT/RALT/MOD_ALT 三型）。
+        for rel in ("sovs/ui/shell_window.py", "sovs/ui/shell_fsm.py"):
+            src = _src(rel)
+            for tok in ("key.ALT", "key.LALT", "key.RALT", "MOD_ALT"):
+                self.assertNotIn(tok, src, (rel, tok))
 
     def test_destroyed_units_do_not_return_to_deck(self):
         # 一命制：购卡扣份后，单位损毁不回补卡组（basics:174-175 后置的行为面）

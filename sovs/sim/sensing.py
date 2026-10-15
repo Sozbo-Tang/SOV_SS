@@ -15,8 +15,11 @@ from .tables import BalanceConfig, CONFIG
 from .types import AltTier, MarkLevel, UnitFlag, UnitType
 
 
-def effective_stealth_x10(cfg: BalanceConfig, unit, in_forest: bool = False) -> int:
-    """有效隐蔽（0..100，内部×10）。乘区先行，地形/驻楼加成后置。"""
+def effective_stealth_x10(cfg: BalanceConfig, unit, in_forest: bool = False,
+                          marked: bool = False) -> int:
+    """有效隐蔽（0..100，内部×10）。乘区先行，地形/驻楼加成后置。
+    marked=上一扫描帧已被标记（basics:245-246「harder to hide once you have been
+    spotted」——隐蔽乘区减半；system_sensing 重置前快照喂入，防扫描次序依赖）。"""
     s = unit.template.stealth_base * 10
     m = 10000
     if unit.moving():
@@ -29,6 +32,8 @@ def effective_stealth_x10(cfg: BalanceConfig, unit, in_forest: bool = False) -> 
         m = m * cfg.ambush_mult_bp // 10000
     if any(e.reveal_timer > 0 for e in unit.elements):
         m = m * cfg.reveal_mult_bp // 10000
+    if marked:
+        m = m * cfg.marked_stealth_mult_bp // 10000
     s = s * m // 10000
     if ((unit.template.flags & UnitFlag.CAN_GARRISON)          # AMB-02 拍板：模板前置（方案5 合取式）
             and any(getattr(e, "garrison_in", None) is not None for e in unit.elements)):
@@ -45,14 +50,21 @@ def stealth_factor_bp(cfg: BalanceConfig, stealth_x10: int) -> int:
 
 def detection_range_cm(cfg: BalanceConfig, obs, tgt, *,
                        forest_m: int = 0, smoke_m: int = 0,
-                       tgt_in_forest: bool = False) -> int:
+                       tgt_in_forest: bool = False,
+                       tgt_marked: bool = False) -> int:
+    """对地面单位探测距离。basics:239「Units in cover are twice harder to
+    detect」——目标林内或驻楼（任一元素 garrison_in）→ 探测距离减半乘区。"""
     r = obs.template.optics_ground_cm * optics_factor_bp(obs.elements[0]) // 10000  # GAP-22：SEN 暴击消费点
     if obs.moving() and not (obs.template.flags & UnitFlag.NO_MOVE_VISION_PENALTY):
         r = r * cfg.move_vision_mult_bp // 10000   # 5000 ≡ //2（r 恒非负——位级一致）
     if obs.ambush_active:
         r = r // 2
     r = r * stealth_factor_bp(
-        cfg, effective_stealth_x10(cfg, tgt, in_forest=tgt_in_forest)) // 10000  # GAP-27：目标林内+2 生效
+        cfg, effective_stealth_x10(cfg, tgt, in_forest=tgt_in_forest,
+                                   marked=tgt_marked)) // 10000  # GAP-27：目标林内+2 生效
+    if tgt_in_forest or any(getattr(e, "garrison_in", None) is not None
+                            for e in tgt.elements):
+        r = r * cfg.cover_detect_mult_bp // 10000  # basics:239 掩体（林/楼）更难探测
     r -= cfg.detect_atten_per_m * (forest_m + smoke_m)
     return max(0, r)
 
@@ -154,7 +166,10 @@ def system_sensing(cfg: BalanceConfig, world, *,
                    forest_m_fn=None, smoke_m_fn=None,
                    in_forest_fn=None) -> None:
     """每 sensing_period_ticks 一次：配对扫描 + mark_level 重算（v1.4 语义）。
-    in_forest_fn(pos)→bool：目标林内状态通道（GAP-27；None=无林，侦测端 +2 档不生效）。"""
+    in_forest_fn(pos)→bool：目标林内状态通道（GAP-27；None=无林，侦测端 +2 档不生效）。
+    basics:245-246 已发现更难隐藏：重置前快照上一帧标记位，经 tgt_marked 喂入
+    effective_stealth 乘区——用上一帧值保证扫描内次序无关。"""
+    prev_marked = {u.id: u.mark_level != MarkLevel.NONE for u in world.units}
     for tgt in world.units:
         tgt.mark_level = MarkLevel.NONE
     alive = [u for u in world.units if u.alive]
@@ -167,7 +182,8 @@ def system_sensing(cfg: BalanceConfig, world, *,
             smoke_m = smoke_m_fn(obs.pos, tgt.pos) if smoke_m_fn else 0
             tgt_forest = in_forest_fn(tgt.pos) if in_forest_fn else False
             if d <= detection_range_cm(cfg, obs, tgt, forest_m=forest_m,
-                                       smoke_m=smoke_m, tgt_in_forest=tgt_forest):
+                                       smoke_m=smoke_m, tgt_in_forest=tgt_forest,
+                                       tgt_marked=prev_marked.get(tgt.id, False)):
                 tgt.spotted_mask |= 1 << obs.team
                 if obs.template.category == 0:  # 侦察类 → 校准（R-01）
                     tgt.mark_level = MarkLevel.CALIBRATED

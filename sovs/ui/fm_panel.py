@@ -15,14 +15,19 @@ from .palette import (FM_PANEL_BG, HUD_TEXT,  # noqa: E402
 from .shell_fsm import CREEP_SPEEDS_CM
 
 _PANEL_H = 52
+_PANEL_W = 930
 
 
 def fm_panel_geom(win):
-    """§7 断箭式重排：参数条浮出中下（命令格上方避让，小地图/编组列之右）。"""
+    """§11 断箭式重排：参数条浮出中下。〔BA 复刻轮 2026-10-15：右下集群
+    （命令格→摘要行→状态主卡）占满 y 10..610 后，参数条上移**集群顶之上**
+    （y0=主卡顶+12——旧静态 y0=294 与摘要行 298..362 同带互斥红，随集群
+    重排迁位；x0 右让编组列、宽 930 CREEP 满配余量不变）。〕"""
     from .palette import MARGIN, MINIMAP_W
-    x0 = MARGIN + MINIMAP_W + 52
-    y0 = MARGIN + 146
-    return x0, y0, x0 + 880, y0 + _PANEL_H     # P1：+精确弹药位加宽（760→880）
+    from .selection_panel import air_panel_geom
+    x0 = MARGIN + MINIMAP_W + 90
+    y0 = air_panel_geom(win)[3] + 12
+    return x0, y0, x0 + _PANEL_W, y0 + _PANEL_H
 
 
 def layout_fm_panel(win) -> None:

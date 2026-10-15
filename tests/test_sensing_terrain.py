@@ -12,11 +12,13 @@
     31000）+烟区 ttl 尽恢复（world_tick 生命周期：tick5/10 拍仍遮、tick15 恢复）；
   - 森林穿行衰减整链（6 林格=150m×150=22500 → r 17500<30000 隐蔽，空林对照
     可见）+逐 tile 150/m 公式锚；
-  - GAP-27 目标林内 +2 隐蔽档整链（stealth 7 林内 eff 90→6500bp：远 30000 隐/
-    近 22000 可见——路径衰减与林内加成双计的两侧锚）；
-  - FOREST_WALK_SILENT 林中静默豁免首次整链（原 in_forest 恒 False=死分支，
-    接线后激活：普通移动者林内 eff 45→38250≥35000 可见 vs 静默移动者 eff 70→
-    32250<35000 隐蔽；林外无豁免 48000 可见）；
+  - GAP-27 目标林内 +2 隐蔽档整链（stealth 7 林内 eff 90→6500bp——2026-10-14
+    探测增量块后林内另吃掩体减半 ×5000：近 9000 可见 9250/远 14000 隐蔽——
+    路径衰减与林内加成与掩体减半三计的两侧锚）；
+  - FOREST_WALK_SILENT 林中静默豁免整链（原 in_forest 恒 False=死分支，接线后
+    激活；2026-10-14 探测增量块后观测距改 16000/林格 (6,0)——普通移动者林内
+    eff 45→17250≥16000 可见 vs 静默移动者 eff 70→14250<16000 隐蔽；林外无
+    豁免 48000 可见）；
   - 自卫烟幕遮蔽实效整链（cmd_smoke→system_timers 落烟→system_sensing 探测
     降→ttl 尽恢复，PB-53「自卫烟幕遮蔽实效」闭环）；
   - 校射视线通道（point_in_friendly_vision 喂 smoke_m_fn：烟上视线 40000−9000
@@ -33,8 +35,9 @@ from sovs.sim.sensing import (detection_range_cm, forest_m_between,
 from sovs.sim.tables import CONFIG, BalanceConfig
 from sovs.sim.tick import (add_unit, cmd_smoke, make_unit, make_world,
                            world_tick)
-from sovs.sim.types import (ElementType, ElementTemplate, MovementClass,
-                            SmokeZone, UnitFlag, UnitTemplate, UnitType)
+from sovs.sim.types import (ElementType, ElementTemplate, MarkLevel,
+                            MovementClass, SmokeZone, UnitFlag, UnitTemplate,
+                            UnitType)
 
 TILE = 2500   # 示范图瓦片边长（map_demo_2km tile_cm 同值）
 
@@ -209,18 +212,22 @@ class TestForestBlocksSensing(unittest.TestCase):
 
 class TestTargetInForestStealth(unittest.TestCase):
     """GAP-27 目标林内 +2 档整链（forest_stealth_add_x10=20）：stealth 7 林内
-    eff 90（idx9 6500bp）→ 40000×6500//10000=26000，再减路径穿林 25m×150=3750
-    → 22250——路径衰减与林内加成双计的两侧锚（远 30000 隐/近 22000 可见；
-    同世界两目标路径分别命中 (8,0)/(12,0) 与 (8,0)）。"""
+    eff 90（idx9 6500bp）→ 40000×6500//10000=26000；2026-10-14 探测增量块
+    （basics:239）叠加掩体减半 ×5000//10000=13000，再减路径穿林 25m×150=3750
+    → 9250——路径衰减与林内加成与掩体减半三计的两侧锚（近 9000 可见 9250≥9000/
+    远 14000 隐蔽 13000<14000；近/远两目标路径分别命中 (8,0) 与无林格）。"""
 
     def test_in_forest_plus_two_chain(self):
-        w = _forest_world(8, {(8, 0), (12, 0)})
+        w = _forest_world(8, {(2, 0), (8, 0)})
         _mk(w, 0, (0, 0))
-        near = _mk(w, 1, (22000, 0), stealth=7)
-        far = _mk(w, 1, (30000, 0), stealth=7)
+        near = _mk(w, 1, (6000, 0), stealth=7)                # 林格 (2,0)=[5000,7500)
+        far = _mk(w, 1, (21000, 0), stealth=7)                # 林格 (8,0)=[20000,22500)
         _sense(w)
-        self.assertEqual(near.spotted_mask, 0b1)              # 22250≥22000 可见
-        self.assertEqual(far.spotted_mask, 0)                 # 18500<30000 隐蔽
+        # near：eff 90（idx9 6500bp）→ 26000×5000//10000=13000−路径穿林 25m×150
+        # =3750 → 9250 ≥6000 可见；far：同前 13000−路径两林格 50m×150=7500
+        # =5500 <21000 隐蔽（掩体减半与林内加成与路径衰减三计两侧锚）
+        self.assertEqual(near.spotted_mask, 0b1)
+        self.assertEqual(far.spotted_mask, 0)
 
     def test_open_ground_control_spots_both(self):
         w = _forest_world(9, set())
@@ -228,40 +235,43 @@ class TestTargetInForestStealth(unittest.TestCase):
         near = _mk(w, 1, (22000, 0), stealth=7)
         far = _mk(w, 1, (30000, 0), stealth=7)
         _sense(w)
-        # 旷野：eff 70（idx7 9000bp）→ 36000 两目标均可见
+        # 旷野：eff 70（idx7 9000bp）→ 36000 两目标均可见（旷野无掩体减半）
         self.assertEqual((near.spotted_mask, far.spotted_mask), (0b1, 0b1))
 
 
 class TestForestWalkSilentChain(unittest.TestCase):
-    """FOREST_WALK_SILENT 林中静默豁免首次整链（sensing.py 移动乘区分支原
+    """FOREST_WALK_SILENT 林中静默豁免整链（sensing.py 移动乘区分支原
     in_forest 恒 False=死分支，接线后激活；forest_walk_silent_mult_bp=20000
-    ×2 抵回移动惩罚 5000）。目标 stealth 5 移动中、林格 (14,0)、观察距离 35000：
-      普通移动者林内 eff 45（idx4 10500bp）→ 42000−3750=38250 ≥35000 可见；
-      静默移动者林内 eff 70（idx7 9000bp）→ 36000−3750=32250 <35000 隐蔽；
-      静默移动者林外 eff 25（idx2 12000bp）→ 48000 ≥35000 可见（豁免仅林内）。"""
+    ×2 抵回移动惩罚 5000）。目标 stealth 5 移动中、林格 (6,0)=[15000,17500)、
+    观察距离 16000（2026-10-14 探测增量块后改距——林内另吃掩体减半）：
+      普通移动者林内 eff 45（idx4 10500bp）→ 42000×5000//10000=21000−3750
+      =17250 ≥16000 可见；
+      静默移动者林内 eff 70（idx7 9000bp）→ 36000×5000//10000=18000−3750
+      =14250 <16000 隐蔽；
+      静默移动者林外 eff 25（idx2 12000bp）→ 48000 ≥16000 可见（豁免仅林内）。"""
 
     def test_silent_walker_concealed_in_forest(self):
-        w = _forest_world(10, {(14, 0)})
+        w = _forest_world(10, {(6, 0)})
         _mk(w, 0, (0, 0))
-        tgt = _mk(w, 1, (35000, 0), flags=UnitFlag.FOREST_WALK_SILENT,
+        tgt = _mk(w, 1, (16000, 0), flags=UnitFlag.FOREST_WALK_SILENT,
                   moving_to=(999999, 0))
         _sense(w)
-        self.assertEqual(tgt.spotted_mask, 0)                 # 32250<35000
+        self.assertEqual(tgt.spotted_mask, 0)                 # 14250<16000
 
     def test_normal_walker_spotted_in_forest(self):
-        w = _forest_world(11, {(14, 0)})
+        w = _forest_world(11, {(6, 0)})
         _mk(w, 0, (0, 0))
-        tgt = _mk(w, 1, (35000, 0), moving_to=(999999, 0))
+        tgt = _mk(w, 1, (16000, 0), moving_to=(999999, 0))
         _sense(w)
-        self.assertEqual(tgt.spotted_mask, 0b1)               # 38250≥35000
+        self.assertEqual(tgt.spotted_mask, 0b1)               # 17250≥16000
 
     def test_silent_walker_spotted_in_open(self):
         w = _forest_world(12, set())
         _mk(w, 0, (0, 0))
-        tgt = _mk(w, 1, (35000, 0), flags=UnitFlag.FOREST_WALK_SILENT,
+        tgt = _mk(w, 1, (16000, 0), flags=UnitFlag.FOREST_WALK_SILENT,
                   moving_to=(999999, 0))
         _sense(w)
-        self.assertEqual(tgt.spotted_mask, 0b1)               # 48000≥35000（无豁免）
+        self.assertEqual(tgt.spotted_mask, 0b1)               # 48000≥16000（无豁免）
 
 
 class TestSelfSmokeConcealmentChain(unittest.TestCase):
@@ -333,6 +343,30 @@ class TestCalibrationVisionChannel(unittest.TestCase):
         w.smoke_zones.clear()
         self.assertTrue(point_in_friendly_vision(
             CONFIG, w, 0, pt, forest_m_fn=ffn, smoke_m_fn=sfn))
+
+
+class TestMarkedPrevFrameChain(unittest.TestCase):
+    """basics:245-246 已发现更难隐藏整链（2026-10-14 探测增量块）：system_sensing
+    重置前快照上一帧标记、经 tgt_marked 走隐蔽乘区。obs (0,0) 光学 14000、
+    tgt stealth 5：基线 r=14000（idx5 10000bp）；标记帧 eff 25（idx2 12000bp）
+    → r=16800。帧1 13000 基线内点亮 → 帧2 退 15500（14000<r≤16800）标记帧
+    仍可见 → 帧3 退 17500（>16800）转隐且 keep 14000 外清位 → 帧4 无标记可放大。"""
+
+    def test_marked_extends_then_fades(self):
+        w = make_world(16)
+        _mk(w, 0, (0, 0), optics=14000)
+        tgt = _mk(w, 1, (13000, 0), stealth=5)
+        _sense(w)
+        self.assertNotEqual(tgt.mark_level, MarkLevel.NONE)   # 帧1：基线内点亮
+        tgt.pos = (15500, 0)
+        _sense(w)
+        self.assertNotEqual(tgt.mark_level, MarkLevel.NONE)   # 帧2：标记圈 16800≥15500
+        tgt.pos = (17500, 0)
+        _sense(w)
+        self.assertEqual(tgt.mark_level, MarkLevel.NONE)      # 帧3：>16800 转隐
+        self.assertEqual(tgt.spotted_mask, 0)                 # keep 14000 外清位
+        _sense(w)
+        self.assertEqual(tgt.mark_level, MarkLevel.NONE)      # 帧4：无标记可放大
 
 
 if __name__ == "__main__":

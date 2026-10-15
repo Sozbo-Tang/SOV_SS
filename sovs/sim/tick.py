@@ -4430,6 +4430,20 @@ def spawn_step(world: World, cfg: BalanceConfig = CONFIG) -> None:
         else:
             spawn_pos = _deploy_anchor(world, p.team)  # 点单位可叠放（PB-16 拍板）
         unit = add_unit(world, make_unit(world, card, p.team, p.index, spawn_pos))
+        # 〔2026-10-15 六条修正·问题2——出场满载（用户拍板；manual_silent 登记
+        # GP-02 §2.3）：HAS_SUPPLY 卡的舱位元素连 mode 一并置 CARGO＋满载
+        # supply_weight_g（「max 档」同语义——cmd_bus.buy_supplies_tier max：
+        # rounds=舱位上限、medical=0；min()≤buy_supplies 门⑤载重闸）。mode 必须连置：
+        # system_supply 拾取扫描要求源元素 mode==CARGO；先例=spawn_airdrop_crate
+        # 直赋对。空投箱轨（resolve_airdrop）与航空 SUPPLY 载荷购买不经此处。〕
+        if card.flags & UnitFlag.HAS_SUPPLY:
+            for e in unit.elements:
+                if e.template.cargo_rounds_max > 0 \
+                        or e.template.cargo_weight_max > 0:
+                    e.mode = Mode.CARGO
+                    e.supply_weight_g = min(
+                        e.template.cargo_rounds_max * cfg.supply_round_weight_g,
+                        e.template.cargo_weight_max)
         carriers = [e for e in unit.elements if e.template.seats > 0]      # :1390
         squads = [e for e in unit.elements
                   if e.template.element_type is ElementType.SQUAD]         # :1391
@@ -4678,13 +4692,18 @@ def system_dump_delivery(world: World) -> None:
 def laser_los_ok(cfg: BalanceConfig, world: World, designator, target) -> bool:
     """激光视线判定（manual.txt:520-522「will break if it exits line of sight」）：
     复用地面探测链（光学×目标隐蔽档−穿林/穿烟衰减——detection_range_cm 同式，
-    目标视为移动中档的保守近似；点目标无 in_forest 通道，从简）。"""
+    目标视为移动中档的保守近似；2026-10-14 探测增量块：补 in_forest 通道＋
+    tgt_marked（basics:239 掩体/245-246 已发现暴露与主探测链同口径）。"""
     from .sensing import detection_range_cm, terrain_sensing_channels
-    _ffn, _sfn, _ = terrain_sensing_channels(world)
+    from .types import MarkLevel
+    _ffn, _sfn, _ifn = terrain_sensing_channels(world)
     forest_m = _ffn(designator.pos, target.pos) if _ffn else 0
     smoke_m = _sfn(designator.pos, target.pos) if _sfn else 0
+    tgt_forest = _ifn(target.pos) if _ifn else False
     r = detection_range_cm(cfg, designator, target,
-                           forest_m=forest_m, smoke_m=smoke_m)
+                           forest_m=forest_m, smoke_m=smoke_m,
+                           tgt_in_forest=tgt_forest,
+                           tgt_marked=target.mark_level != MarkLevel.NONE)
     return dist_cm(designator.pos, target.pos) <= r
 
 

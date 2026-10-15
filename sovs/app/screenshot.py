@@ -91,7 +91,6 @@ def screenshot(out_dir: str, seed: int = 42, deck: str = "su_min",
     if not mine or anchor_units_in != len(mine):
         win.close()
         return 1
-    win.show_unit_info(win.frame["units"][0]["id"]) if win.frame["units"] else None
     win.snapshot(os.path.join(out_dir, "deploy.png"))
     made.append("deploy.png")
 
@@ -106,10 +105,37 @@ def screenshot(out_dir: str, seed: int = 42, deck: str = "su_min",
         print("✗ battle 页无单位（frame units 空）")
         win.close()
         return 1
+    # ── B3 剧本（2026-10-13；勘注 2026-10-15 问题5 用户拍板常驻）：空选区
+    #    battle 帧截屏——命令面板**绘满配 6×8 足印提示格**（order_panel_rect
+    #    常驻——原「空选区不绘命令格（basics.txt:62）」推读推翻；三态过滤行为
+    #    保留=空选区无命令钮）；呼援轨保留。──
+    win.fsm.clear_selection()
+    win._layout_buttons()
+    win.snapshot(os.path.join(out_dir, "battle_empty.png"))
+    made.append("battle_empty.png")
+    # ── B3 布局级判据：无曲射/无狙击选区→命令格无 fm/sniper 钮（三态过滤）──
+    plain = next((u for u in mine
+                  if not (u.get("caps") or {}).get("indirect")
+                  and not (u.get("caps") or {}).get("sniper")), None)
+    if plain is None:
+        print("✗ battle 页无『无曲射/无狙击』己方单位可验过滤面")
+        win.close()
+        return 1
+    win.fsm.select_units([plain["id"]])
+    win._layout_buttons()
+    b3_keys = {b.key for b in win._buttons}
+    b3_ok = "fm" not in b3_keys and "sniper" not in b3_keys \
+        and "stop" in b3_keys
+    print("%s B3 命令格过滤：选『%s』后无炮击(T)/狙击(L)钮、有停止(S)钮"
+          % ("✓" if b3_ok else "✗", plain["name"]))
+    if not b3_ok:
+        win.close()
+        return 1
+    win.fsm.clear_selection()
     anchor = mine[0]["pos_cm"]
     x0, y0 = win.cm_to_px(anchor[0] - 4000, anchor[1] - 4000)
     x1, y1 = win.cm_to_px(anchor[0] + 4000, anchor[1] + 4000)
-    win.select_box_px(x0, y0, x1, y1)                    # 框选痕迹（白框+选中角框）
+    win.select_box_px(x0, y0, x1, y1)                    # 框选（B2 后=角框呈现，无残留白框）
     session.cmd.move(list(win.fsm.selected), (100000, 50000))   # 已下令痕迹（trail）
     if not win.fsm.selected or not session.cmd.trail:
         print("✗ battle 页三要素缺失（选区 %r / trail %d）"
@@ -156,5 +182,24 @@ def screenshot(out_dir: str, seed: int = 42, deck: str = "su_min",
     verdict = "✓" if hits >= 1 else "✗"
     ok = ok and hits >= 1
     print("%s deploy 锚点区域非底色像素 %d（A3 锚点采样护栏）" % (verdict, hits))
+    # ── B3 像素判据（battle_empty.png；勘注 2026-10-15 问题5 常驻拍板——判据
+    #    反转）：满配足印内 ORDER_TEXT 描边像素 ≥1（命令面板底板在绘——空选区
+    #    常驻足印护栏，若回退「空选区不绘」即红；编组列/小地图在足印外不扰）。
+    #    采样勘正（2026-10-15 长条轮·GL 会话首次实跑）：1px 描边经 GL 光栅居中
+    #    落奇数列/行（实测竖线 x=905/1269、横线像 y=513/789），旧步长 2 的偶
+    #    格点采样恒空——判据本轮前从未在 GL 会话跑过（§11.3「无显示不可跑」），
+    #    步长改 1（阈值 ≥1 不变，量尺修正非放宽）。──
+    from sovs.ui.hud_bottom import order_panel_rect
+    from sovs.ui.palette import ORDER_TEXT
+    gx0, gy0, gx1, gy1 = order_panel_rect(win)
+    bimg = Image.open(os.path.join(out_dir, "battle_empty.png")).convert("RGB")
+    outline = ORDER_TEXT[:3]
+    panel_hits = sum(1 for x in range(int(gx0), int(gx1))
+                     for y in range(int(bimg.height - gy1), int(bimg.height - gy0))
+                     if bimg.getpixel((x, y)) == outline)
+    verdict = "✓" if panel_hits >= 1 else "✗"
+    ok = ok and panel_hits >= 1
+    print("%s battle 空选区命令面板足印描边像素 %d（B3 常驻足印护栏）"
+          % (verdict, panel_hits))
     win.close()
     return 0 if ok else 1

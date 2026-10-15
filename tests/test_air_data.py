@@ -443,14 +443,13 @@ class TestConstructorSignatureMatch(unittest.TestCase):
                                        {"BOMB": air_data.IL2M.payload_max_bombs + 1}))
         self.assertIsNone(cmd_air_call(w, w.players[0], air_data.JU88,
                                        {"BOMB": air_data.JU88.payload_max_bombs + 1}))
-        # 满载荷可呼叫且价=本体+弹药价（payload_price 消费）
+        # 满载荷可呼叫；呼叫价=本体价（2026-10-14 空袭按用计费块——弹费投放
+        # 侧逐发扣，见 test_air_commands.test_bomb_release_pays_per_bomb）
         p = w.players[0]
         before = p.air_points
         a = cmd_air_call(w, p, air_data.JU88, {"BOMB": air_data.JU88.payload_max_bombs})
         self.assertIsNotNone(a)
-        self.assertEqual(before - p.air_points,
-                         air_data.JU88.cost_body
-                         + air_data.JU88.payload_price["BOMB"] * air_data.JU88.payload_max_bombs)
+        self.assertEqual(before - p.air_points, air_data.JU88.cost_body)
 
     def test_real_pipeline_paratroop_embark_deducts_deck_copy(self):
         # B-06/B-12：装机即扣份（真实门＋deck 槽 mock）
