@@ -399,6 +399,26 @@ class TestRailTabPhaseVisibility(_HeadlessRulerTestCase):
                          {"railtab_ALL", "railtab_REC", "railtab_INF",
                           "railtab_VEH", "railtab_SUP"})  # duck 兜底=地面全类别
 
+    def test_rail_tabs_sized_to_label_no_overlap(self):
+        # 〔Windows 实测报告② 2026-10-16：「固定翼」三字溢 28px 定宽页签
+        #  （28 宽/30 步距）相邻叠字——现按量尺实测宽+12 内边距流式布局。
+        #  锚：页签两两不交（步距 2px）且每页签宽≥标签量尺宽+8（三字页签
+        #  「固定翼」12px 量尺 72px → 宽 84，不再溢出居中）〕
+        roster = [{"key": "call_bomber", "label": "呼IL-2M", "affordable": True}]
+        win = _duck_win(frame=_duck_frame(deck=_deck_slots(4)), roster=roster)
+        layout_air_rail(win)
+        tabs = [b for b in win._buttons if b.key.startswith("railtab_")]
+        self.assertIn("railtab_AIR", {b.key for b in tabs})
+        for a, b in zip(tabs, tabs[1:]):
+            self.assertLessEqual(a.x1 + 2, b.x0)          # 流式步距 2px 不交
+        for b in tabs:
+            self.assertGreaterEqual(b.x1 - b.x0,
+                                    self.width(b.label, 12) + 8)
+        self.assertGreaterEqual(
+            next(b for b in tabs if b.key == "railtab_AIR").x1
+            - next(b for b in tabs if b.key == "railtab_AIR").x0,
+            self.width("固定翼", 12) + 8)                  # 三字页签实测扩容锚
+
     def test_category_without_placeable_cards_hidden(self):
         meta = {301: {"category": 1, "supply": False}}       # 仅 1 张步兵卡
         deck = [{"template_id": 301, "name": "步兵班", "copies_left": 2,

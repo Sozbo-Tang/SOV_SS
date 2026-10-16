@@ -65,7 +65,7 @@ def save_overrides(mapping: dict[str, int]) -> None:
     """写改键覆盖（仅被改动项；空表=恢复默认不留文件残骸）。"""
     p = _settings_path()
     p.parent.mkdir(parents=True, exist_ok=True)
-    with p.open("w", encoding="utf-8") as fh:
+    with p.open("w", encoding="utf-8", newline="\n") as fh:
         json.dump(dict(sorted(mapping.items())), fh, ensure_ascii=False,
                   indent=1)
 

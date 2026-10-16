@@ -620,7 +620,7 @@ def build_all(data_dir: Path, out_dir: Path) -> dict[str, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     lib_json = dump_stable_json(library_to_json_dict(lib, prov_by_card))
     lib_path = out_dir / LIBRARY_JSON_NAME
-    lib_path.write_text(lib_json, encoding="utf-8")
+    lib_path.write_text(lib_json, encoding="utf-8", newline="\n")
     written["library"] = lib_path
 
     if decks_dir.is_dir():
@@ -631,7 +631,7 @@ def build_all(data_dir: Path, out_dir: Path) -> dict[str, Path]:
             deck_out.mkdir(parents=True, exist_ok=True)
             deck_path = deck_out / f"{deck_key}.json"
             deck_path.write_text(dump_stable_json(deck_to_json_dict(deck)),
-                                 encoding="utf-8")
+                                 encoding="utf-8", newline="\n")
             written[f"deck/{deck_key}"] = deck_path
     return written
 

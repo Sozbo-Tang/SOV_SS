@@ -159,9 +159,10 @@ class DeckEditor:
                                        "copies": e.copies}
                                       for e in model.cards]},
                            allow_unicode=True, sort_keys=False),
-            encoding="utf-8")
+            encoding="utf-8", newline="\n")
         self.json_path(deck_key).write_text(
-            bc.dump_stable_json(bc.deck_to_json_dict(model)), encoding="utf-8")
+            bc.dump_stable_json(bc.deck_to_json_dict(model)), encoding="utf-8",
+            newline="\n")
 
     def clone(self, src_key: str, new_key: str) -> None:
         """克隆＝读入改 deck_key 另存（断箭 duplicate 对齐）。"""

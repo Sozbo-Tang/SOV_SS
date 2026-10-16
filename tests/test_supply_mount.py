@@ -4,17 +4,19 @@
 上下车，2026-10-06：门序①-⑪ 逐项/分派链/挂载即出楼/㉑A 3班→3车/双形卸载）。
 
 锚点全部手推写死（2026-10-03 拍板一池重量补给：补弹 take=MIN(缺口, 池//每发重量,
-2 发/tick)、医疗 heal=MIN(缺口hp, 池//1g)、维修 repair_power/tick、
-修满清 crit+解拖、上车 200 tick 倒计时、复核撤销谓词、惰性表 None），不自证；
+2 发/tick)、医疗 heal=MIN(缺口hp, 池//1g)、维修 A 线 repair_power/tick＋B 线补给源
+fix=MIN(缺口, 池//1g, 2HP/tick)（2026-10-16 卡车通修块）、修满清 crit+解拖、
+上车 200 tick 倒计时、复核撤销谓词、惰性表 None），不自证；
 确定性双跑照 tests/test_integration.py fingerprint 范式（同 seed 两 world 逐 tick
 比指纹），全程零掷骰（八通道 PCG32 state 不动——两系统无随机消耗）。"""
 import unittest
 
 from sovs.sim.combat import needs_resupply
-from sovs.sim.tick import (DismountCmd, MountCmd, add_unit, cmd_dismount,
-                           cmd_garrison, cmd_mount, make_unit, make_world,
-                           mount_requests_step, pending_mount_count, queue_command,
-                           seat_usage, stop_tow, system_supply, world_tick)
+from sovs.sim.tick import (DismountCmd, MountCmd, SUPPLY_SW_REPAIR, add_unit,
+                           cmd_dismount, cmd_garrison, cmd_mount, make_unit,
+                           make_world, mount_requests_step, pending_mount_count,
+                           queue_command, seat_usage, stop_tow, system_supply,
+                           world_tick)
 from sovs.sim.types import (Building, CritLevel, CritSlot, ElementTemplate,
                             ElementType, Mode, MovementClass, MountRequest,
                             TowPair, TowState, TowStopReason, UnitFlag,
@@ -292,8 +294,12 @@ class TestSystemSupplyMedical(unittest.TestCase):
 
     def test_mech_not_healed_and_dropped_from_set(self):
         # MECH 带伤不吃医疗且不满足 needs_resupply → 自清理移除
+        # 〔2026-10-16 卡车通修块改锚：关 repair 位隔离 B 线补给源维修——带伤
+        #  卡车有池会被自修（test_supply_source_repairs_itself 锚）、「医疗仅
+        #  步兵」语义由本锚原样承载〕
         w = make_world(11)
         truck = supply_truck(w, 0, (0, 0), weight=4)
+        truck.supply_switches &= ~SUPPLY_SW_REPAIR
         truck.elements[0].hp_current = 3
         w.await_resupply.append(truck)
         system_supply(w)
@@ -399,6 +405,90 @@ class TestRepair(unittest.TestCase):
             self.assertEqual(w.tow_pairs, [])
             self.assertIs(tower.elements[0].towed, TowState.NONE)
             self.assertIs(tank.elements[0].towed, TowState.NONE)
+
+
+class TestSupplySourceRepair(unittest.TestCase):
+    """B 线补给源维修（2026-10-16 卡车通修块）。basics:203-204「堆旁 rearm+
+    repaired＋修满移除 critical」repaired 半边落地——原实现维修仅 A 线功率
+    （repair_power_hp_per_tick，救援车专属），卡车/堆四开关 repair 位为空门；
+    卡车身直修 manual_silent（GP-02 §2.3 登记）。锚点手推写死：
+    fix=MIN(缺口, 池//1g/HP, 2 HP/tick)。"""
+
+    def test_truck_repairs_mech_consumes_weight(self):
+        # 满载卡车 50g 修 12/20 坦克：fix=MIN(8, 50, 2)=2 → 14/20、池 50→48
+        w = make_world(21)
+        tank = add_unit(w, make_unit(w, TANK_TPL, 0, 0, (0, 0)))
+        tank.elements[0].hp_current = 12
+        truck = supply_truck(w, 0, (0, 0), weight=50)
+        system_supply(w)
+        self.assertEqual(tank.elements[0].hp_current, 14)
+        self.assertEqual(truck.elements[0].supply_weight_g, 48)
+
+    def test_dump_crate_repairs_mech(self):
+        # 空投/卸货堆同轨通修（basics:203 直锚）：crate 修半径内受损车
+        w = make_world(22)
+        tank = add_unit(w, make_unit(w, TANK_TPL, 0, 0, (5000, 0)))
+        tank.elements[0].hp_current = 5
+        w.spawn_airdrop_crate(0, (5000, 0), 20)
+        system_supply(w)
+        self.assertEqual(tank.elements[0].hp_current, 7)
+
+    def test_supply_repair_gates_radius_team_switch(self):
+        # 半径门（supply_radius_cm=8000 含等号）＋同队门＋四开关 repair 位
+        w = make_world(23)
+        truck = supply_truck(w, 0, (0, 0), weight=10)
+        near = add_unit(w, make_unit(w, TANK_TPL, 0, 0, (8000, 0)))   # 等号含
+        enemy = add_unit(w, make_unit(w, TANK_TPL, 1, 1, (1000, 0)))
+        far = add_unit(w, make_unit(w, TANK_TPL, 0, 0, (8001, 0)))
+        for u in (near, enemy, far):
+            u.elements[0].hp_current = 10
+        system_supply(w)
+        self.assertEqual(near.elements[0].hp_current, 12)   # fix=2
+        self.assertEqual(enemy.elements[0].hp_current, 10)  # GAP-10 同队门
+        self.assertEqual(far.elements[0].hp_current, 10)    # 半径外
+        # basics:209-211 四开关「Repair vehicles」关位 → 补给源维修停
+        truck.supply_switches &= ~SUPPLY_SW_REPAIR
+        near.elements[0].hp_current = 10
+        system_supply(w)
+        self.assertEqual(near.elements[0].hp_current, 10)
+
+    def test_supply_repair_pool_exhausted_stops(self):
+        # 池耗尽停修（一池化口径）：池 3g → 拍1 fix=MIN(10,3,2)=2（池 1），
+        # 拍2 fix=MIN(8,1,2)=1（池 0），拍3 无池零修
+        w = make_world(24)
+        tank = add_unit(w, make_unit(w, TANK_TPL, 0, 0, (0, 0)))
+        tank.elements[0].hp_current = 10
+        truck = supply_truck(w, 0, (0, 0), weight=3)
+        system_supply(w)
+        self.assertEqual(tank.elements[0].hp_current, 12)
+        self.assertEqual(truck.elements[0].supply_weight_g, 1)
+        system_supply(w)
+        self.assertEqual(tank.elements[0].hp_current, 13)
+        self.assertEqual(truck.elements[0].supply_weight_g, 0)
+        system_supply(w)
+        self.assertEqual(tank.elements[0].hp_current, 13)
+
+    def test_supply_repair_full_then_idle(self):
+        # 修满封顶后不再扣池：缺口 1 → fix=1 封顶；第二拍零耗
+        w = make_world(25)
+        tank = add_unit(w, make_unit(w, TANK_TPL, 0, 0, (0, 0)))
+        tank.elements[0].hp_current = 19
+        truck = supply_truck(w, 0, (0, 0), weight=30)
+        system_supply(w)
+        self.assertEqual(tank.elements[0].hp_current, 20)
+        self.assertEqual(truck.elements[0].supply_weight_g, 29)
+        system_supply(w)
+        self.assertEqual(truck.elements[0].supply_weight_g, 29)
+
+    def test_supply_source_repairs_itself(self):
+        # 源单位自身亦在目标集（同队门内自然含；manual 未载从简不排除）：
+        # 受损卡车自修扣池 4→6、池 20→18
+        w = make_world(26)
+        truck = supply_truck(w, 0, (0, 0), weight=20)
+        truck.elements[0].hp_current = 4
+        system_supply(w)
+        self.assertEqual(truck.elements[0].hp_current, 6)
+        self.assertEqual(truck.elements[0].supply_weight_g, 18)
 
 
 class TestMountRequestsStep(unittest.TestCase):
@@ -596,7 +686,7 @@ class TestDeterminismDualRun(unittest.TestCase):
         inf = w1.units[1]
         self.assertEqual(inf.elements[0].weapon_states[0].ammo_left, 10)  # 拍5 补满
         self.assertEqual(inf.elements[0].hp_current, 10)                 # 拍1 医疗封顶
-        self.assertEqual(w1.units[0].elements[0].supply_weight_g, 1)     # 15−10弹−4医
+        self.assertEqual(w1.units[0].elements[0].supply_weight_g, 0)     # 15−10弹−4医−1修
         self.assertEqual(w1.await_resupply, [])                          # 补满出清
         mixed = w1.units[2]
         self.assertIs(mixed.elements[0].mounted_in, mixed.elements[1])   # 拍200 挂载
@@ -604,6 +694,9 @@ class TestDeterminismDualRun(unittest.TestCase):
         self.assertEqual(tank.elements[0].hp_current, 20)
         self.assertEqual(w1.tow_pairs, [])                               # 修满解拖
         self.assertTrue(tank.elements[0].redeploy_needed)                # C3 保留
+        # 〔2026-10-16 卡车通修块改锚：units[0]=卡车先于 WRENCH 入 repair 循环，
+        #  B 线（补给源维修）拍1 先修满 19→20 扣 1g 并解拖——施修者由 A 线救援车
+        #  改为 B 线卡车，末态池 15−10弹−4医−1修=0；坦克封顶/解拖/C3 三锚不变〕
 
 
 # ── §F6 :1137-1168 cmd_mount / :1131-1136 cmd_dismount（PB-56 批② 机动链命令块·

@@ -4230,10 +4230,14 @@ def system_supply(world: World, cfg: BalanceConfig = CONFIG) -> None:
       - 医疗仅 INFANTRY 且 0<hp<max（保留清单#9）：heal = MIN(缺口hp,
         剩余重量//cfg.med_weight_per_hp_g)，扣重 heal×med_weight_per_hp_g；
     尾部 await_resupply 自清理（u.alive AND needs_resupply——车毁/全灭/补满注销）；
-    维修分支：repair_power_hp_per_tick>0 的元素 × 半径内（cfg.repair_radius_cm，M24）
+    维修分支双线：A 线=repair_power_hp_per_tick>0 的元素 × 半径内（cfg.repair_radius_cm，M24）
     同队（GAP-10）受损 MECH（hp<max 或 crit 非空）——逐 tick 回血 repair_power；
-    修满清 crit（D016）并解除其牵涉的拖曳对（stop_tow REPAIRED——R-19 修好即归队；
-    GAP-24 元素级，仅涉本元素）。"""
+    B 线（2026-10-16 卡车通修块）=补给源维修——CARGO 元素 × supply_weight_g>0（卡车
+    本体/卸货堆/空投箱）× supply_radius_cm 半径内同队受损 MECH，fix=MIN(缺口,
+    池//repair_weight_per_hp_g, repair_hp_per_tick) 扣重修复（basics:203-204 堆旁
+    repaired 半边落地；卡车身直修 manual_silent——GP-02 §2.3）；
+    两线修满均清 crit（D016）并解除其牵涉的拖曳对（stop_tow REPAIRED——R-19 修好
+    即归队；GAP-24 元素级，仅涉本元素）。"""
     for u in world.units:
         if not supply_switch_on(u, "ammo"):                  # P1 四开关：补弹药位关
             continue                                         # （basics:213「Refill ammunition」）
@@ -4277,25 +4281,59 @@ def system_supply(world: World, cfg: BalanceConfig = CONFIG) -> None:
         if not supply_switch_on(rep_u, "repair"):             # P1 四开关：修载具位
             continue
         power = rep_u.template.repair_power_hp_per_tick
-        if power <= 0:
-            continue
+        if power > 0:
+            for rep in rep_u.elements:
+                for tgt_u in world.units:
+                    if tgt_u.team != rep_u.team:                # GAP-10 同队门（R-19 锚定己方）
+                        continue
+                    for e in tgt_u.elements:
+                        if e.template.unit_type is not UnitType.MECH:
+                            continue
+                        if dist_cm(e.pos, rep.pos) > cfg.repair_radius_cm:
+                            continue
+                        if not (e.hp_current < e.template.hp_max or e.crit):
+                            continue                            # 方案7：crit 判空〔D071 口子④·恢复路径登记
+                            # 2026-10-07：crit 槽无生产者恒空=门恒走 hp 判（零行为差）；重启暴击时本门
+                            # 与下行 clear 原位即活——D016 修满清状态伤语义零改动〕
+                        e.hp_current = min(e.template.hp_max, e.hp_current + power)
+                        if e.hp_current >= e.template.hp_max:
+                            e.crit.clear()                      # D016 修满清状态伤（D071 全拆后恒空 dict=
+                            # 无操作——原位保留=恢复路径登记，口子④；tests/test_supply_mount 两锚在库）
+                            for pair in [p for p in world.tow_pairs
+                                         if any(x is e for x in p.tower_elements)
+                                         or p.towed_element is e]:
+                                stop_tow(world, pair, TowStopReason.REPAIRED)
+        # 〔2026-10-16 卡车通修块·B 线——补给源维修（用户拍板：卡车装满物资部署、
+        # 卸下/装载物资、治疗维修地面单位之「维修」半边）。basics:203-204 锚「堆旁
+        # rearm+repaired＋修满移除 critical」——原实现堆/卡车无维修能力，四开关
+        # repair 位对补给源为空门；卡车身直修手册未载→manual_silent 登记面 GP-02
+        # §2.3。源=CARGO 元素 × supply_weight_g>0（卡车本体/卸货堆/空投箱同轨——
+        # 一池化口径扣重，区别于 A 线功率维修不耗池）；目标=supply_radius_cm 半径内
+        # 同队受损 MECH（含源单位自身——同队门内自然包含，manual 未载从简不排除）。
+        # 门序同构医疗分支：fix=MIN(缺口, 池//每HP耗重, 每拍限速)。〕
         for rep in rep_u.elements:
+            weight = rep.supply_weight_g or 0
+            if rep.mode is not Mode.CARGO or weight <= 0:
+                continue                                # 非装载态/未载/已耗尽（方案12 同判）
+            radius = rep_u.template.supply_radius_cm
             for tgt_u in world.units:
-                if tgt_u.team != rep_u.team:                # GAP-10 同队门（R-19 锚定己方）
+                if tgt_u.team != rep_u.team:                # GAP-10 同队门（同 A 线）
                     continue
                 for e in tgt_u.elements:
                     if e.template.unit_type is not UnitType.MECH:
                         continue
-                    if dist_cm(e.pos, rep.pos) > cfg.repair_radius_cm:
+                    if dist_cm(e.pos, rep.pos) > radius:
                         continue
                     if not (e.hp_current < e.template.hp_max or e.crit):
-                        continue                            # 方案7：crit 判空〔D071 口子④·恢复路径登记
-                        # 2026-10-07：crit 槽无生产者恒空=门恒走 hp 判（零行为差）；重启暴击时本门
-                        # 与下行 clear 原位即活——D016 修满清状态伤语义零改动〕
-                    e.hp_current = min(e.template.hp_max, e.hp_current + power)
+                        continue                            # 方案7/D071 口子④：与 A 线同判
+                    deficit = e.template.hp_max - e.hp_current
+                    fix = min(deficit, weight // cfg.repair_weight_per_hp_g,
+                              cfg.repair_hp_per_tick)
+                    e.hp_current += fix
+                    weight -= fix * cfg.repair_weight_per_hp_g
+                    rep.supply_weight_g = weight
                     if e.hp_current >= e.template.hp_max:
-                        e.crit.clear()                      # D016 修满清状态伤（D071 全拆后恒空 dict=
-                        # 无操作——原位保留=恢复路径登记，口子④；tests/test_supply_mount 两锚在库）
+                        e.crit.clear()                      # D016 修满清状态伤（口子④同 A 线）
                         for pair in [p for p in world.tow_pairs
                                      if any(x is e for x in p.tower_elements)
                                      or p.towed_element is e]:

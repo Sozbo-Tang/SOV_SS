@@ -86,9 +86,11 @@ def draw_top_bar(win) -> None:
         clock = "|| " + clock              # 暂停徽标并入计时（暂停零反馈 P2）
     if own is not None:
         oc = TEAM_COLORS.get(view, HUD_TEXT)
-        arcade.draw_lrbt_rectangle_filled(cx - 96 - text_width(
-            "%d" % own["points"], 15) - 14, cx - 96 - 4, y1 + 1, y1 + 11, oc)
-        arcade.draw_text("%d" % own["points"], cx - 96, y1, oc, 15,
+        # 己方点数块＝敌方镜像（数字左锚定界+色块贴右；原色块宽随 text_width
+        # 计量铺在数字左侧，字体度量稍宽即同色相叠——Windows 实测报告①：594
+        # 难以辨认。现固定 10px 色块贴 cx-96、数字右锚其左 6px，零计量依赖）
+        arcade.draw_lrbt_rectangle_filled(cx - 96 - 10, cx - 96, y1 + 1, y1 + 11, oc)
+        arcade.draw_text("%d" % own["points"], cx - 96 - 16, y1, oc, 15,
                          anchor_x="right")
     arcade.draw_text(clock, cx, y1, HUD_TEXT, 20, anchor_x="center")
     if foe is not None:

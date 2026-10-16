@@ -248,19 +248,23 @@ def layout_air_rail(win) -> None:
     panel_geom 据此动态让位（卡下探多深、面板就让多矮），两面板互不遮盖；
     每帧布局无条件重写（陈旧值不留）。标签经 fit_text 截宽 RAIL_W-8——
     「（在空N）/（冷却Ns）」后缀再长也不溢出轨道。〕"""
-    from .hud_top import fit_text
+    from .hud_top import fit_text, text_width as _tw
     y = win.height - TOP_H - 34
     top = y
     visible = _rail_visible_tabs(win)
     tab = rail_tab_of(win)
-    xi = 0
+    tx = MARGIN
     for tk, cn in _RAIL_TABS:                          # 页签行（仅可见类别）
         if tk not in visible:
             continue
-        win._buttons.append(Btn(MARGIN + xi * 30, y - 20, 28, 20,
+        # Windows 实测报告②：原 28px 定宽/30px 步距——「固定翼」三字 12px 实宽
+        # ~36px 居中溢出两侧、相邻页签叠字。现按实测宽+12px 内边距布局（下限
+        # 28px 保双字页签原观感），步距=宽+2
+        tw = max(28, _tw(cn, BTN_FONT) + 12)
+        win._buttons.append(Btn(tx, y - 20, tw, 20,
                                 "railtab_%s" % tk, cn,
                                 tone="focus" if tk == tab else "normal"))
-        xi += 1
+        tx += tw + 2
     y -= 46                                          # 页签带 y-20..y——卡片顶
     # 缘须低于页签带（首卡 yb=y-46 跨 y-46..y-22，与页签带零交——重叠会让
     # 首卡中心点击命中先布局的页签钮，toast/呼入吞事件）

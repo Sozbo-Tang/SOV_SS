@@ -209,11 +209,11 @@ def build_all(src: Path, out: Path) -> dict[str, Path]:
     out.mkdir(parents=True, exist_ok=True)
     lib_path = out / LIBRARY_JSON_NAME
     lib_path.write_text(bc.dump_stable_json(bc.library_to_json_dict(lib, prov_by_card)),
-                        encoding="utf-8")
+                        encoding="utf-8", newline="\n")
     written["library"] = lib_path
     air_path = out / AIR_JSON_NAME
     air_path.write_text(bc.dump_stable_json(air_library_to_json_dict(air)),
-                        encoding="utf-8")
+                        encoding="utf-8", newline="\n")
     written["air"] = air_path
     for deck_yaml in sorted((src / "decks").glob("*.yaml")):
         deck = build_deck(src, deck_yaml, lib)
@@ -221,7 +221,7 @@ def build_all(src: Path, out: Path) -> dict[str, Path]:
         deck_out.mkdir(parents=True, exist_ok=True)
         deck_path = deck_out / f"{deck.deck_key}.json"
         deck_path.write_text(bc.dump_stable_json(bc.deck_to_json_dict(deck)),
-                             encoding="utf-8")
+                             encoding="utf-8", newline="\n")
         written[f"deck/{deck.deck_key}"] = deck_path
     return written
 

@@ -882,7 +882,9 @@ class ReplayWriter:
         self.path = str(path)
         parent = os.path.dirname(os.path.abspath(self.path))
         os.makedirs(parent, exist_ok=True)
-        self._fh = open(self.path, "w", encoding="utf-8")
+        # newline="\n"：Windows text 模式缺省会把行末 \n 翻译成 \r\n——回放是
+        # 入库字节资产（实测报告⑤ CRLF 面），跨平台写出统一 LF
+        self._fh = open(self.path, "w", encoding="utf-8", newline="\n")
         header = {
             "rec": "header",
             "schema_version": SCHEMA_VERSION,
@@ -1063,8 +1065,12 @@ class Replayer:
         if self.world is None:
             raise ValueError("Replayer 会话未 open（先 open()/run()）")
 
-    def _step_one(self):
-        """游标拍 → 下一拍：施放入队令→world_tick→核对校验和→记检查点。"""
+    def _step_one(self, *, verify: bool = True):
+        """游标拍 → 下一拍：施放入队令→world_tick→（verify=）核对校验和→记检查点。
+
+        verify=False 跳过校验和比对（tick 错位门恒在）——仅供 seek 前进段抽稀
+        （见 advance：非检查点拍跳核，仿真一旦漂移必在下一个 600 拍检查点暴露）。
+        """
         for _pi, wire_dict in self.commands.get(self.cursor, ()):
             queue_command(self.world, decode_command(self.world, wire_dict))
         world_tick(self.world)
@@ -1072,36 +1078,48 @@ class Replayer:
         if self.world.tick != self.cursor:
             raise ValueError("tick 错位：重放 %d vs 记录 %d"
                              % (self.world.tick, self.cursor))
-        got = state_checksum(self.world)
-        want = self.checksums[self.cursor]
-        if got != want:
-            raise ValueError("tick %d 校验和不一致：重放 %d ≠ 记录 %d"
-                             "（回放损坏或仿真非确定）" % (self.cursor, got, want))
+        if verify:
+            got = state_checksum(self.world)
+            want = self.checksums[self.cursor]
+            if got != want:
+                raise ValueError("tick %d 校验和不一致：重放 %d ≠ 记录 %d"
+                                 "（回放损坏或仿真非确定）" % (self.cursor, got, want))
         if (self.cursor % CHECKPOINT_EVERY == 0
                 and self.cursor not in self._checkpoints):
             # deepcopy 快照：模板/元素/武器态/弹丸/PCG32 内部 state 全图拷贝
             self._checkpoints[self.cursor] = copy.deepcopy(self.world)
 
-    def advance(self, target: int, *, on_tick=None) -> int:
+    def advance(self, target: int, *, on_tick=None, verify_every: int = 1) -> int:
         """现场逐 tick 推进到目标拍（含端点；夹取 [0, 末拍]），返回到达拍。
 
-        推进即校验：途经每拍都核对校验和（增量与会话=同一确定性重放，不因
-        分段而放宽）。on_tick(world) 每拍回调（观战器逐拍产状态帧的钩子位）。
+        推进即校验：verify_every=1（缺省）途经每拍都核对校验和（run()/CI smoke
+        与增量会话=同一确定性重放，不因分段而放宽）；verify_every>1 时仅核对
+        到达拍为 verify_every 倍数或目标拍的步（seek 交互观战预算用——冷 seek
+        全程逐拍校验曾占 46% 耗时，Windows 实测超 5s 验收线；抽稀后漂移仍在
+        下一个检查点拍必被抓，到达拍恒核对）。on_tick(world) 每拍回调（观战器
+        逐拍产状态帧的钩子位）。
         """
         self._require_session()
         target = max(0, min(int(target), self.ticks[-1]))
         while self.cursor < target:
-            self._step_one()
+            self._step_one(verify=(verify_every <= 1
+                                   or (self.cursor + 1) % verify_every == 0
+                                   or self.cursor + 1 >= target))
             if on_tick is not None:
                 on_tick(self.world)
         return self.cursor
 
     def seek(self, target: int, *, on_tick=None) -> int:
-        """任意方向定位到目标拍（回退=最近检查点重放推导；前进=advance）。"""
+        """任意方向定位到目标拍（回退=最近检查点重放推导；前进=advance）。
+
+        前进段校验抽稀至检查点拍+目标拍（advance(verify_every=CHECKPOINT_EVERY)
+        ——观战预算，见 advance 注；回退恢复段照常逐拍核对校验和）。
+        """
         self._require_session()
         target = max(0, min(int(target), self.ticks[-1]))
         if target >= self.cursor:
-            return self.advance(target, on_tick=on_tick)
+            return self.advance(target, on_tick=on_tick,
+                                verify_every=CHECKPOINT_EVERY)
         # 回退：取 ≤target 的最近检查点恢复（快照可丢弃重建——恢复段逐拍校验）
         base = max(t for t in self._checkpoints if t <= target)
         snap = self._checkpoints[base]

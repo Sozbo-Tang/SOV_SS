@@ -1,0 +1,9 @@
+# 换行约定（Windows 实测报告⑤ 2026-10-16：core.autocrlf=true 检出把 CSV/YAML
+# 变 CRLF，构建器按原始字节算源哈希与库内 LF 哈希不符 → 三项数据验收红）。
+# 源文件（字节级参与源指纹/rebuild 比对）与生成物（构建器显式 newline="\n"
+# 写出）统一检出为 LF，跨平台字节一致。仅关 autocrlf 不够——写出侧已在
+# build_yaml/build_cards/build_map/deck_editor/keybinds/ReplayWriter 全部落
+# newline="\n"。Windows 已有克隆需 `git rm -r --cached . && git checkout` 重检出。
+*.csv text eol=lf
+data/yaml/** text eol=lf
+data/gen/** text eol=lf

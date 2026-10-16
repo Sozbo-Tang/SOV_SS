@@ -245,6 +245,17 @@ SPEC_MANUAL_SILENT: tuple[tuple[str, str, str], ...] = (
      "HAS_SUPPLY 卡 spawn_step 出场即满载（mode=CARGO＋supply_weight_g=舱位"
      "上限，「max 档」同语义——rounds=cap≤舱位门/medical=0/重量 min()≤载重闸）；"
      "行为锚=test_support_commands.test_su_truck_purchase_spawns_full_cargo"),
+    # ── 卡车通修块（2026-10-16，用户拍板「卡车装满物资部署、卸下/装载物资、
+    #    治疗维修地面单位」——维修半边落地）──
+    ("补给卡车（无键）", "manual_silent/补给源维修载具",
+     "basics.txt:203-204 锚堆旁「rearmed and repaired＋修满移除 critical」——堆"
+     "半边为手册直锚复刻（原实现维修仅 A 线功率=救援车专属，四开关 repair 位对"
+     "卡车/堆为空门）；卡车身直修手册未载→用户拍板：B 线补给源维修（源=CARGO×"
+     "supply_weight_g>0 元素=卡车/卸货堆/空投箱，×supply_radius_cm 内同队受损"
+     "MECH，fix=MIN(缺口, 池//1g/HP, 2HP/tick) 扣重、修满清 crit+解拖、源单位"
+     "自修从简不排除）；两常数 repair_weight_per_hp_g/repair_hp_per_tick=占位"
+     "（tables.py 后勤段，数值章节定标）；行为锚=test_supply_mount."
+     "TestSupplySourceRepair 六锚"),
 )
 
 MANUAL_SPEC: tuple[tuple[str, str, str], ...] = (SPEC_DONE + SPEC_DEFERRED
@@ -485,22 +496,23 @@ class _SpyCmd:
 # ════════════════════════════════════════════════════════════════════
 
 class TestSpecRegistry(unittest.TestCase):
-    """规格分区在册：39 done／6 deferred／19 manual_silent／1 deviated（终审修复块
+    """规格分区在册：39 done／6 deferred／20 manual_silent／1 deviated（终审修复块
     2026-10-13：crit 入 done 46→47＋走样分区 +2→49；复审第 2 轮同日：锚行号勘正
     ＋manual_silent +5〔占位定标四项＋补给计价〕→54；B1-B4 修复块同日第三批：
     +ALT LOS 补册 deferred 5→6→55，manual_silent +6〔修复块拍板留痕〕→61；探测
     增量块 2026-10-14：basics 掩体减半/已发现暴露 +2 done→63；设置改键块同日：
     #38 改键翻面 deviated→done；空袭按用计费块同日：manual_silent +1〔炸弹按用
     计价〕→64〔39/6/18/1〕；六条修正块 2026-10-15：manual_silent +1〔补给卡车
-    出场满载〕→65〔39/6/19/1〕），零重名。"""
+    出场满载〕→65〔39/6/19/1〕；卡车通修块 2026-10-16：manual_silent +1〔补给源
+    维修载具〕→66〔39/6/20/1〕），零重名。"""
 
     def test_registry_partition_and_count(self):
-        self.assertEqual(len(MANUAL_SPEC), 65)              # 64＋补给卡车出场满载 manual_silent＝65
+        self.assertEqual(len(MANUAL_SPEC), 66)              # 65＋补给源维修载具 manual_silent＝66
         names = [n for _k, n, _r in MANUAL_SPEC]
         self.assertEqual(len(names), len(set(names)))       # 零重名（防增删互抵）
         self.assertEqual((len(SPEC_DONE), len(SPEC_DEFERRED),
                           len(SPEC_MANUAL_SILENT), len(SPEC_DEVIATED)),
-                         (39, 6, 19, 1))
+                         (39, 6, 20, 1))
 
     def test_deviated_registered_verbatim(self):
         # 防静默蒸发：走样分区逐名在册（题材/范围硬冲突显式登记——增删任一即红；
@@ -544,7 +556,9 @@ class TestSpecRegistry(unittest.TestCase):
              # ── 空袭按用计费块（2026-10-14）──
              "manual_silent/炸弹按用计价",
              # ── 六条修正块（2026-10-15·问题2）──
-             "manual_silent/补给卡车出场满载"})
+             "manual_silent/补给卡车出场满载",
+             # ── 卡车通修块（2026-10-16）──
+             "manual_silent/补给源维修载具"})
 
 
 # ════════════════════════════════════════════════════════════════════

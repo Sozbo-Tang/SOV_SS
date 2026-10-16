@@ -370,7 +370,7 @@ def build_map(data_dir: Path, out_dir: Path) -> Path:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / MAP_JSON_NAME
-    out.write_text(dump_stable_json(doc), encoding="utf-8")
+    out.write_text(dump_stable_json(doc), encoding="utf-8", newline="\n")
     return out
 
 

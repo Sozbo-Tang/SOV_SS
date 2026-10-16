@@ -99,12 +99,18 @@ def draw_deck_edit_page(win) -> None:
     rename = state.get("renaming")
     key_disp = (state["deck_key"] + "▏" + state.get("rename_key", "")
                 if rename else state["deck_key"])
-    arcade.draw_text("卡组编辑器：%s（%s）" % (key_disp, state.get("faction", "?")),
-                     win.width / 2, top - 30, ORDER_ARMED, 18, anchor_x="center")
+    # 主标题下移出类别页签带（原 top-30 与页签 y 带 710..736 重合——长 deck_key
+    # 居中后左端被页签挡住，Windows 实测报告③），并 fit_text 限宽 420：居中区
+    # 不侵入左栏页签/右栏汇总标题带；改名提示随下移至其下 22px（与中栏首卡
+    # 行同带但 x 区分离——fit 370 同理不溢）
+    arcade.draw_text(fit_text("卡组编辑器：%s（%s）" % (key_disp,
+                                                     state.get("faction", "?")),
+                              420, 18),
+                     win.width / 2, top - 56, ORDER_ARMED, 18, anchor_x="center")
     if rename:
-        arcade.draw_text("改名字态：输入字符+退格编辑，再点『改名』确认"
-                         "（小写字母/数字/下划线）", win.width / 2, top - 52,
-                         HUD_TEXT, 11, anchor_x="center")
+        arcade.draw_text(fit_text("改名字态：输入字符+退格编辑，再点『改名』确认"
+                                  "（小写字母/数字/下划线）", 370, 11),
+                         win.width / 2, top - 78, HUD_TEXT, 11, anchor_x="center")
     catalog = getattr(win, "_deck_catalog", ()) or ()
     by_key = {c["card_key"]: c for c in catalog}
     # 左栏：类别页签标题
@@ -117,7 +123,10 @@ def draw_deck_edit_page(win) -> None:
     summary = state.get("summary") or {}
     sx = win.width - 300
     arcade.draw_text("当前卡组（±调份数）", sx, top - 56, HUD_TEXT, 12)
-    y = win.height - TOP_H - 54
+    # 汇总行基线=layout ±按钮 yb+2（原 draw 起点 -54 比 layout -78 高 24px——
+    # 文字逐行压上一排按钮、「当前卡组」标题压首行卡名，Windows 实测报告③；
+    # 统一后行对齐按钮内、点数条顺延自然落最后一排按钮下方）
+    y = win.height - TOP_H - 76
     for card_key, n in list(state.get("cards", ()))[:_MAX_SUM_ROWS]:
         c = by_key.get(card_key, {})
         # B1 修复块：汇总行截宽（长卡名「…」收尾——右缘不溢 1280 屏）
@@ -150,11 +159,13 @@ def draw_deck_edit_page(win) -> None:
     for i, err in enumerate((state.get("errors") or [])[:4]):
         arcade.draw_text("✗ %s" % err[:86], MARGIN + 130, 66 - i * 18,
                          DECK_BAD, 11)
+    # 页脚两行上移出动作按钮带（原 y=44/30——「Deck Code」行 30 落进按钮带
+    # 12..38 被覆盖，Windows 实测报告③；现 54/40 与按钮顶 38 保持 2px 分离）
     arcade.draw_text("航空卡不入卡组（独立 %d 空点数池，D038 方案A）；保存=写 "
                      "data/yaml/decks → 就地编译 data/gen/decks → config 页即时可选"
-                     % 750, MARGIN + 4, MARGIN + 34, HUD_TEXT, 10)
+                     % 750, MARGIN + 4, MARGIN + 44, HUD_TEXT, 10)
     arcade.draw_text("Deck Code 分享码后置（本地文件互换=分享面）", MARGIN + 4,
-                     MARGIN + 20, (150, 150, 150, 255), 10)
+                     MARGIN + 30, (150, 150, 150, 255), 10)
     for btn in win._buttons:
         if btn.key.startswith("dk_"):
             draw_button(btn)

@@ -248,6 +248,12 @@ class BalanceConfig:
     ammo_resupply_per_tick: int = 2      # 每拍每武器可转运发数（发数限速；重量只管池耗——
                                          # 重弹吃池快，转运节奏由本常数统一定）
     repair_radius_cm: int = 3000
+    repair_weight_per_hp_g: int = 1     # 每 1 HP 维修消耗补给重量 g（2026-10-16 卡车通修块：
+                                        # basics:203-204 仅载堆旁「repaired」未给数值——
+                                        # 与 med_weight_per_hp_g 同标占位，数值章节定标）
+    repair_hp_per_tick: int = 2         # 每拍每元素补给源维修 HP 上限（manual 未载——照
+                                        # repair_power_hp_per_tick=2 救援车同速占位；补给源
+                                        # 线与功率线区别在耗池：前者扣 supply_weight_g）
     vehicle_death_crew_permille: int = 400  # R-07 车载被毁班剩 40% 血（§D.0；GAP-07）
     mount_time_ticks: int = 200             # R-07 上车 20s（GAP-07）
 

@@ -72,6 +72,20 @@ class TestReplaySeek(unittest.TestCase):
         elapsed = time.perf_counter() - t0
         self.assertLess(elapsed, 5.0, "seek 超 5s 验收预算：%.2fs" % elapsed)
 
+    def test_seek_sparse_forward_still_gates_arrival(self):
+        # 〔Windows 实测报告④ 2026-10-16：seek 前进段校验抽稀至检查点拍+目标拍
+        #  （advance verify_every=CHECKPOINT_EVERY）——到达拍校验门恒活：篡改
+        #  目标拍记录值必抛；run() 仍逐拍全核（缺省 verify_every=1）〕
+        rep = self._open()
+        last = rep.ticks[-1]
+        good = rep.checksums[last]
+        rep.checksums[last] = good ^ 1         # 破坏目标拍记录值
+        with self.assertRaises(ValueError):
+            rep.seek(last)
+        rep.checksums[last] = good             # 复原后同路径到达且值等
+        rep.seek(last)
+        self.assertEqual(state_checksum(rep.world), rep.checksums[last])
+
     def test_run_is_reentrant_after_incremental_use(self):
         rep = self._open()
         rep.advance(300)
