@@ -10,9 +10,12 @@ git clone --branch demo-bagration-v1 --depth 1 \
 cd SOV_SS
 ```
 
-不想用 git：打开
-`https://github.com/Sozbo-Tang/SOV_SS/releases/tag/demo-bagration-v1`
-下载 Source code (zip) 解压。
+不想用 git：直接下载 tag 压缩包：
+
+`https://github.com/Sozbo-Tang/SOV_SS/archive/refs/tags/demo-bagration-v1.zip`
+
+或在 GitHub 打开 tag：
+`https://github.com/Sozbo-Tang/SOV_SS/tree/demo-bagration-v1`
 
 ## 2. 安装（Python 3.13）
 
@@ -27,9 +30,15 @@ pip install -e ".[fe]"
 ## 3. 启动
 
 ```bash
-./demo.sh                    # 1600x900，主菜单
-./demo.sh --size 1280x800    # 小窗
+./demo.sh                    # macOS/Linux：1600x900，主菜单
+./demo.sh --size 1280x800
 ./demo.sh --smoke            # 无头自动跑一局，先确认环境
+```
+
+Windows 用：
+
+```bat
+python tools\skirmish_shell.py --size 1600x900
 ```
 
 `--smoke` 末尾应出现 `OK ... 标准玩法剧本全绿`。
