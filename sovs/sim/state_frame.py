@@ -126,6 +126,9 @@ def _unit_entry(u, view: int | None) -> dict:
     own = view is None or u.team == view
     entry = {
         "id": u.id,
+        # FE-05 F1 加键不 bump（2026-10-17）：template_id——战场逐卡贴图渲染
+        # 的查询键（sovs/ui/unit_render 经 asset_index 反查；旧消费者忽略即可）
+        "template_id": u.template.template_id,
         "team": u.team,
         "category": int(u.template.category),        # 0 侦察/1 步兵/2 装甲/3 火支/4 防空后勤
         "name": u.template.name,

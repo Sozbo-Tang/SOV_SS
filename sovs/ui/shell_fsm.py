@@ -178,7 +178,10 @@ class ShellFsm:
 
     def __init__(self, *, deploy_ticks: int = DEPLOY_TICKS_IMPL):
         self.deploy_ticks = int(deploy_ticks)
-        self.page = "config"            # config|deck_edit|settings|deploy|battle|settle
+        self.page = "config"            # menu|config|deck_edit|settings|deploy|battle|settle
+                                        # （menu=FE-05 F7 主菜单——__init__ 默认仍
+                                        # config：既有测试/门禁零扰动；menu 由
+                                        # open_menu 显式进入）
         # 战前配置态（config 页可改；start_deploy 后冻结为本局配置）
         self.deck_key = "su_min"        # 卡组键（data/gen/decks 下任意——编辑器产出即时可选）
         self.kev_level = "rule"         # KEV 档位：rule=规则兜底（缺省零依赖）|local=0.5B
@@ -204,10 +207,29 @@ class ShellFsm:
                                 "salvo": "FULL", "creep_idx": 0}
         # ── GP-01 §7 deck_edit 编辑器页态（后端数据经 sovs/app/deck_editor 注入）──
         self.deck_edit: dict | None = None
+        self.menu_tab: str = "HOME"     # F7 主菜单页签态（open_menu 重置）
         # 引擎拒绝已播去重环（(tick, cmd, ref_id) FIFO）
         self._seen_rej: list[tuple] = []
 
     # ── 页面迁移 ──
+
+    def open_menu(self) -> None:
+        """FE-05 F7 主菜单页（断箭式 HOME/PLAY/ARSENAL/SETTINGS 左列页签）。
+        menu_tab=窗口层点选态（缺省 HOME）。"""
+        self.page = "menu"
+        self.menu_tab = "HOME"
+
+    def close_menu(self) -> None:
+        """menu→config（ESC 分层链外的显式返回口——与 open_config 同向）。"""
+        assert self.page == "menu", "主菜单页未开（当前 %s）" % self.page
+        self.page = "config"
+
+    def open_config(self) -> None:
+        """menu→config（页签「单人遭遇战/遭遇战」入口——config 页保持唯一
+        起局门，settings/deck_edit 的入页断言不动）。"""
+        assert self.page == "menu", "config 只允许自 menu 页进入（当前 %s）" \
+            % self.page
+        self.page = "config"
 
     def start_deploy(self) -> None:
         """config→deploy（唯一入口；游戏内页不允许——防中途重开丢局）。"""
@@ -220,7 +242,7 @@ class ShellFsm:
 
         config/deck_edit/settle 页不吃帧（尚无世界/停驻）。
         """
-        if self.page in ("config", "deck_edit", "settings", "settle"):
+        if self.page in ("config", "deck_edit", "settings", "settle", "menu"):
             return
         self.frame = frame
         phase = frame.get("phase")
@@ -655,7 +677,7 @@ class ShellFsm:
             self.cancel_exit_confirm()            # 任意键先撤销退出确认
         if self.page == "settle":
             return None                           # 本页无命令通道（拦而静默）
-        if self.page in ("config", "deck_edit", "settings"):
+        if self.page in ("config", "deck_edit", "settings", "menu"):
             if name in COMBAT_KEYS or name == "TAB":
                 self.notify("编辑器页无战斗令（ESC 返回）" if self.page == "deck_edit"
                             else "战斗令在部署/实战页可用", tone="error")

@@ -15,16 +15,75 @@ from __future__ import annotations
 
 import arcade
 
-from .hud_bottom import Btn, draw_button  # noqa: E402（按钮原语共享）
+from . import assets, page_fit
+from .hud_bottom import Btn, draw_button, draw_thumb_button  # noqa: E402
 from .hud_top import fit_text  # noqa: E402（B1 提升共享——汇总行/卡组钮截宽）
 from .palette import (BTN_FONT, DECK_BAD, DECK_OK, HUD_PANEL,  # noqa: E402
-                      HUD_TEXT, MARGIN, ORDER_ARMED, TOP_H)
+                      HUD_TEXT, MARGIN, ORDER_ARMED, ORDER_TEXT, TOP_H)
 
 _TAB_CN = {"RECON": "侦察", "INFANTRY": "步兵", "ARMOR": "装甲",
            "FIRE_SUPPORT": "火力支援", "AA_LOGISTICS": "防空后勤"}
 _POOL_CN = {"MAIN": "主力", "RESERVE": "预备队"}
 _MAX_POOL_ROWS = 11                  # 中栏卡池行上限（不滚动——类目页签分流）
 _MAX_SUM_ROWS = 12                   # 右栏汇总行上限
+
+# F5 卡池缩略图：类别 → card_frame_<cat> 皮肤名（缺图回退现描边）
+_CAT_FRAME = {"RECON": "card_frame_recon", "INFANTRY": "card_frame_infantry",
+              "ARMOR": "card_frame_armor",
+              "FIRE_SUPPORT": "card_frame_firesupport",
+              "AA_LOGISTICS": "card_frame_aa_logistics",
+              "COMMAND": "card_frame_command"}
+_THUMB_PX = 24                       # 卡池行内缩略图边长（px——R1：40px 行外
+                                      # 缩略图压「卡池」标题，改行内左端 24×24）
+
+
+def deck_thumb_rect(btn):
+    """卡池行缩略图矩形 (x0,y0,x1,y1)：**行内左端** 24×24 垂直居中于行
+    （R1：原 btn.x0-46 行外放置上溢压标题——行内化后与标题/面板边框零重叠；
+    纯几何，测试锚定；命中矩形不变）。"""
+    cy = (btn.yb + btn.yt) / 2
+    return (btn.x0 + 2, cy - _THUMB_PX / 2,
+            btn.x0 + 2 + _THUMB_PX, cy + _THUMB_PX / 2)
+
+
+def pool_title_rect(win):
+    """卡池标题带 (x0,y0,x1,y1)（「卡池（…）」12px 文字带 688..700 ±容差——
+    R1 与缩略图零重叠断言的对照矩形；R4：设计画布 y 量纲）。"""
+    top = page_fit.DESIGN_H - TOP_H
+    return (MARGIN + 124, top - 58, MARGIN + 450, top - 42)
+
+
+def _draw_pool_thumbnails(win, state) -> None:
+    """卡池行缩略图（F5/R1）：行内左端 24×24 贴图＋类别卡框（在卡组内的卡
+    用 _selected 框）；缺图/缺框回退（无框=现描边矢量）。标签由
+    draw_thumb_button 左对齐自缩略图右侧起（与按钮循环同口径）。"""
+    catalog = getattr(win, "_deck_catalog", ()) or ()
+    by_key = {c["card_key"]: c for c in catalog}
+    copies = dict(state.get("cards", ()))
+    for btn in win._buttons:
+        if not btn.key.startswith("dk_add_"):
+            continue
+        c = by_key.get(btn.key[7:])
+        if c is None:
+            continue
+        rect = deck_thumb_rect(btn)
+        frame_name = _CAT_FRAME.get(c.get("category"))
+        if frame_name:
+            frame = assets.ui_tex(frame_name + ("_selected"
+                                                if copies.get(c["card_key"], 0)
+                                                else ""))
+            if frame is not None:
+                assets.draw_nine_patch(rect, frame)
+            else:
+                arcade.draw_lrbt_rectangle_outline(rect[0], rect[2],
+                                                   rect[1], rect[3],
+                                                   ORDER_TEXT, 1)
+        tex = assets.unit_tex(c["card_key"])
+        if tex is not None:
+            arcade.draw_texture_rect(
+                tex, arcade.XYWH((rect[0] + rect[2]) / 2,
+                                 (rect[1] + rect[3]) / 2, _THUMB_PX - 6,
+                                 _THUMB_PX - 6))
 
 
 def _tab_order(win) -> list[str]:
@@ -43,7 +102,7 @@ def layout_deck_edit_page(win) -> None:
     catalog = [c for c in (getattr(win, "_deck_catalog", ()) or ())
                if c["faction"] == state.get("faction")]
     tabs = _tab_order(win)
-    x, y = MARGIN, win.height - TOP_H - 34
+    x, y = MARGIN, page_fit.DESIGN_H - TOP_H - 34
     for tab in tabs:
         label = _TAB_CN.get(tab, tab)
         win._buttons.append(Btn(x, y, 92, 26, "dk_tab_%s" % tab, label,
@@ -51,8 +110,10 @@ def layout_deck_edit_page(win) -> None:
                                 else "normal"))
         x += 96
     # 中栏卡池（当前页签×阵营过滤；限份用尽=灰）
+    # 〔R1：行区自 top-78 下移 6px → top-84——行内 24px 缩略图上缘与
+    # 「卡池」标题带（top-56 12px 文字）保 4px 净距，零重叠。〕
     copies = dict(state.get("cards", ()))
-    y = win.height - TOP_H - 78
+    y = page_fit.DESIGN_H - TOP_H - 84
     shown = 0
     for c in catalog:
         if c["category"] != state.get("tab"):
@@ -70,11 +131,11 @@ def layout_deck_edit_page(win) -> None:
         shown += 1
     # 右栏汇总（±调份数）
     summary = state.get("summary") or {}
-    y = win.height - TOP_H - 78
+    y = page_fit.DESIGN_H - TOP_H - 78
     for card_key, n in list(state.get("cards", ()))[:_MAX_SUM_ROWS]:
-        win._buttons.append(Btn(win.width - 300, y, 24, 22, "dk_dec_%s"
+        win._buttons.append(Btn(page_fit.DESIGN_W - 300, y, 24, 22, "dk_dec_%s"
                                 % card_key, "－"))
-        win._buttons.append(Btn(win.width - 272, y, 24, 22, "dk_inc_%s"
+        win._buttons.append(Btn(page_fit.DESIGN_W - 272, y, 24, 22, "dk_inc_%s"
                                 % card_key, "＋"))
         y -= 26
     # 底部动作行
@@ -89,13 +150,27 @@ def layout_deck_edit_page(win) -> None:
         x += w + 8
 
 
+def draw_deck_background(win) -> None:
+    """编辑器页整页背景（R4：相机外整窗 cover——letterbox 区填满）。"""
+    bg = assets.bg_tex("bg_deck_editor")
+    if bg is not None:
+        arcade.draw_texture_rect(bg, arcade.XYWH(win.width / 2,
+                                                 win.height / 2,
+                                                 win.width, win.height))
+
+
 def draw_deck_edit_page(win) -> None:
     fsm = win.fsm
     state = fsm.deck_edit or {}
     if not state:
         return
-    top = win.height - TOP_H
-    arcade.draw_lrbt_rectangle_filled(0, win.width, 0, top, HUD_PANEL)
+    top = page_fit.DESIGN_H - TOP_H          # R4：设计画布 y 量纲
+    if assets.bg_tex("bg_deck_editor") is None:   # 缺背景回退纯色面板底（原口径）
+        arcade.draw_lrbt_rectangle_filled(0, page_fit.DESIGN_W, 0, top,
+                                          HUD_PANEL)
+    # F8：中栏卡池面板底（panel_deck_pool——x=MARGIN+130..+430 带标题到页脚）
+    assets.skin_fill((MARGIN + 122, MARGIN + 4, MARGIN + 438, top - 60),
+                     "panel_deck_pool", (0, 0, 0, 0))
     rename = state.get("renaming")
     key_disp = (state["deck_key"] + "▏" + state.get("rename_key", "")
                 if rename else state["deck_key"])
@@ -106,11 +181,13 @@ def draw_deck_edit_page(win) -> None:
     arcade.draw_text(fit_text("卡组编辑器：%s（%s）" % (key_disp,
                                                      state.get("faction", "?")),
                               420, 18),
-                     win.width / 2, top - 56, ORDER_ARMED, 18, anchor_x="center")
+                     page_fit.DESIGN_W / 2, top - 56, ORDER_ARMED, 18,
+                     anchor_x="center")
     if rename:
         arcade.draw_text(fit_text("改名字态：输入字符+退格编辑，再点『改名』确认"
                                   "（小写字母/数字/下划线）", 370, 11),
-                         win.width / 2, top - 78, HUD_TEXT, 11, anchor_x="center")
+                         page_fit.DESIGN_W / 2, top - 78, HUD_TEXT, 11,
+                         anchor_x="center")
     catalog = getattr(win, "_deck_catalog", ()) or ()
     by_key = {c["card_key"]: c for c in catalog}
     # 左栏：类别页签标题
@@ -121,18 +198,18 @@ def draw_deck_edit_page(win) -> None:
                      MARGIN + 130, top - 56, HUD_TEXT, 12)
     # 右栏：汇总
     summary = state.get("summary") or {}
-    sx = win.width - 300
+    sx = page_fit.DESIGN_W - 300
     arcade.draw_text("当前卡组（±调份数）", sx, top - 56, HUD_TEXT, 12)
     # 汇总行基线=layout ±按钮 yb+2（原 draw 起点 -54 比 layout -78 高 24px——
     # 文字逐行压上一排按钮、「当前卡组」标题压首行卡名，Windows 实测报告③；
     # 统一后行对齐按钮内、点数条顺延自然落最后一排按钮下方）
-    y = win.height - TOP_H - 76
+    y = page_fit.DESIGN_H - TOP_H - 76
     for card_key, n in list(state.get("cards", ()))[:_MAX_SUM_ROWS]:
         c = by_key.get(card_key, {})
         # B1 修复块：汇总行截宽（长卡名「…」收尾——右缘不溢 1280 屏）
         arcade.draw_text(fit_text("· %s ×%d（%d分）" % (c.get("name", card_key),
                                                       n, c.get("cost", 0) * n),
-                                  win.width - (sx + 56) - MARGIN - 8, 11),
+                                  page_fit.DESIGN_W - (sx + 56) - MARGIN - 8, 11),
                          sx + 56, y, HUD_TEXT, 11)
         y -= 26
     # 点数条/配额条
@@ -167,8 +244,15 @@ def draw_deck_edit_page(win) -> None:
     arcade.draw_text("Deck Code 分享码后置（本地文件互换=分享面）", MARGIN + 4,
                      MARGIN + 30, (150, 150, 150, 255), 10)
     for btn in win._buttons:
-        if btn.key.startswith("dk_"):
+        if btn.key.startswith("dk_add_"):
+            # R1：卡池行走缩略图按钮（底板＋行内左端缩略图＋标签左对齐自
+            # 缩略图右侧 6px 起——原居中标签会压行内缩略图）
+            c = by_key.get(btn.key[7:])
+            draw_thumb_button(btn, assets.unit_tex(c["card_key"])
+                              if c else None, thumb=_THUMB_PX)
+        elif btn.key.startswith("dk_"):
             draw_button(btn)
+    _draw_pool_thumbnails(win, state)          # F5/R1：行内 24×24 缩略图+卡框
 
 
 def handle_config_click(win, x, y) -> None:
@@ -197,8 +281,9 @@ def handle_config_click(win, x, y) -> None:
 # ── 战前配置页（config——GP-01 §5.2 拆分自 shell_window；编辑器入口在本页）──
 
 def layout_config_page(win) -> None:
-    """config 页命中域：卡组清单（session.deck_list 泛化）/编辑卡组入口/KEV 档/开始。"""
-    cx = win.width / 2
+    """config 页命中域：卡组清单（session.deck_list 泛化）/编辑卡组入口/KEV 档/开始。
+    （R4：设计画布坐标。）"""
+    cx = page_fit.DESIGN_W / 2
     decks = win.session.deck_list()[:6]
     x, y = cx - 330, 430
     for key in decks:
@@ -218,13 +303,34 @@ def layout_config_page(win) -> None:
     win._buttons.append(Btn(cx - 110, 190, 220, 52, "start", "开始部署（Enter）"))
 
 
+def draw_config_background(win) -> None:
+    """config 页整页背景（R4：相机外整窗 cover——缺资产即不铺，原口径）。"""
+    bg = assets.bg_tex("bg_config")
+    if bg is not None:
+        arcade.draw_texture_rect(bg, arcade.XYWH(win.width / 2,
+                                                 win.height / 2,
+                                                 win.width, win.height))
+
+
 def draw_config_page(win) -> None:
     fsm = win.fsm
-    cx = win.width / 2
-    arcade.draw_text("SOV_SS 遭遇战 · 战前配置", cx, win.height - 110,
+    cx = page_fit.DESIGN_W / 2                  # R4：设计画布中心
+    # R5：场景行+简报（场景缺失回退旧「地图：2km 演示图」行——测试兼容）
+    info = getattr(win.session, "scenario_info", lambda: None)()
+    if info:
+        arcade.draw_text(
+            fit_text("场景：%s｜%s｜%s" % (info["name"], info.get("subtitle", ""),
+                                       info["scenario_key"]),
+                     page_fit.DESIGN_W - 80, 14),
+            cx, 496, HUD_TEXT, 14, anchor_x="center")
+        for i, line in enumerate(info["briefing"][:3]):   # 简报 3 行（标题下方）
+            arcade.draw_text(fit_text(line, page_fit.DESIGN_W - 120, 12),
+                             cx, 650 - i * 20, HUD_TEXT, 12, anchor_x="center")
+    else:
+        arcade.draw_text("地图：2km 演示图 map_demo_2km.v1（唯一现役·固定）",
+                         cx, 496, HUD_TEXT, 14, anchor_x="center")
+    arcade.draw_text("SOV_SS 遭遇战 · 战前配置", cx, page_fit.DESIGN_H - 110,
                      HUD_TEXT, 30, anchor_x="center")
-    arcade.draw_text("地图：2km 演示图 map_demo_2km.v1（唯一现役·固定）",
-                     cx, 496, HUD_TEXT, 14, anchor_x="center")
     arcade.draw_text("对手：KEV（0.5B 本地=MPS 失败自动回退规则兜底）",
                      cx, 474, HUD_TEXT, 12, anchor_x="center")
     cards = win.session.deck_info(fsm.deck_key)
@@ -237,7 +343,14 @@ def draw_config_page(win) -> None:
         armed = (btn.key == "deck:" + fsm.deck_key
                  or (btn.key == "kev_rule" and fsm.kev_level == "rule")
                  or (btn.key == "kev_local" and fsm.kev_level == "local"))
-        draw_button(btn, armed=armed)
+        if btn.key == "start" and assets.ui_tex("btn_primary") is not None:
+            # F5：主按钮 btn_primary 皮肤（缺图回退 draw_button 纯色）
+            assets.draw_nine_patch((btn.x0, btn.yb, btn.x1, btn.yt),
+                                   assets.ui_tex("btn_primary"))
+            arcade.draw_text(btn.label, (btn.x0 + btn.x1) / 2, btn.yb + 18,
+                             ORDER_TEXT, 16, anchor_x="center")
+        else:
+            draw_button(btn, armed=armed)
     arcade.draw_text("开始后：60s 盲部署（600t）→ 实战 → 结算",
                      cx, 120, HUD_TEXT, 13, anchor_x="center")
     x0, y0 = 24, 300
@@ -256,7 +369,8 @@ def draw_config_page(win) -> None:
     x0, y0 = 24, 118
     arcade.draw_text("胜利裁决（D031 三级）", x0, y0, ORDER_ARMED, 13)
     for i, r in enumerate(("第一级：占点分", "第二级：剩余单位分值",
-                           "第三级：剩余总血量", "目标：中央占点（2km 图心）")):
+                           "第三级：剩余总血量",
+                           "目标：夺取三处要点（村庄/十字路口/集体农庄）")):
         arcade.draw_text("· " + r, x0, y0 - 20 - i * 18, HUD_TEXT, 12)
 
 

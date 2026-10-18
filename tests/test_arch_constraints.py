@@ -38,7 +38,10 @@ _UI_SIM_BANNED_MODULES = ("viewer_window", "shell_window", "timeline",
                           "hud_top", "hud_bottom", "minimap", "scene",
                           "selection_panel", "fm_panel", "deck_editor_page",
                           "order_filter", "order_icons",
-                          "keybinds", "settings_page")
+                          "keybinds", "settings_page",
+                          # ── FE-05 贴图接线轮（2026-10-17）──
+                          "assets", "unit_render", "nameplate", "unit_card",
+                          "los_overlay", "menu_page", "cursor", "page_fit")
 
 
 def _imported_tops(node: ast.AST):

@@ -32,11 +32,37 @@ def minimap_to_cm(win, x: float, y: float):
 
 
 def draw_minimap(win) -> None:
-    """常驻小地图：整体战场+视口框；左键跳转/右键下令（见 shell_window 点击面）。"""
+    """常驻小地图：整体战场+视口框；左键跳转/右键下令（见 shell_window 点击面）。
+    〔R6：底图优先 terrain_minimap_tex(<map_key>)（512×256 直铺——北=上行
+    不翻转）；缺图回退 minimap_terrain 皮肤/纯色——demo 局零变。〕"""
+    from . import assets
+    from .scene import _current_map_key
     x0, y0, x1, y1 = minimap_geom(win)
     mw, mh = win.frame.get("map_cm", (200000, 100000))
-    arcade.draw_lrbt_rectangle_filled(x0, x1, y0, y1, MINIMAP_BG)
-    arcade.draw_lrbt_rectangle_outline(x0, x1, y0, y1, MAP_BORDER, 1)
+    tex = assets.terrain_minimap_tex(_current_map_key(win))
+    if tex is None:
+        tex = assets.terrain_tex("minimap_terrain")
+    if tex is not None:
+        if tex.size != (int(x1 - x0), int(y1 - y0)):
+            tw, th = tex.size
+            target_ar = (x1 - x0) / (y1 - y0)         # 宽高比裁切（居中）
+            src_ar = tw / th
+            if src_ar > target_ar + 0.01:             # 源更宽→裁左右
+                cw = int(th * target_ar)
+                tex = tex.crop((tw - cw) // 2, 0, cw, th)
+            elif src_ar < target_ar - 0.01:           # 源更高→裁上下
+                ch = int(tw / target_ar)
+                tex = tex.crop(0, (th - ch) // 2, tw, ch)
+        arcade.draw_texture_rect(tex, arcade.LRBT(x0, x1, y0, y1))
+    else:
+        arcade.draw_lrbt_rectangle_filled(x0, x1, y0, y1, MINIMAP_BG)
+    frame = assets.terrain_tex("minimap_frame") \
+        or assets.ui_tex("minimap_frame")
+    if frame is not None:
+        arcade.draw_texture_rect(frame, arcade.LRBT(x0 - 4, x1 + 4,
+                                                    y0 - 4, y1 + 4))
+    else:
+        arcade.draw_lrbt_rectangle_outline(x0, x1, y0, y1, MAP_BORDER, 1)
 
     def mm(pos_cm):
         return (x0 + pos_cm[0] / mw * (x1 - x0),

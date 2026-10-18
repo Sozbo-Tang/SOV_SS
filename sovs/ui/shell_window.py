@@ -32,6 +32,8 @@ from __future__ import annotations
 import arcade
 
 from . import keybinds
+from .menu_page import (draw_menu_page, handle_menu_click,  # noqa: E402
+                        layout_menu_page)
 from .deck_editor_page import (draw_config_page, draw_deck_edit_page,  # noqa: E402
                                handle_config_click, layout_config_page,
                                layout_deck_edit_page)
@@ -63,6 +65,10 @@ _text_width = text_width
 
 _SPEED_STEPS = (0.5, 1.0, 2.0, 4.0, 8.0, 16.0)   # 调速档（13200t 实战 16x 缓解）
 
+# R4 自适应：战前/菜单族四页按 1280×800 设计画布书写，大窗经 page_fit
+# 相机等比缩放居中（背景整窗画在相机外）；battle/deploy HUD 锚定不经此面。
+MENU_PAGES = ("menu", "config", "deck_edit", "settings")
+
 
 class ShellWindow(arcade.Window):
     """可玩壳主窗（config/deck_edit/deploy/battle/settle；session 鸭子面见头注）。"""
@@ -90,9 +96,14 @@ class ShellWindow(arcade.Window):
         self._buttons: list[Btn] = []
         self._cam_held: set = set()
         self._mmb_drag = False        # MMB 旋转拖拽在途（中键按下期间）
+        self._los_hold = False        # F6：ALT 视线工具按住态（LALT/RALT 维护）
         self._mouse_xy: tuple[float, float] | None = None
         self._fitted_page: str | None = None
         self._deck_catalog: list[dict] = []      # 编辑器卡池目录（deck_edit 页缓存）
+        try:                                      # R4.1：最小窗 960×600（等比
+            self.set_minimum_size(960, 600)       # 0.75 档；offscreen 无效不致命）
+        except Exception:                         # noqa: BLE001（离屏/平台限制）
+            pass
         self.refresh()
 
     # ── session 侧驱动面 ──
@@ -182,7 +193,11 @@ class ShellWindow(arcade.Window):
         if key == arcade.key.F1 and page != "settings":
             fsm.help_open = not fsm.help_open
             return
+        if key in (arcade.key.LALT, arcade.key.RALT):   # F6：ALT 视线工具按下
+            self._los_hold = True
+            return
         if key == arcade.key.ESCAPE:
+            self._los_hold = False                          # ESC 分层取消含视线
             if page == "settle":
                 self.close()
                 return
@@ -255,6 +270,8 @@ class ShellWindow(arcade.Window):
 
     def on_key_release(self, key, modifiers):
         self._cam_held.discard(key)
+        if key in (arcade.key.LALT, arcade.key.RALT):       # F6：松开消隐
+            self._los_hold = False
 
     def _ui_rect_hit(self, x, y) -> bool:
         """UI 命中域（边缘滚动豁免面）：按钮 + 小地图 + 选中面板带。"""
@@ -278,7 +295,12 @@ class ShellWindow(arcade.Window):
         # 2026-10-15 六条修正·问题1：settings 入元组——_config_click 的 settings
         # 分支（→handle_settings_click）此前无人路由，st_* 命中落入 _panel_click
         # 即被吞（含返回钮 st_back）；点击不再漏到框选起笔边路。
-        if page in ("config", "deck_edit", "settings"):
+        if page in MENU_PAGES:
+            # R4：菜单族命中面转设计画布坐标（按钮布局在设计系；1280×800
+            # 恒等无需转——与 to_design 一致零漂）
+            if (self.width, self.height) != (1280, 800):
+                from . import page_fit
+                x, y = page_fit.to_design(self, x, y)
             self._config_click(x, y)
             return
         if page == "settle":
@@ -331,6 +353,9 @@ class ShellWindow(arcade.Window):
     # ── 点击处理 ──
 
     def _config_click(self, x, y):
+        if self.fsm.page == "menu":                   # F7：主菜单命中域独立分发
+            handle_menu_click(self, x, y)
+            return
         if self.fsm.page == "settings":             # 设置页命中域独立分发
             handle_settings_click(self, x, y)
             return
@@ -474,6 +499,9 @@ class ShellWindow(arcade.Window):
     def _layout_buttons(self):
         self._buttons = []
         page = self.fsm.page
+        if page == "menu":
+            layout_menu_page(self)
+            return
         if page == "config":
             layout_config_page(self)
             return
@@ -502,19 +530,53 @@ class ShellWindow(arcade.Window):
         self.clear(color=BACKGROUND)
         self.render_page()
 
+    def _with_page_camera(self, draw_content) -> None:
+        """R4：菜单族页面内容在设计画布坐标系绘制——1280×800 恒等跳过相机
+        （与 R3 前逐像素一致）；异尺寸经 page_fit.camera 缩放居中，退出恢复
+        默认相机（Camera2D 无上下文管理器——arcade 3.3 实证，手动 use）。"""
+        from . import page_fit
+        if (self.width == page_fit.DESIGN_W
+                and self.height == page_fit.DESIGN_H):
+            draw_content(self)
+            return
+        cam = page_fit.camera(self)
+        cam.use()
+        try:
+            draw_content(self)
+        finally:
+            self.default_camera.use()
+
     def render_page(self):
         page = self.fsm.page
+        if page == "menu":                       # F7/R4：主菜单（背景整窗+内容设计画布）
+            from .menu_page import (draw_menu_background,  # noqa: E402
+                                    draw_menu_page)
+            draw_menu_background(self)
+            self._with_page_camera(draw_menu_page)
+            draw_toasts(self)
+            draw_help_overlay(self)
+            draw_exit_confirm(self)
+            return
         if page == "config":
-            draw_config_page(self)
+            from .deck_editor_page import (draw_config_background,  # noqa: E402
+                                           draw_config_page)
+            draw_config_background(self)
+            self._with_page_camera(draw_config_page)
             draw_help_overlay(self)
             draw_exit_confirm(self)
             return
         if page == "deck_edit":
-            draw_deck_edit_page(self)
+            from .deck_editor_page import (draw_deck_background,  # noqa: E402
+                                           draw_deck_edit_page)
+            draw_deck_background(self)
+            self._with_page_camera(draw_deck_edit_page)
             draw_toasts(self)
             return
         if page == "settings":
-            draw_settings_page(self)
+            from .settings_page import (draw_settings_background,  # noqa: E402
+                                        draw_settings_page)
+            draw_settings_background(self)
+            self._with_page_camera(draw_settings_page)
             draw_toasts(self)
             return
         draw_scene(self)
@@ -535,11 +597,15 @@ class ShellWindow(arcade.Window):
             draw_minimap(self)
             draw_group_bar(self)
             draw_selection_panel(self)
+        from .los_overlay import draw_los_overlay
+        draw_los_overlay(self)        # F6：ALT 视线（按住且选区非空才呈现）
         # 〔2026-10-15 二轮拍板：单位信息浮层整体撤除（§11.3 炮击待令抑制
         # 判据随之废止）——底中只留选中长条；地图痕迹文字标签同批撤（scene）。〕
         draw_toasts(self)
         draw_help_overlay(self)
         draw_exit_confirm(self)
+        from .cursor import draw_cursor
+        draw_cursor(self)            # F8：上下文绘制光标（最顶层）
 
 
 # 键名映射表（arcade.key → fsm 键语义名；GP-01 §4/§6 扩容键位；P0 键位纠偏块

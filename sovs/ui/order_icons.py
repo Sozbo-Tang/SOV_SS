@@ -15,6 +15,7 @@ import re
 
 import arcade
 
+from . import assets
 from .palette import (HUD_TEXT, ORDER_ARMED, ORDER_PANEL, ORDER_TEXT)
 
 # ── 热键角字解析：label 形如「雷达(Z)」→ "Z"；无键（图标类命令）→ None ──
@@ -387,18 +388,44 @@ _HOVER_FILL = (74, 80, 74, 255)
 
 
 def draw_order_tile(btn, *, armed: bool, hovered: bool) -> None:
-    """断箭式图标格：底板+图标+热键角+角标；禁用去饱和灰。"""
-    fill = _DISABLED_FILL if btn.tone == "disabled" else \
-        (_HOVER_FILL if hovered else _NORMAL_FILL)
-    if armed:
-        fill = (96, 84, 30, 255)
-    arcade.draw_lrbt_rectangle_filled(btn.x0, btn.x1, btn.yb, btn.yt, fill)
-    arcade.draw_lrbt_rectangle_outline(
-        btn.x0, btn.x1, btn.yb, btn.yt,
-        ORDER_ARMED if armed else ORDER_TEXT, 2 if armed else 1)
-    col = (150, 150, 150, 255) if btn.tone == "disabled" else HUD_TEXT
+    """断箭式图标格：底板+图标+热键角+角标；禁用去饱和灰。
+
+    〔FE-05 F4 贴图化（2026-10-17）：底板=cmd_tile 四态九宫格（缺图回退纯色
+    原填充）；图标=cmd_<key>.png 32px 居中于 40×40 格（缺图回退 ICON_FUNCS
+    矢量）；禁用=灰 tint＋alpha 90；armed=ORDER_ARMED 2px 描边叠加。热键
+    角标/draw_badge/draw_tooltip 行为零变。〕"""
+    disabled = btn.tone == "disabled"
+    tile = (assets.ui_tex("cmd_tile_disabled") if disabled
+            else assets.ui_tex("cmd_tile_armed") if armed
+            else assets.ui_tex("cmd_tile_hover") if hovered
+            else assets.ui_tex("cmd_tile"))
+    if tile is not None:
+        assets.draw_nine_patch((btn.x0, btn.yb, btn.x1, btn.yt), tile,
+                               corner=16)
+        if armed:                                   # 待令=橙描边叠加（底砖之上）
+            arcade.draw_lrbt_rectangle_outline(btn.x0, btn.x1, btn.yb, btn.yt,
+                                               ORDER_ARMED, 2)
+    else:
+        fill = _DISABLED_FILL if disabled else \
+            (_HOVER_FILL if hovered else _NORMAL_FILL)
+        if armed:
+            fill = (96, 84, 30, 255)
+        arcade.draw_lrbt_rectangle_filled(btn.x0, btn.x1, btn.yb, btn.yt, fill)
+        arcade.draw_lrbt_rectangle_outline(
+            btn.x0, btn.x1, btn.yb, btn.yt,
+            ORDER_ARMED if armed else ORDER_TEXT, 2 if armed else 1)
     cx, cy = (btn.x0 + btn.x1) / 2, (btn.yb + btn.yt) / 2
-    ICON_FUNCS.get(btn.key, _i_fallback)(cx, cy, btn.x1 - btn.x0, col)
+    tex = assets.order_tex(btn.key)
+    if tex is not None:                             # 贴图图标 32px 居中
+        if disabled:
+            arcade.draw_texture_rect(
+                tex, arcade.XYWH(cx, cy, 32, 32),
+                color=arcade.types.Color(160, 160, 160), alpha=90)
+        else:
+            arcade.draw_texture_rect(tex, arcade.XYWH(cx, cy, 32, 32))
+    else:                                           # 矢量回退（原行为）
+        col = (150, 150, 150, 255) if disabled else HUD_TEXT
+        ICON_FUNCS.get(btn.key, _i_fallback)(cx, cy, btn.x1 - btn.x0, col)
     hk = hotkey_of(btn.label)
     if hk:
         arcade.draw_text(hk, btn.x1 - 3, btn.yb + 1,

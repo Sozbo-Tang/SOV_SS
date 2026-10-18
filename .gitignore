@@ -24,3 +24,6 @@ docs/*审查问题文档*
 docs/*终检报告*
 docs/数值章节定标总账*
 docs/空中仿真闭环工作流提示词*
+
+# IMG-GEN demo 替换备份（本地保留，不进仓）
+assets/fe/_demo_backup_*/

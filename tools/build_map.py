@@ -51,7 +51,6 @@ DATA_DIR_DEFAULT = Path(__file__).resolve().parents[1] / "data"
 MAP_CSV_NAME = "map_demo_2km.csv"
 MAP_JSON_NAME = "map_demo_2km.v1.json"
 SCHEMA_VERSION = "1.0"
-
 _INT_RE = re.compile(r"-?\d+")                 # 数值列白名单（build_cards 同款）
 _FORMULA_PREFIXES = ("=", "+", "-", "@")       # 公式注入拦截（DATA-01 §1.5 同款）
 
@@ -159,12 +158,13 @@ def read_csv_rows(path: Path) -> list[dict[str, str]]:
 
 # ── 声明解析（kind 分派 + 未用列必须留空）──
 
-def parse_rows(rows: list[dict[str, str]]) -> dict:
+def parse_rows(rows: list[dict[str, str]],
+               table: str = MAP_CSV_NAME) -> dict:
     """原始行 → {'map': dict, 'shapes': [dict...], 'buildings': [dict...]}。
 
     shapes/地图声明保文件序（画家算法依赖）；类型转换与未用列检查逐行完成。
+    table=错误消息里的源表名（R5 泛化：多图扫描时传各 CSV 文件名）。
     """
-    table = MAP_CSV_NAME
     decl: dict = {"map": None, "shapes": [], "buildings": []}
     for rowno, row in enumerate(rows, start=2):   # CSV 数据行号（表头=第 1 行）
         kind = _cell(table, rowno, row, "kind")
@@ -232,7 +232,7 @@ def parse_rows(rows: list[dict[str, str]]) -> dict:
 
 # ── 图界/坐标域校验（decl 归一后统一执行）──
 
-def _check_decl(decl: dict) -> tuple[int, int]:
+def _check_decl(decl: dict, table: str = MAP_CSV_NAME) -> tuple[int, int]:
     m = decl["map"]
     ex, ey, t = m["extent_x_cm"], m["extent_y_cm"], m["tile_cm"]
     if ex <= 0 or ey <= 0 or t <= 0:
@@ -243,7 +243,7 @@ def _check_decl(decl: dict) -> tuple[int, int]:
             f"图界闭合=pathfind.tile_cost 的 (ext+t-1)//t 口径）")
     nx, ny = ex // t, ey // t
     for i, s in enumerate(decl["shapes"], start=2):
-        where = f"{MAP_CSV_NAME} 第 {i} 行起声明的 {s['shape']}"
+        where = f"{table} 第 {i} 行起声明的 {s['shape']}"
         if s["shape"] == "rect":
             x0, y0, x1, y1 = s["x0"], s["y0"], s["x1"], s["y1"]
             if x0 > x1 or y0 > y1:
@@ -355,40 +355,61 @@ def dump_stable_json(obj) -> str:
 
 # ── 主流程 ──
 
-def build_map(data_dir: Path, out_dir: Path) -> Path:
-    """map CSV → gen JSON（fail-fast；返回写入路径）。"""
-    data_dir = Path(data_dir)
-    src = data_dir / MAP_CSV_NAME
-    if not src.is_file():
-        raise BuildError(f"缺源表 {MAP_CSV_NAME}（{src}）")
-    decl = parse_rows(read_csv_rows(src))
-    nx, ny = _check_decl(decl)
+def build_map_csv(csv_path: Path, out_dir: Path) -> Path:
+    """单图构建（R5 泛化）：任意 map_*.csv → data/gen/<map_key>.v1.json
+    （产物名取 map 行的 map_key——fail-fast；返回写入路径）。"""
+    csv_path = Path(csv_path)
+    if not csv_path.is_file():
+        raise BuildError(f"缺源表 {csv_path.name}（{csv_path}）")
+    decl = parse_rows(read_csv_rows(csv_path), table=csv_path.name)
+    nx, ny = _check_decl(decl, table=csv_path.name)
     canvas = rasterize(decl, nx, ny)
     doc = map_to_json_dict(
         decl, canvas,
-        hashlib.sha256(src.read_bytes()).hexdigest())   # 源指纹（审计可复算）
+        hashlib.sha256(csv_path.read_bytes()).hexdigest())   # 源指纹（审计可复算）
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    out = out_dir / MAP_JSON_NAME
+    out = out_dir / f"{decl['map']['map_key']}.v1.json"
     out.write_text(dump_stable_json(doc), encoding="utf-8", newline="\n")
     return out
+
+
+def build_all(data_dir: Path, out_dir: Path) -> list[Path]:
+    """多图扫描构建（R5）：data/map_*.csv 逐个 → gen JSON（文件名序确定）。"""
+    data_dir = Path(data_dir)
+    csvs = sorted(data_dir.glob("map_*.csv"))
+    if not csvs:
+        raise BuildError(f"{data_dir} 下无 map_*.csv 源表")
+    return [build_map_csv(c, out_dir) for c in csvs]
+
+
+def build_map(data_dir: Path, out_dir: Path) -> Path:
+    """map CSV → gen JSON（fail-fast；返回写入路径）。
+    （R5 泛化后保留的**单图 demo 入口**——tests/test_map_pipeline 契约面：
+    固定读 MAP_CSV_NAME；多图扫描走 build_all/CLI 默认。）"""
+    data_dir = Path(data_dir)
+    return build_map_csv(data_dir / MAP_CSV_NAME, out_dir)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="地形图数据管线：声明式 CSV → 确定性栅格化 → gen JSON")
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR_DEFAULT,
-                        help=f"源表所在目录（默认仓库 data/，表名 {MAP_CSV_NAME}）")
+                        help=f"源表所在目录（默认仓库 data/，含 {MAP_CSV_NAME}）")
     parser.add_argument("--out-dir", type=Path, default=None,
                         help="JSON 产物目录（默认 <data-dir>/gen）")
+    parser.add_argument("--csv", type=Path, default=None,
+                        help="单图构建（R5：指定某个 map_*.csv；缺省扫描全部）")
     args = parser.parse_args(argv)
     out_dir = args.out_dir or (args.data_dir / "gen")
     try:
-        out = build_map(args.data_dir, out_dir)
+        outs = ([build_map_csv(args.csv, out_dir)] if args.csv
+                else build_all(args.data_dir, out_dir))
     except ValueError as exc:
         print(f"build_map: 构建失败——{exc}", file=sys.stderr)
         return 1
-    print(f"build_map: 写入 {out}")
+    for out in outs:
+        print(f"build_map: 写入 {out}")
     return 0
 
 

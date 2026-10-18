@@ -13,14 +13,16 @@ import math
 
 import arcade
 
-from .glyphs import (draw_aircraft_glyph, draw_objective_glyph,  # noqa: E402
-                     draw_projectile_glyph, draw_smoke_glyph, draw_unit_glyph)
+from . import assets
+from .glyphs import (draw_objective_glyph,  # noqa: E402
+                     draw_projectile_glyph, draw_smoke_glyph)
 from .hud_top import text_width
 from .palette import (AIR_FOCUS_MARK, AIR_MARK, ANCHOR_SECTOR, ATTACK_MARK,  # noqa: E402
                       CAM_PAD, FM_MARK, GHOST_MARK, GRID_LINE, HUD_TEXT,
-                      MAP_BORDER, SELECT_BOX, SELECT_MARK, SMOKE_MARK,
+                      MAP_BORDER, SELECT_BOX, SMOKE_MARK,
                       TEAM_COLORS, TRAIL_LINE, TRAIL_MARK, WARN_RED)
 from .shell_fsm import STATE_CN
+from .unit_render import draw_air_unit, draw_ground_unit
 
 _GRID_STEPS_CM = (1000, 2000, 5000, 10000, 20000, 50000, 100000)
 
@@ -250,13 +252,97 @@ AIR_NAME_TEXT = (216, 212, 196, 225)       # 机型名标注（己方飞机旁�
 _FM_FORM_CN = {"point": "定点", "line": "线射", "creep": "徐进"}
 
 
+def _current_map_key(win) -> str:
+    """R6：当前局地图键（session.scenario_info().scenario_key==map_key 同名
+    口径——bagration_field 场景与地图同名；回退 demo=空=无底图）。"""
+    info_fn = getattr(win.session, "scenario_info", None)
+    info = info_fn() if callable(info_fn) else None
+    return info.get("map_key", "") if info else ""
+
+
+def draw_terrain_base(win) -> None:
+    """R6 地形底图：网格之前铺满整图幅（cm_to_px(0,0)..(mw,mh)）；缺图跳过
+    （demo 回退=原网格空地面）。PNG 第 0 行=最北——arcade 贴图上行=屏高 y
+    端，直接 LRBT 铺不翻转；不遮占点/单位/命令标记（本函数最先画）。"""
+    tex = assets.terrain_map_tex(_current_map_key(win))
+    if tex is None:
+        return
+    mw, mh = win.frame.get("map_cm", (200000, 100000))
+    x0, y0 = win.cm_to_px(0, 0)
+    x1, y1 = win.cm_to_px(mw, mh)
+    # LRBT=(left, right, bottom, top)——R1 审计同口径（勿回 (x0,y0,x1,y1) 旧序）
+    arcade.draw_texture_rect(tex, arcade.LRBT(min(x0, x1), max(x0, x1),
+                                              min(y0, y1), max(y0, y1)))
+
+
+def draw_buildings(win) -> None:
+    """R6 建筑屋顶层：map_meta 八建筑×frame["buildings"] 对齐（id=文件序）。
+    存活=按 building_key 语义着色屋顶＋右下 2px 阴影＋1px 屋脊（不画墙）；
+    被毁（frame 无该 id 或 hp<=0）=塌顶焦黑＋碎木点。命中/驻楼逻辑不动。"""
+    meta = assets.map_meta(_current_map_key(win))
+    specs = meta.get("buildings") if meta else None
+    if not specs:
+        return
+    alive = {b["id"]: b for b in win.frame.get("buildings", ())}
+    roof = {"HOUSE": (0x6A, 0x5A, 0x44, 255), "BARN": (0x5A, 0x50, 0x40, 255),
+            "CHURCH": (0x7A, 0x6A, 0x5A, 255), "INN": (0x6A, 0x5A, 0x48, 255),
+            "FARM": (0x5A, 0x50, 0x40, 255), "SHED": (0x60, 0x58, 0x46, 255)}
+    for i, spec in enumerate(specs, start=1):
+        key = str(spec.get("building_key", ""))
+        kind = next((k for k in roof if k in key), "HOUSE")
+        px, py = win.cm_to_px(spec["x_cm"], spec["y_cm"])
+        s = max(6.0, spec["footprint_cm"] * win.cam_scale)
+        fb = alive.get(i)
+        if fb is not None and fb.get("hp", 0) > 0:
+            arcade.draw_lrbt_rectangle_filled(px - s / 2 + 2, px + s / 2 + 2,
+                                              py - s / 2 - 2, py + s / 2 - 2,
+                                              (0x2A, 0x2A, 0x26, 120))  # 阴影
+            arcade.draw_lrbt_rectangle_filled(px - s / 2, px + s / 2,
+                                              py - s / 2, py + s / 2,
+                                              roof[kind])
+            arcade.draw_line(px - s / 2 + 1, py, px + s / 2 - 1, py,
+                             (0x40, 0x38, 0x30, 255), 1)          # 屋脊
+        else:                                                       # 被毁
+            arcade.draw_lrbt_rectangle_filled(px - s / 2, px + s / 2,
+                                              py - s / 2, py + s / 2,
+                                              (0x26, 0x24, 0x20, 235))
+            for k in range(3):                                      # 碎木点
+                dx = -s / 3 + k * s / 3
+                arcade.draw_point(px + dx, py + (s / 4 if k % 2 else -s / 4),
+                                  (0x4A, 0x42, 0x38, 255))
+
+
+def draw_stream_bridge(win) -> None:
+    """R6 木桥：溪流（世界 y≈14000~16000 折线带）×主路（x=100000）交点画
+    26×12px 木板桥（矩形＋横板线）——桥由代码画（底图此处留缺口）。"""
+    if _current_map_key(win) != "bagration_field":
+        return
+    px, py = win.cm_to_px(100000, 15000)
+    w, h = 26, 12
+    arcade.draw_lrbt_rectangle_filled(px - w / 2, px + w / 2, py - h / 2,
+                                      py + h / 2, (0x7A, 0x66, 0x48, 255))
+    for k in range(4):                                              # 横板线
+        yy = py - h / 2 + 2 + k * 3
+        arcade.draw_line(px - w / 2 + 1, yy, px + w / 2 - 1, yy,
+                         (0x5E, 0x4E, 0x38, 255), 1)
+
+
 def draw_scene(win) -> None:
-    """战场（部署/实战/结算底图）：网格+占点+烟+弹+单位+飞机+选区+痕迹。"""
+    """战场（部署/实战/结算底图）：地形底图+主网格+占点+烟+弹+单位+飞机+
+    选区+痕迹。〔R6：底图先行；500m 以下细网格撤除（底图在场时只留 500m
+    主网格——RGBA α≈50）。〕"""
+    from . import assets
     frame = win.frame
     mw, mh = frame.get("map_cm", (200000, 100000))
     l, b, r, t = win._viewport_px()
-    step = next((s for s in _GRID_STEPS_CM if s * win.cam_scale >= 24),
+    draw_terrain_base(win)
+    has_base = assets.terrain_map_tex(_current_map_key(win)) is not None
+    steps = _GRID_STEPS_CM if not has_base else \
+        tuple(s for s in _GRID_STEPS_CM if s >= 50000)   # 底图在场=仅 500m 主网格
+    step = next((s for s in steps if s * win.cam_scale >= 24),
                 _GRID_STEPS_CM[-1])
+    grid_col = GRID_LINE if not has_base else (GRID_LINE[0], GRID_LINE[1],
+                                               GRID_LINE[2], 50)
     rot = _cam_rot(win)      # 旋转视图：网格/图幅框按变换后端点画（rot=0 竖平线
                              # 与旧轴对齐画法像素等价——端点画法仅越界段被裁）
     x = step
@@ -264,14 +350,14 @@ def draw_scene(win) -> None:
         p0x, p0y = win.cm_to_px(x, 0)
         p1x, p1y = win.cm_to_px(x, mh)
         if max(p0x, p1x) >= l and min(p0x, p1x) <= r:
-            arcade.draw_line(p0x, p0y, p1x, p1y, GRID_LINE, 1)
+            arcade.draw_line(p0x, p0y, p1x, p1y, grid_col, 1)
         x += step
     y = step
     while y < mh:
         p0x, p0y = win.cm_to_px(0, y)
         p1x, p1y = win.cm_to_px(mw, y)
         if max(p0y, p1y) >= b and min(p0y, p1y) <= t:
-            arcade.draw_line(p0x, p0y, p1x, p1y, GRID_LINE, 1)
+            arcade.draw_line(p0x, p0y, p1x, p1y, grid_col, 1)
         y += step
     for (ax, ay), (bx, by) in zip(
             ((0, 0), (mw, 0), (mw, mh), (0, mh)),
@@ -283,13 +369,15 @@ def draw_scene(win) -> None:
         px, py = win.cm_to_px(o["pos_cm"][0], o["pos_cm"][1])
         draw_objective_glyph(px, py, max(4.0, o["radius_cm"] * win.cam_scale),
                              owner=o["owner"])
+    draw_objective_labels(win)               # R5：目标名（旗上方 14px 淡字）
     for z in frame.get("smoke_zones", ()):
         px, py = win.cm_to_px(z["pos_cm"][0], z["pos_cm"][1])
         draw_smoke_glyph(px, py, max(5.0, z["radius_cm"] * win.cam_scale))
     for p in frame.get("projectiles", ()):
         px, py = win.cm_to_px(p["pos_cm"][0], p["pos_cm"][1])
         draw_projectile_glyph(px, py)
-    selected = set(win.fsm.selected)
+    draw_buildings(win)                    # R6：建筑屋顶层（单位之下）
+    draw_stream_bridge(win)                # R6：溪流×主路木桥
     selected_air = set(win.fsm.selected_air)
     # 视口剔除（边距=CAM_PAD+2：贴缘图元整画、越界图元不画——与 viewer 同规则）
     for u in frame.get("units", ()):
@@ -297,21 +385,13 @@ def draw_scene(win) -> None:
         if not (l - CAM_PAD - 2 <= px <= r + CAM_PAD + 2
                 and b - CAM_PAD - 2 <= py <= t + CAM_PAD + 2):
             continue
-        hp_pct = (u["hp"] * 100 // u["hp_max"]) if u["hp_max"] > 0 else 0
-        draw_unit_glyph(px, py, category=u["category"], team=u["team"],
-                        hp_pct=hp_pct, suppressed=u["suppressed"],
-                        moving=u["moving"], selected=u["id"] in selected)
+        draw_ground_unit(win, u, px, py)      # F1：逐卡贴图（缺图回退字形）
     for a in frame.get("aircraft", ()):
         px, py = win.cm_to_px(a["pos_cm"][0], a["pos_cm"][1])
         if not (l - CAM_PAD - 2 <= px <= r + CAM_PAD + 2
                 and b - CAM_PAD - 2 <= py <= t + CAM_PAD + 2):
             continue
-        facing = a.get("facing")
-        if facing is not None:
-            facing = facing + rot          # 世界朝向+视图旋转（屏幕系机头指向）
-        draw_aircraft_glyph(px, py, team=a["team"], alt_tier=a["alt_tier"],
-                            spotted=a["spotted"], facing_deg=facing,
-                            selected=a["id"] in selected_air)
+        draw_air_unit(win, a, px, py)         # F1：逐卡贴图（facing 旋转）
         if a["id"] in selected_air:            # 空选区角框（黄——与单位白框区分）
             arcade.draw_lrbt_rectangle_outline(px - 16, px + 16, py - 16, py + 16,
                                                AIR_FOCUS_MARK, 2)  # noqa: l,b,r,t
@@ -451,6 +531,23 @@ def visible_trail_entries(trail, now_tick: int) -> list:
     return out
 
 
+def draw_objective_labels(win) -> None:
+    """R5 场景骨架：占点旗上方 14px 画目标名（10px 淡字——克伦基村/十字
+    路口/集体农庄）。名源=session.objective_labels() 鸭子面（回退 demo=空
+    表不画）；不参与命中、不受迷雾影响（占点归属本就公开）。"""
+    labels_fn = getattr(win.session, "objective_labels", None)
+    labels = labels_fn() if callable(labels_fn) else labels_fn
+    if not labels:
+        return
+    for o in win.frame.get("objectives", ()):
+        name = labels.get(o["id"])
+        if not name:
+            continue
+        px, py = win.cm_to_px(o["pos_cm"][0], o["pos_cm"][1])
+        arcade.draw_text(name, px, py + 14, (200, 200, 190, 150), 10,
+                         anchor_x="center")
+
+
 def draw_trails(win) -> None:
     """已下达命令痕迹（分型标记）：最近数条（单位→落点线+分型落点标记）。
     同文同点标签去重（battle.png 复检②：脚本驾驶每 100t 重发同令，8 条
@@ -580,18 +677,18 @@ def draw_selection_marks(win) -> None:
         arcade.draw_line(x0, y0, x1, y1, FM_MARK, 3)
         arcade.draw_circle_filled(x0, y0, 4, FM_MARK)
         arcade.draw_circle_filled(x1, y1, 4, FM_MARK)
+        # F6：火力任务/空袭预览端点被遮挡→弹道段红显+「遮拦」标（los_overlay）
+        from .los_overlay import annotate_fm_block
+        annotate_fm_block(win, (x1, y1))
     elif box_p0 is not None and box_p1 is not None:             # 框选拖拽中
         arcade.draw_lrbt_rectangle_outline(min(box_p0[0], box_p1[0]),
                                            max(box_p0[0], box_p1[0]),
                                            min(box_p0[1], box_p1[1]),
                                            max(box_p0[1], box_p1[1]),
                                            SELECT_BOX, 2)
-    for u in win.frame.get("units", ()):
-        if u["id"] not in win.fsm.selected:
-            continue
-        px, py = win.cm_to_px(u["pos_cm"][0], u["pos_cm"][1])
-        arcade.draw_lrbt_rectangle_outline(px - 13, px + 13, py - 13, py + 13,
-                                           SELECT_MARK, 2)
+    # R1（选中标记二选一）：选中态呈现收敛到 unit_render 的四角 12px 角标
+    # （贴图路径）/glyphs 白框（缺图回退路径）——原 26×26 白框与角标双重
+    # 标记就此废止（B2 框选松手即清橡皮筋的语义不变）。
 
 
 def draw_margin_mat(win) -> None:

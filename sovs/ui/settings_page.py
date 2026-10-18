@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import arcade
 
-from . import keybinds
+from . import assets, keybinds, page_fit
 from .hud_bottom import Btn, draw_button
 from .palette import HUD_PANEL, HUD_TEXT, MARGIN, ORDER_ARMED, TOP_H
 
@@ -47,10 +47,10 @@ def layout_settings_page(win) -> None:
     """设置页命中域：两列 [改] 钮＋底部恢复默认/返回。〔armed 态经 getattr
     兜底（2026-10-15 排障轮实测：绕过 open_settings 直接置 page=settings 的
     路径裸读 AttributeError——真实事件循环里即"整页点击/按键无反应"；余处
-    本就 getattr，此两行补齐同口径）。〕"""
+    本就 getattr，此两行补齐同口径）。R4：设计画布坐标。〕"""
     mapping = keybinds.display_map()
     armed = getattr(win, "_settings_armed", None)
-    top = win.height - TOP_H - 76
+    top = page_fit.DESIGN_H - TOP_H - 76
     for i, slot in enumerate(_CMD_CN):
         col, row = divmod(i, _ROWS_PER_COL)
         x = MARGIN + 60 + col * (_COL_W + 60)
@@ -61,33 +61,58 @@ def layout_settings_page(win) -> None:
                                 else "normal"))
     win._buttons.append(Btn(MARGIN + 60, MARGIN + 8, 150, 28, "st_reset",
                             "恢复默认键位"))
-    win._buttons.append(Btn(win.width - MARGIN - 210, MARGIN + 8, 150, 28,
-                            "st_back", "返回(ESC)",
+    win._buttons.append(Btn(page_fit.DESIGN_W - MARGIN - 210, MARGIN + 8,
+                            150, 28, "st_back", "返回(ESC)",
                             tone="focus" if armed is None
                             else "disabled"))
 
 
+def draw_settings_background(win) -> None:
+    """设置页整页背景（R4：相机外整窗 cover；缺资产回纯色面板底）。"""
+    bg = assets.bg_tex("bg_settings")
+    if bg is not None:
+        arcade.draw_texture_rect(bg, arcade.XYWH(win.width / 2,
+                                                 win.height / 2,
+                                                 win.width, win.height))
+    else:
+        arcade.draw_lrbt_rectangle_filled(0, win.width, 0,
+                                          win.height - TOP_H, HUD_PANEL)
+
+
 def draw_settings_page(win) -> None:
-    top = win.height - TOP_H
-    arcade.draw_lrbt_rectangle_filled(0, win.width, 0, top, HUD_PANEL)
+    """设置页内容绘制。〔FE-05 F8：settings_row 行底＋keycap 键帽（缺图回退
+    纯文字——几何零变）；R4：设计画布坐标——背景由 *_background 相机外铺。〕"""
+    top = page_fit.DESIGN_H - TOP_H
     arcade.draw_text("设置 · 键位（manual：键位可在设置菜单中修改）",
-                     win.width / 2, top - 34, ORDER_ARMED, 20,
+                     page_fit.DESIGN_W / 2, top - 34, ORDER_ARMED, 20,
                      anchor_x="center")
     arcade.draw_text("点行尾〔改〕后按下新键即生效并保存；保留键（WASD 相机/"
                      "方向键/1..9 编组/TAB/ESC/F1/SPACE/±）与已占用键不可绑",
-                     win.width / 2, top - 58, HUD_TEXT, 12,
+                     page_fit.DESIGN_W / 2, top - 58, HUD_TEXT, 12,
                      anchor_x="center")
     mapping = keybinds.display_map()
     for i, slot in enumerate(_CMD_CN):
         col, row = divmod(i, _ROWS_PER_COL)
         x = MARGIN + 60 + col * (_COL_W + 60)
         y = top - 76 - row * _ROW_H
+        assets.skin_fill((x - 8, y - 6, x + _COL_W, y + 20),
+                         "settings_row", (0, 0, 0, 0))   # F8：行底
         if win._settings_armed == slot:
             arcade.draw_text("%s —— 请按新键（ESC 取消）" % _CMD_CN[slot],
                              x, y, ORDER_ARMED, 14)
         else:
-            arcade.draw_text("%s（%s）" % (_CMD_CN[slot], mapping[slot]),
-                             x, y, HUD_TEXT, 14)
+            arcade.draw_text("%s（" % _CMD_CN[slot], x, y, HUD_TEXT, 14)
+            kx = x + 14 * (len(_CMD_CN[slot]) + 1)     # 键帽贴文字右侧
+            cap = assets.ui_tex("keycap")
+            ktext = mapping[slot]
+            if cap is not None:
+                kw = max(26, 9 * len(ktext) + 10)
+                assets.draw_nine_patch((kx, y - 4, kx + kw, y + 18), cap)
+                arcade.draw_text(ktext, kx + kw / 2, y, HUD_TEXT, 12,
+                                 anchor_x="center")
+            else:
+                arcade.draw_text("%s）" % ktext, x + 14 * (len(_CMD_CN[slot])),
+                                 y, HUD_TEXT, 14)
     for btn in win._buttons:
         if btn.key.startswith("st_"):
             draw_button(btn)

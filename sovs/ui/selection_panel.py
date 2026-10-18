@@ -20,8 +20,11 @@ from .palette import (AIR_FOCUS_MARK, CATEGORY_COLORS,  # noqa: E402
                       SELECT_MARK, TOP_H)
 from .scene import air_state_label
 
-STRIP_H = 64                     # 多选摘要行高（单行小卡——BA 选择面板式）
-STRIP_W = 600                    # 摘要行宽（右对齐命令格右缘向左展开）
+STRIP_H = 44                     # 多选摘要行高（R3 1-2 瘦身 64→44——chip 26
+                                  # 高+上下 9px 余量；BA 选择面板式单行小卡）
+STRIP_W = 520                    # 摘要行宽（R3 1-2 瘦身 600→520）
+_CHIP_H = 26                     # 摘要行小卡高（R3 随行高同步 40→26）
+_CHIP_FONT = 10                  # 小卡字号（R3 随行高同步 11→10）
 
 
 def panel_geom(win):
@@ -84,7 +87,8 @@ def draw_air_card(win, ids=None, title=None) -> None:
     x0, y0, x1, y1 = air_panel_geom(win)
     if y1 - y0 < 100:                   # 矮窗顶缘钳退化（零/负高）不绘
         return
-    arcade.draw_lrbt_rectangle_filled(x0, x1, y0, y1, SEL_PANEL_BG)
+    from . import assets
+    assets.skin_fill((x0, y0, x1, y1), "panel_air", SEL_PANEL_BG)  # F8 皮肤
     arcade.draw_lrbt_rectangle_outline(x0, x1, y0, y1, ORDER_TEXT, 1)
     sel = {a["id"]: a for a in win.frame.get("aircraft", ())}
     arcade.draw_text(title, x0 + 8, y1 - 20, HUD_TEXT, 12)
@@ -141,10 +145,10 @@ def layout_selection_panel(win) -> None:
             if not fsm.selected:          # 纯空中/无选区——摘要行无内容不布局
                 return
     x0, y0, x1, _y1 = panel_geom(win)
-    cy = y0 + (STRIP_H - 40) // 2         # 小卡 40 高，行内垂直居中
+    cy = y0 + (STRIP_H - _CHIP_H) // 2            # R3：小卡 26 高，行内垂直居中
     cx = x0 + 96
     for uid in fsm.selected[:_chip_cap(x1 - x0)]:
-        win._buttons.append(Btn(cx, cy, 96, 40, "sel:%d" % uid, ""))
+        win._buttons.append(Btn(cx, cy, 96, _CHIP_H, "sel:%d" % uid, ""))
         cx += 102
 
 
@@ -159,12 +163,16 @@ def draw_selection_panel(win) -> None:
             draw_air_card(win, ids, title)
             if not fsm.selected:
                 return
+        elif fsm.selected:
+            from .unit_card import draw_unit_card
+            draw_unit_card(win)        # F3：地面选区详细卡（与空中卡互斥）
     if not fsm.selected:
         return                # 无地面选区：摘要行不绘（空中信息在主卡或无内容）
     x0, y0, x1, y1 = panel_geom(win)
     if y1 - y0 < 44:
         return
-    arcade.draw_lrbt_rectangle_filled(x0, x1, y0, y1, SEL_PANEL_BG)
+    from . import assets
+    assets.skin_fill((x0, y0, x1, y1), "panel_select", SEL_PANEL_BG)  # F8
     arcade.draw_lrbt_rectangle_outline(x0, x1, y0, y1, ORDER_TEXT, 1)
     arcade.draw_text("选中 %d" % len(fsm.selected), x0 + 10, y0 + 26,
                      HUD_TEXT, 12)
@@ -181,12 +189,12 @@ def draw_selection_panel(win) -> None:
         if entry is not None:
             arcade.draw_text(
                 fit_text("%d %s" % (uid % 100, entry.get("name", "")),
-                         btn.x1 - btn.x0 - 8, 11),
-                btn.x0 + 4, btn.yb + 13, ORDER_TEXT, 11)
-        if uid == focus:                    # TAB 子选高亮（白框）
+                         btn.x1 - btn.x0 - 8, _CHIP_FONT),
+                btn.x0 + 4, btn.yb + 7, ORDER_TEXT, _CHIP_FONT)
+        if uid == focus:                    # TAB 子选高亮（白框 1px——R3 收敛）
             arcade.draw_lrbt_rectangle_outline(btn.x0 - 2, btn.x1 + 2,
                                                btn.yb - 2, btn.yt + 2,
-                                               SELECT_MARK, 2)
+                                               SELECT_MARK, 1)
     rest = len(fsm.selected) - len(chips)
     if rest > 0:                            # 超容量截断：尾部「＋N」
         tail_x = chips[-1].x1 + 10 if chips else x1 - 60

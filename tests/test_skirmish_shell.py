@@ -37,9 +37,10 @@ class TestBuildWorld(unittest.TestCase):
     def test_default_world_wiring(self):
         w = skirmish_shell.build_world(42, "su_min")
         self.assertEqual(w.phase.__int__(), 0)        # PHASE_DEPLOY（60s 盲部署）
-        self.assertIsNotNone(w.terrain)               # apply_map 挂 2km 演示图
+        self.assertIsNotNone(w.terrain)               # apply_map 挂场景图（R5）
         self.assertEqual(w.map_extent, (200000, 100000))
-        self.assertEqual(len(w.objectives), 1)        # 中央占点
+        self.assertEqual(len(w.objectives), 3)        # R5：场景三目标（村/路口/农庄）
+        self.assertEqual([o.id for o in w.objectives], [1, 2, 3])
         human_ids = [s.template.template_id for s in w.players[0].deck_slots]
         self.assertIn(102, human_ids)                 # su_min 现役卡（SU_RIFLE）
         self.assertIn(103, human_ids)                 # 预备队空降卡随卡组挂载
@@ -76,7 +77,9 @@ class TestCliSurface(unittest.TestCase):
         with mock.patch.object(skirmish_shell, "screenshot",
                                return_value=0) as m:
             rc = skirmish_shell.main(["--screenshot", "out/qa/"])
-        m.assert_called_once_with("out/qa/", seed=42, deck="su_min", kev="rule")
+        # R3 1-4：+size 双分辨率参数缺省 (1280, 800)（期望值同步，非弱化）
+        m.assert_called_once_with("out/qa/", seed=42, deck="su_min",
+                                  kev="rule", size=(1280, 800))
         self.assertEqual(rc, 0)
 
     def test_default_calls_interactive(self):
@@ -85,7 +88,11 @@ class TestCliSurface(unittest.TestCase):
              mock.patch.object(skirmish_shell, "smoke", return_value=1) as ms:
             rc = skirmish_shell.main([])
         ms.assert_not_called()
-        inter.assert_called_once_with(seed=42, deck="su_min", kev="rule", beat=10)
+        # FE-05 F7：交互缺省自主菜单进局（--start config 跳过——签名 +start；
+        # R3 1-4：+size 双分辨率参数缺省 1280x800）
+        inter.assert_called_once_with(seed=42, deck="su_min", kev="rule",
+                                      beat=10, start="menu",
+                                      size=(1280, 800))
         self.assertEqual(rc, 0)
 
     def test_explicit_options_forwarded(self):

@@ -1,0 +1,487 @@
+{
+ "air": {
+  "1": {
+   "card_key": "PO2",
+   "faction": "SOVIET",
+   "path": "assets/fe/air/su_po2.png"
+  },
+  "11": {
+   "card_key": "FW189",
+   "faction": "GERMAN",
+   "path": "assets/fe/air/ger_fw189.png"
+  },
+  "12": {
+   "card_key": "JU88",
+   "faction": "GERMAN",
+   "path": "assets/fe/air/ger_ju88.png"
+  },
+  "13": {
+   "card_key": "JU87D",
+   "faction": "GERMAN",
+   "path": "assets/fe/air/ger_ju87d.png"
+  },
+  "14": {
+   "card_key": "FW190A",
+   "faction": "GERMAN",
+   "path": "assets/fe/air/ger_fw190a.png"
+  },
+  "15": {
+   "card_key": "JU52",
+   "faction": "GERMAN",
+   "path": "assets/fe/air/ger_ju52.png"
+  },
+  "2": {
+   "card_key": "PE2",
+   "faction": "SOVIET",
+   "path": "assets/fe/air/su_pe2.png"
+  },
+  "3": {
+   "card_key": "IL2M",
+   "faction": "SOVIET",
+   "path": "assets/fe/air/su_il2m.png"
+  },
+  "4": {
+   "card_key": "YAK9",
+   "faction": "SOVIET",
+   "path": "assets/fe/air/su_yak9.png"
+  },
+  "5": {
+   "card_key": "LI2",
+   "faction": "SOVIET",
+   "path": "assets/fe/air/su_li2.png"
+  }
+ },
+ "bg": {
+  "bg_config": "assets/fe/bg/bg_config.png",
+  "bg_deck_editor": "assets/fe/bg/bg_deck_editor.png",
+  "bg_mainmenu": "assets/fe/bg/bg_mainmenu.png",
+  "bg_settings": "assets/fe/bg/bg_settings.png"
+ },
+ "cursor": {
+  "cur_attack": "assets/fe/cursor/cur_attack.png",
+  "cur_default": "assets/fe/cursor/cur_default.png",
+  "cur_move": "assets/fe/cursor/cur_move.png",
+  "cur_select": "assets/fe/cursor/cur_select.png",
+  "cur_target": "assets/fe/cursor/cur_target.png",
+  "selbox_corner": "assets/fe/cursor/selbox_corner.png"
+ },
+ "missing": [],
+ "objectives": {
+  "obj_flag_blue": "assets/fe/objectives/obj_flag_blue.png",
+  "obj_flag_neutral": "assets/fe/objectives/obj_flag_neutral.png",
+  "obj_flag_red": "assets/fe/objectives/obj_flag_red.png",
+  "obj_ring_glow": "assets/fe/objectives/obj_ring_glow.png"
+ },
+ "orders": {
+  "air_ab": "assets/fe/orders/cmd_air_ab.png",
+  "air_alt": "assets/fe/orders/cmd_air_alt.png",
+  "air_disengage": "assets/fe/orders/cmd_air_disengage.png",
+  "air_engage": "assets/fe/orders/cmd_air_engage.png",
+  "air_rtb": "assets/fe/orders/cmd_air_rtb.png",
+  "ambush": "assets/fe/orders/cmd_ambush.png",
+  "attack": "assets/fe/orders/cmd_attack.png",
+  "cancel": "assets/fe/orders/cmd_cancel.png",
+  "decoy": "assets/fe/orders/cmd_decoy.png",
+  "deploy_gun": "assets/fe/orders/cmd_deploy_gun.png",
+  "drop": "assets/fe/orders/cmd_drop.png",
+  "fm": "assets/fe/orders/cmd_fm.png",
+  "fm_cancel": "assets/fe/orders/cmd_fm_cancel.png",
+  "formation": "assets/fe/orders/cmd_formation.png",
+  "laser": "assets/fe/orders/cmd_laser.png",
+  "march": "assets/fe/orders/cmd_march.png",
+  "mount": "assets/fe/orders/cmd_mount.png",
+  "pack_gun": "assets/fe/orders/cmd_pack_gun.png",
+  "precision": "assets/fe/orders/cmd_precision.png",
+  "radar": "assets/fe/orders/cmd_radar.png",
+  "reverse": "assets/fe/orders/cmd_reverse.png",
+  "smoke_sprint": "assets/fe/orders/cmd_smoke_sprint.png",
+  "smoke_x": "assets/fe/orders/cmd_smoke_x.png",
+  "sniper": "assets/fe/orders/cmd_sniper.png",
+  "sprint": "assets/fe/orders/cmd_sprint.png",
+  "stance_h": "assets/fe/orders/cmd_stance_h.png",
+  "stop": "assets/fe/orders/cmd_stop.png",
+  "strike": "assets/fe/orders/cmd_strike.png",
+  "sup_ammo": "assets/fe/orders/cmd_sup_ammo.png",
+  "sup_buy1": "assets/fe/orders/cmd_sup_buy1.png",
+  "sup_buy4": "assets/fe/orders/cmd_sup_buy4.png",
+  "sup_buymax": "assets/fe/orders/cmd_sup_buymax.png",
+  "sup_heal": "assets/fe/orders/cmd_sup_heal.png",
+  "sup_repair": "assets/fe/orders/cmd_sup_repair.png",
+  "sup_share": "assets/fe/orders/cmd_sup_share.png",
+  "supply": "assets/fe/orders/cmd_supply.png",
+  "tow": "assets/fe/orders/cmd_tow.png",
+  "unload": "assets/fe/orders/cmd_unload.png",
+  "untow": "assets/fe/orders/cmd_untow.png"
+ },
+ "schema": 1,
+ "settle": {
+  "badge_defeat": "assets/fe/settle/badge_defeat.png",
+  "badge_draw": "assets/fe/settle/badge_draw.png",
+  "badge_victory": "assets/fe/settle/badge_victory.png",
+  "banner_draw": "assets/fe/settle/banner_draw.png",
+  "banner_win_blue": "assets/fe/settle/banner_win_blue.png",
+  "banner_win_red": "assets/fe/settle/banner_win_red.png",
+  "row_hp": "assets/fe/settle/row_hp.png",
+  "row_obj": "assets/fe/settle/row_obj.png",
+  "row_units": "assets/fe/settle/row_units.png"
+ },
+ "terrain": {
+  "bagration_field_base": "assets/fe/terrain/bagration_field_base.png",
+  "bagration_field_minimap": "assets/fe/terrain/bagration_field_minimap.png",
+  "map_border": "assets/fe/terrain/map_border.png",
+  "minimap_terrain": "assets/fe/terrain/minimap_terrain.png",
+  "tile_field": "assets/fe/terrain/tile_field.png",
+  "tile_forest": "assets/fe/terrain/tile_forest.png",
+  "tile_road": "assets/fe/terrain/tile_road.png",
+  "tile_road_edge_e": "assets/fe/terrain/tile_road_edge_e.png",
+  "tile_road_edge_n": "assets/fe/terrain/tile_road_edge_n.png",
+  "tile_road_edge_s": "assets/fe/terrain/tile_road_edge_s.png",
+  "tile_road_edge_w": "assets/fe/terrain/tile_road_edge_w.png",
+  "tile_ruin": "assets/fe/terrain/tile_ruin.png"
+ },
+ "ui": {
+  "btn_generic_30": "assets/fe/ui/btn_generic_30.png",
+  "btn_generic_30_disabled": "assets/fe/ui/btn_generic_30_disabled.png",
+  "btn_generic_30_hover": "assets/fe/ui/btn_generic_30_hover.png",
+  "btn_generic_30_pressed": "assets/fe/ui/btn_generic_30_pressed.png",
+  "btn_generic_30_selected": "assets/fe/ui/btn_generic_30_selected.png",
+  "btn_generic_36": "assets/fe/ui/btn_generic_36.png",
+  "btn_generic_36_disabled": "assets/fe/ui/btn_generic_36_disabled.png",
+  "btn_generic_36_hover": "assets/fe/ui/btn_generic_36_hover.png",
+  "btn_generic_36_pressed": "assets/fe/ui/btn_generic_36_pressed.png",
+  "btn_generic_36_selected": "assets/fe/ui/btn_generic_36_selected.png",
+  "btn_lane": "assets/fe/ui/btn_lane.png",
+  "btn_lane_disabled": "assets/fe/ui/btn_lane_disabled.png",
+  "btn_lane_hover": "assets/fe/ui/btn_lane_hover.png",
+  "btn_lane_pressed": "assets/fe/ui/btn_lane_pressed.png",
+  "btn_lane_selected": "assets/fe/ui/btn_lane_selected.png",
+  "btn_primary": "assets/fe/ui/btn_primary.png",
+  "btn_primary_hover": "assets/fe/ui/btn_primary_hover.png",
+  "btn_primary_pressed": "assets/fe/ui/btn_primary_pressed.png",
+  "btn_primary_selected": "assets/fe/ui/btn_primary_selected.png",
+  "btn_rail": "assets/fe/ui/btn_rail.png",
+  "btn_rail_disabled": "assets/fe/ui/btn_rail_disabled.png",
+  "btn_rail_hover": "assets/fe/ui/btn_rail_hover.png",
+  "btn_rail_pressed": "assets/fe/ui/btn_rail_pressed.png",
+  "btn_rail_selected": "assets/fe/ui/btn_rail_selected.png",
+  "card_frame_aa_logistics": "assets/fe/ui/card_frame_aa_logistics.png",
+  "card_frame_aa_logistics_selected": "assets/fe/ui/card_frame_aa_logistics_selected.png",
+  "card_frame_armor": "assets/fe/ui/card_frame_armor.png",
+  "card_frame_armor_selected": "assets/fe/ui/card_frame_armor_selected.png",
+  "card_frame_command": "assets/fe/ui/card_frame_command.png",
+  "card_frame_command_selected": "assets/fe/ui/card_frame_command_selected.png",
+  "card_frame_firesupport": "assets/fe/ui/card_frame_firesupport.png",
+  "card_frame_firesupport_selected": "assets/fe/ui/card_frame_firesupport_selected.png",
+  "card_frame_infantry": "assets/fe/ui/card_frame_infantry.png",
+  "card_frame_infantry_selected": "assets/fe/ui/card_frame_infantry_selected.png",
+  "card_frame_recon": "assets/fe/ui/card_frame_recon.png",
+  "card_frame_recon_selected": "assets/fe/ui/card_frame_recon_selected.png",
+  "checkbox_off": "assets/fe/ui/checkbox_off.png",
+  "checkbox_on": "assets/fe/ui/checkbox_on.png",
+  "chip_timer": "assets/fe/ui/chip_timer.png",
+  "cmd_tile": "assets/fe/orders/cmd_tile.png",
+  "cmd_tile_armed": "assets/fe/orders/cmd_tile_armed.png",
+  "cmd_tile_disabled": "assets/fe/orders/cmd_tile_disabled.png",
+  "cmd_tile_hover": "assets/fe/orders/cmd_tile_hover.png",
+  "deploy_slot": "assets/fe/ui/deploy_slot.png",
+  "deploy_slot_glow": "assets/fe/ui/deploy_slot_glow.png",
+  "group_slot": "assets/fe/ui/group_slot.png",
+  "group_slot_dead": "assets/fe/ui/group_slot_dead.png",
+  "group_slot_selected": "assets/fe/ui/group_slot_selected.png",
+  "keycap": "assets/fe/ui/keycap.png",
+  "keycap_armed": "assets/fe/ui/keycap_armed.png",
+  "minimap_frame": "assets/fe/ui/minimap_frame.png",
+  "panel_air": "assets/fe/ui/panel_air.png",
+  "panel_deck_pool": "assets/fe/ui/panel_deck_pool.png",
+  "panel_deploy_left": "assets/fe/ui/panel_deploy_left.png",
+  "panel_fm": "assets/fe/ui/panel_fm.png",
+  "panel_select": "assets/fe/ui/panel_select.png",
+  "panel_topbar": "assets/fe/ui/panel_topbar.png",
+  "rail_bg": "assets/fe/ui/rail_bg.png",
+  "settings_row": "assets/fe/ui/settings_row.png",
+  "slider_knob": "assets/fe/ui/slider_knob.png",
+  "slider_track": "assets/fe/ui/slider_track.png",
+  "trail_air": "assets/fe/orders/trail_air.png",
+  "trail_attack": "assets/fe/orders/trail_attack.png",
+  "trail_fire_mission": "assets/fe/orders/trail_fire_mission.png",
+  "trail_move": "assets/fe/orders/trail_move.png",
+  "trail_smoke_sprint": "assets/fe/orders/trail_smoke_sprint.png"
+ },
+ "unit_mark": {
+  "hp_bar": "assets/fe/units/hp_bar.png",
+  "overlay_facing": "assets/fe/units/overlay_facing.png",
+  "overlay_moving": "assets/fe/units/overlay_moving.png",
+  "overlay_selected": "assets/fe/units/overlay_selected.png",
+  "overlay_suppressed": "assets/fe/units/overlay_suppressed.png"
+ },
+ "units": {
+  "101": {
+   "card_key": "SU_RECON",
+   "path": "assets/fe/units/su_recon.png"
+  },
+  "102": {
+   "card_key": "SU_RIFLE",
+   "path": "assets/fe/units/su_rifle.png"
+  },
+  "103": {
+   "card_key": "SU_PARATROOP",
+   "path": "assets/fe/units/su_paratroop.png"
+  },
+  "104": {
+   "card_key": "SU_COMMISSAR",
+   "path": "assets/fe/units/su_commissar.png"
+  },
+  "105": {
+   "card_key": "SU_T3485",
+   "path": "assets/fe/units/su_t3485.png"
+  },
+  "106": {
+   "card_key": "SU_ZIS3",
+   "path": "assets/fe/units/su_zis3.png"
+  },
+  "107": {
+   "card_key": "SU_TRUCK",
+   "path": "assets/fe/units/su_truck.png"
+  },
+  "108": {
+   "card_key": "SU_BA64",
+   "path": "assets/fe/units/su_ba64.png"
+  },
+  "109": {
+   "card_key": "SU_CAVALRY",
+   "path": "assets/fe/units/su_cavalry.png"
+  },
+  "110": {
+   "card_key": "SU_SNIPER",
+   "path": "assets/fe/units/su_sniper.png"
+  },
+  "111": {
+   "card_key": "SU_SONAR",
+   "path": "assets/fe/units/su_sonar.png"
+  },
+  "112": {
+   "card_key": "SU_SABOT",
+   "path": "assets/fe/units/su_sabot.png"
+  },
+  "113": {
+   "card_key": "SU_SMG",
+   "path": "assets/fe/units/su_smg.png"
+  },
+  "114": {
+   "card_key": "SU_GUARD",
+   "path": "assets/fe/units/su_guard.png"
+  },
+  "115": {
+   "card_key": "SU_MAXIM",
+   "path": "assets/fe/units/su_maxim.png"
+  },
+  "116": {
+   "card_key": "SU_ATR",
+   "path": "assets/fe/units/su_atr.png"
+  },
+  "117": {
+   "card_key": "SU_MORTAR82",
+   "path": "assets/fe/units/su_mortar82.png"
+  },
+  "118": {
+   "card_key": "SU_MORTAR120",
+   "path": "assets/fe/units/su_mortar120.png"
+  },
+  "119": {
+   "card_key": "SU_ENGINEER",
+   "path": "assets/fe/units/su_engineer.png"
+  },
+  "120": {
+   "card_key": "SU_T3476",
+   "path": "assets/fe/units/su_t3476.png"
+  },
+  "121": {
+   "card_key": "SU_IS2",
+   "path": "assets/fe/units/su_is2.png"
+  },
+  "122": {
+   "card_key": "SU_SU76",
+   "path": "assets/fe/units/su_su76.png"
+  },
+  "123": {
+   "card_key": "SU_SU85",
+   "path": "assets/fe/units/su_su85.png"
+  },
+  "124": {
+   "card_key": "SU_ISU152",
+   "path": "assets/fe/units/su_isu152.png"
+  },
+  "125": {
+   "card_key": "SU_OT34",
+   "path": "assets/fe/units/su_ot34.png"
+  },
+  "126": {
+   "card_key": "SU_ZIS2",
+   "path": "assets/fe/units/su_zis2.png"
+  },
+  "127": {
+   "card_key": "SU_M30",
+   "path": "assets/fe/units/su_m30.png"
+  },
+  "128": {
+   "card_key": "SU_ML20",
+   "path": "assets/fe/units/su_ml20.png"
+  },
+  "129": {
+   "card_key": "SU_BM13",
+   "path": "assets/fe/units/su_bm13.png"
+  },
+  "130": {
+   "card_key": "SU_DSHK",
+   "path": "assets/fe/units/su_dshk.png"
+  },
+  "131": {
+   "card_key": "SU_61K",
+   "path": "assets/fe/units/su_61k.png"
+  },
+  "132": {
+   "card_key": "SU_52K",
+   "path": "assets/fe/units/su_52k.png"
+  },
+  "133": {
+   "card_key": "SU_REPAIR",
+   "path": "assets/fe/units/su_repair.png"
+  },
+  "201": {
+   "card_key": "GER_GRENADIER",
+   "path": "assets/fe/units/ger_grenadier.png"
+  },
+  "202": {
+   "card_key": "GER_PARATROOP",
+   "path": "assets/fe/units/ger_paratroop.png"
+  },
+  "203": {
+   "card_key": "GER_PAK40",
+   "path": "assets/fe/units/ger_pak40.png"
+  },
+  "204": {
+   "card_key": "GER_SCOUT",
+   "path": "assets/fe/units/ger_scout.png"
+  },
+  "205": {
+   "card_key": "GER_PUMA",
+   "path": "assets/fe/units/ger_puma.png"
+  },
+  "206": {
+   "card_key": "GER_MOTO",
+   "path": "assets/fe/units/ger_moto.png"
+  },
+  "207": {
+   "card_key": "GER_SNIPER",
+   "path": "assets/fe/units/ger_sniper.png"
+  },
+  "208": {
+   "card_key": "GER_SONAR",
+   "path": "assets/fe/units/ger_sonar.png"
+  },
+  "209": {
+   "card_key": "GER_BRANDEN",
+   "path": "assets/fe/units/ger_branden.png"
+  },
+  "210": {
+   "card_key": "GER_VG",
+   "path": "assets/fe/units/ger_vg.png"
+  },
+  "211": {
+   "card_key": "GER_PGREN",
+   "path": "assets/fe/units/ger_pgren.png"
+  },
+  "212": {
+   "card_key": "GER_JAGER",
+   "path": "assets/fe/units/ger_jager.png"
+  },
+  "213": {
+   "card_key": "GER_HMG",
+   "path": "assets/fe/units/ger_hmg.png"
+  },
+  "214": {
+   "card_key": "GER_MORTAR81",
+   "path": "assets/fe/units/ger_mortar81.png"
+  },
+  "215": {
+   "card_key": "GER_MORTAR120",
+   "path": "assets/fe/units/ger_mortar120.png"
+  },
+  "216": {
+   "card_key": "GER_ENGINEER",
+   "path": "assets/fe/units/ger_engineer.png"
+  },
+  "217": {
+   "card_key": "GER_OFFICER",
+   "path": "assets/fe/units/ger_officer.png"
+  },
+  "218": {
+   "card_key": "GER_PZIV",
+   "path": "assets/fe/units/ger_pziv.png"
+  },
+  "219": {
+   "card_key": "GER_PANTHER",
+   "path": "assets/fe/units/ger_panther.png"
+  },
+  "220": {
+   "card_key": "GER_TIGER",
+   "path": "assets/fe/units/ger_tiger.png"
+  },
+  "221": {
+   "card_key": "GER_STUG",
+   "path": "assets/fe/units/ger_stug.png"
+  },
+  "222": {
+   "card_key": "GER_JGDPZ4",
+   "path": "assets/fe/units/ger_jgdpz4.png"
+  },
+  "223": {
+   "card_key": "GER_HETZER",
+   "path": "assets/fe/units/ger_hetzer.png"
+  },
+  "224": {
+   "card_key": "GER_NASHORN",
+   "path": "assets/fe/units/ger_nashorn.png"
+  },
+  "225": {
+   "card_key": "GER_IG18",
+   "path": "assets/fe/units/ger_ig18.png"
+  },
+  "226": {
+   "card_key": "GER_PAK38",
+   "path": "assets/fe/units/ger_pak38.png"
+  },
+  "227": {
+   "card_key": "GER_FH18",
+   "path": "assets/fe/units/ger_fh18.png"
+  },
+  "228": {
+   "card_key": "GER_SFH18",
+   "path": "assets/fe/units/ger_sfh18.png"
+  },
+  "229": {
+   "card_key": "GER_NEBEL",
+   "path": "assets/fe/units/ger_nebel.png"
+  },
+  "230": {
+   "card_key": "GER_FLAK38",
+   "path": "assets/fe/units/ger_flak38.png"
+  },
+  "231": {
+   "card_key": "GER_FLAK43",
+   "path": "assets/fe/units/ger_flak43.png"
+  },
+  "232": {
+   "card_key": "GER_FLAK36",
+   "path": "assets/fe/units/ger_flak36.png"
+  },
+  "233": {
+   "card_key": "GER_TRUCK",
+   "path": "assets/fe/units/ger_truck.png"
+  },
+  "234": {
+   "card_key": "GER_BERGE",
+   "path": "assets/fe/units/ger_berge.png"
+  }
+ }
+}

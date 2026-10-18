@@ -19,7 +19,7 @@ from sovs.ai.kev_client import KevUnavailableError
 from sovs.app import air_roster as air_roster_mod
 from sovs.sim import card_loader
 from sovs.sim.air import (PHASE_COMBAT, PHASE_DEPLOY, PHASE_SETTLE)
-from sovs.sim.map_loader import apply_map, load_demo_map
+from sovs.sim.map_loader import apply_map, load_demo_map, load_map_by_key
 from sovs.sim.state_frame import state_frame
 from sovs.sim.tables import CONFIG
 from sovs.sim.tick import DeckSlot, Objective, make_world, world_tick
@@ -51,23 +51,50 @@ def opponent_deck_for(human_deck: str) -> str:
         return "ger_min"
 
 
-def build_world(seed: int, human_deck: str):
-    """遭遇战世界装配（真实数据卡）：2km 演示图+中央占点+双方现役卡组。
+def build_world(seed: int, human_deck: str,
+                scenario_key: str = "bagration_field"):
+    """遭遇战世界装配（真实数据卡）：图+占点+双方现役卡组。
 
-    人类席 player0 挂所选卡组（data/gen/decks 下任意编译产物——GP-01 §7 泛化）、
-    KEV 席 player1 挂阵营镜像内置卡组。
+    R5 场景骨架：scenario_key → load_scenario（目标/图幅/简报）→
+    load_map_by_key 挂图 → objectives 逐条 append（替换旧单中央占点）。
+    卡组挂载照旧（人类席所选 data/gen/decks 产物、KEV 席阵营镜像内置）。
+    场景文件缺失/校验失败 → 回退旧 demo 行为（单中央占点）并留痕（测试
+    兼容口径——demo 产物在库即不触发）。
     """
+    scenario = None
+    try:
+        from sovs.app.scenario import load_scenario
+        scenario = load_scenario(scenario_key)
+    except Exception as exc:                         # noqa: BLE001（回退留痕）
+        print("⚠ 场景 %s 不可用（%s）——回退 demo_2km 单中央占点"
+              % (scenario_key, str(exc)[:120]))
+    if scenario is not None:
+        md = load_map_by_key(scenario["map_key"])
+        w = make_world(seed, phase=PHASE_DEPLOY, size_cm=md.extent)
+        apply_map(w, md)
+        for o in scenario["objectives"]:
+            w.objectives.append(Objective(id=o["id"],
+                                          pos=(o["pos_cm"][0], o["pos_cm"][1]),
+                                          radius_cm=o["radius_cm"]))
+        _attach_deck(w, human_deck)
+        return w
     lib = card_loader.load_library(LIB_PATH)
     w = make_world(seed, phase=PHASE_DEPLOY, size_cm=(200000, 100000))
     apply_map(w, load_demo_map())
     w.objectives.append(Objective(id=_OBJECTIVE.id, pos=_OBJECTIVE.pos,
                                   radius_cm=_OBJECTIVE_RADIUS_CM))
+    _attach_deck(w, human_deck)
+    return w
+
+
+def _attach_deck(w, human_deck: str) -> None:
+    """双方卡组挂载（build_world 场景/回退两分支共用——KEV 席阵营镜像）。"""
+    lib = card_loader.load_library(LIB_PATH)
     kev_deck = opponent_deck_for(human_deck)
     for index, deck_key in ((HUMAN_INDEX, human_deck), (KEV_INDEX, kev_deck)):
         deck = card_loader.load_deck(os.path.join(DECK_DIR, deck_key + ".json"))
         w.players[index].deck_slots = [
             DeckSlot(lib[key].unit_template, copies) for key, copies in deck.cards]
-    return w
 
 
 def _make_kev_client(kev_level: str):
@@ -90,16 +117,19 @@ class SkirmishSession:
     """
 
     def __init__(self, seed: int = 42, human_deck: str = "su_min",
-                 kev_level: str = "rule", kev_beat: int = 10):
+                 kev_level: str = "rule", kev_beat: int = 10,
+                 scenario_key: str = "bagration_field"):
         self.seed = int(seed)
         self.human_deck = human_deck
         self.kev_level = kev_level
         self.kev_beat = max(1, int(kev_beat))
+        self.scenario_key = scenario_key      # R5：场景键（build_world 透传）
         self.total_ticks = sum(CONFIG.phase_ticks)          # 600+13200=13800
         self._kev_client = _make_kev_client(kev_level)       # 构造即定档（降级链）
         self._built_kev_level = kev_level                    # 已装配档（防重复装配）
         self.pending_expands: list[dict] = []                # 待出场展开队列（A4）
         self._deck_editor = None
+        self._scenario_cache = None
         self.new_game(human_deck, kev_level, seed)
 
     # ── 世界生命周期 ──
@@ -119,7 +149,8 @@ class SkirmishSession:
         if self.kev_level != getattr(self, "_built_kev_level", None):
             self._kev_client = _make_kev_client(self.kev_level)
             self._built_kev_level = self.kev_level
-        self.world = build_world(self.seed, self.human_deck)
+        self.world = build_world(self.seed, self.human_deck,
+                                 scenario_key=self.scenario_key)
         self.cmd = CmdBus(self.world, HUMAN_INDEX)
         self.pending_expands = []
         beat = self.kev_beat
@@ -177,6 +208,36 @@ class SkirmishSession:
 
     # ── 配置页/编辑器数据 ──
 
+    def scenario_info(self) -> dict | None:
+        """R5：场景摘要（config 页场景行/简报用——{scenario_key,name,subtitle,
+        briefing}；回退 demo 时 None=界面走旧行文案）。缓存一次。"""
+        if self._scenario_cache is None:
+            try:
+                from sovs.app.scenario import load_scenario
+                doc = load_scenario(self.scenario_key)
+                self._scenario_cache = {
+                    "scenario_key": doc["scenario_key"],
+                    "map_key": doc["map_key"],       # R6：地形底图/小地图/建筑
+                                                    # 元数据的取图键（scene/minimap）
+                    "name": doc["name"],
+                    "subtitle": doc.get("subtitle", ""),
+                    "briefing": list(doc["briefing"])}
+            except Exception:                          # noqa: BLE001（鸭子面）
+                self._scenario_cache = {}
+        return self._scenario_cache or None
+
+    def objective_labels(self) -> dict:
+        """R5：{objective_id: 名称}（scene 目标名标注用；回退 demo=空表不画）。"""
+        info = self.scenario_info()
+        if not info:
+            return {}
+        try:
+            from sovs.app.scenario import load_scenario
+            return {o["id"]: o["name"]
+                    for o in load_scenario(self.scenario_key)["objectives"]}
+        except Exception:                              # noqa: BLE001
+            return {}
+
     def deck_list(self) -> list[str]:
         """卡组清单（data/gen/decks 编译产物——编辑器保存后即时出现的运行面）。"""
         if not os.path.isdir(DECK_DIR):
@@ -208,6 +269,112 @@ class SkirmishSession:
         return self._deck_editor
 
     # ── 空呼花名册（GP-01 §4：增冷却/在空态）──
+
+    def los_probe(self, uid: int, target_cm) -> dict | None:
+        """FE-05 F6 视线探测（ALT 工具/火力任务预览——只读 world，按需调用）。
+
+        判定复用 sensing 现有通道（森林/烟衰减 detect_atten_per_m 口径）：
+        超光学距离 → reason="range"；森林/烟衰减致有效距离 < 实际距离 →
+        blocked（主导衰减源 forest_m≥smoke_m → "terrain"，否则 "smoke"）；
+        建筑遮蔽=sensing 无楼遮蔽通道（驻楼=单位态非地形），点目标口径按
+        线段穿过建筑名义半径 25m（tile 粒度）判 blocked、"terrain"——UI 呈现
+        层名义规则留痕，非 sim 语义变更。敌方/未知 id → None（私有边界）。
+        """
+        from sovs.sim.geom import dist_cm as _dist_cm
+        from sovs.sim.sensing import terrain_sensing_channels
+        uid = int(uid)
+        u = next((x for x in self.world.units if x.id == uid and x.alive),
+                 None)
+        if u is None or u.team != self.world.players[HUMAN_INDEX].team:
+            return None
+        tgt = (int(target_cm[0]), int(target_cm[1]))
+        dist = _dist_cm(u.pos, tgt)
+        rng = u.template.optics_ground_cm
+        out = {"visible": False, "blocked": False, "reason": None,
+               "dist_cm": dist, "range_cm": rng}
+        if dist > rng:
+            out.update(blocked=True, reason="range")
+            return out
+        forest_fn, smoke_fn, _in_forest = terrain_sensing_channels(self.world)
+        forest_m = forest_fn(u.pos, tgt) if forest_fn else 0
+        smoke_m = smoke_fn(u.pos, tgt) if smoke_fn else 0
+        eff = rng - CONFIG.detect_atten_per_m * (forest_m + smoke_m)
+        if eff < dist:
+            out.update(blocked=True,
+                       reason="terrain" if forest_m >= smoke_m else "smoke")
+            return out
+        for b in self.world.buildings:               # 名义半径 25m 楼遮蔽（头注）
+            if b.hp <= 0:
+                continue
+            ax, ay = u.pos
+            bx, by = tgt
+            dx, dy = bx - ax, by - ay
+            seg2 = dx * dx + dy * dy
+            if seg2 == 0:
+                continue
+            vx, vy = b.pos[0] - ax, b.pos[1] - ay
+            dot = vx * dx + vy * dy
+            if dot <= 0 or dot >= seg2:              # 投影不在段内=楼在端点外
+                continue
+            cross2 = (vx * vx + vy * vy) * seg2 - dot * dot
+            if cross2 < 2500 * 2500 * seg2:          # 垂距 < 25m
+                out.update(blocked=True, reason="terrain")
+                return out
+        out["visible"] = True
+        return out
+
+    def unit_detail(self, uid: int) -> dict | None:
+        """FE-05 F3 单位详细档（按需查询——不进 state_frame 每帧导出）。
+
+        己方（本会话人类席队）全量：模板静态档（装甲/视野/速度/隐蔽）＋动态档
+        （士气/姿态/模式）＋逐元素武器表现（名称/弹药 x/y/射程/穿深/弹种/装填）。
+        敌方只回 5 键摘要（name/category/team/hp/hp_max——敌方模板静态档=对方
+        情报私有，与帧 caps/fire_mission 同边界口径）。未知 id/阵亡 → None。
+        """
+        uid = int(uid)
+        u = next((x for x in self.world.units if x.id == uid and x.alive),
+                 None)
+        if u is None:
+            return None
+        hp = sum(e.hp_current for e in u.elements)
+        hp_max = sum(e.template.hp_max for e in u.elements)
+        if u.team != self.world.players[HUMAN_INDEX].team:
+            return {"name": u.template.name,
+                    "category": int(u.template.category),
+                    "team": u.team, "hp": hp, "hp_max": hp_max}
+
+        def _weapon(ws) -> dict:
+            t = ws.template
+            return {"name": t.name, "ammo_left": ws.ammo_left,
+                    "ammo_base": t.ammo_base, "max_range_cm": t.max_range_cm,
+                    "pen_min": t.pen_min, "pen_max": t.pen_max,
+                    "damage_type": getattr(t.damage_type, "name",
+                                           str(t.damage_type)).lower(),
+                    "reload_ticks": t.reload_time_ticks}
+
+        def _armor_max(attr) -> int | None:
+            """Armor 是四面板 dataclass（front/side/rear/top，0-20 相对刻度）
+            ——单位卡呈现取 front（正面防护=详情主档）。"""
+            vals = [getattr(e.template, attr).front
+                    for e in u.elements
+                    if getattr(e.template, attr) is not None]
+            return max(vals) if vals else None
+
+        tpl = u.template
+        return {
+            "name": tpl.name, "category": int(tpl.category), "team": u.team,
+            "hp": hp, "hp_max": hp_max,
+            "armor_ke": _armor_max("armor_ke"),
+            "armor_he": _armor_max("armor_he"),
+            "optics_ground_cm": tpl.optics_ground_cm,
+            "optics_air_cm": tpl.optics_air_cm,
+            "speed_tier": tpl.speed_tier, "stealth_base": tpl.stealth_base,
+            "morale": u.morale.name.lower(), "stance": u.stance.name.lower(),
+            "mode": u.move_mode.name.lower(),
+            "elements": [{"hp": e.hp_current, "hp_max": e.template.hp_max,
+                          "weapons": [_weapon(ws) for ws in e.weapon_states]}
+                         for e in u.elements],
+        }
 
     def air_roster(self) -> list[dict]:
         return air_roster_mod.build_air_roster(self.world, HUMAN_INDEX,

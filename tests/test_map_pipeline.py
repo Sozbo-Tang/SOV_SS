@@ -361,6 +361,43 @@ class TestBuildArtifacts(unittest.TestCase):
             out = bm.build_map(REPO_DATA, Path(tmp))
             self.assertEqual(COMMITTED_JSON.read_bytes(), out.read_bytes())
 
+    def test_bagration_field_builds_deterministic(self):
+        """R5：巴格拉季昂野战图——80×40、建筑 8、森林/道路/废墟非零、双构建
+        字节一致、提交产物==重构建。"""
+        import hashlib
+        from collections import Counter
+        csv = REPO_DATA / "map_bagration_field.csv"
+        committed = REPO_DATA / "gen" / "bagration_field.v1.json"
+        self.assertTrue(csv.is_file() and committed.is_file())
+        with tempfile.TemporaryDirectory() as tmp:
+            a = bm.build_map_csv(csv, Path(tmp) / "a")
+            b = bm.build_map_csv(csv, Path(tmp) / "b")
+            self.assertEqual(a.read_bytes(), b.read_bytes())   # 字节稳定
+            self.assertEqual(committed.read_bytes(), a.read_bytes())
+        doc = json.loads(committed.read_text(encoding="utf-8"))
+        self.assertEqual(doc["map_key"], "bagration_field")
+        self.assertEqual((doc["extent_x_cm"], doc["extent_y_cm"], doc["tile_cm"]),
+                         (200000, 100000, 2500))                # 80×40
+        self.assertEqual(len(doc["buildings"]), 8)
+        self.assertEqual(doc["source_sha256"],
+                         hashlib.sha256(csv.read_bytes()).hexdigest())
+        types = [t for _, _, t in doc["tiles"]]
+        self.assertEqual(set(types), {0, 1, 2})                 # 路/林/废墟全在场
+        c = Counter(types)
+        self.assertGreater(c[0], 0)                             # ROAD 非零
+        self.assertGreater(c[1], 0)                             # FOREST 非零
+        self.assertGreater(c[2], 0)                             # RUIN 非零
+        # 主南北路（x=40 瓦列）成街：该列存在 ROAD 瓦片
+        self.assertTrue(any(ix == 40 and t == 0 for ix, iy, t in doc["tiles"]))
+
+    def test_build_all_scans_all_maps(self):
+        """R5：build_all 扫描 data/map_*.csv——demo+bagration 双产物。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            outs = bm.build_all(REPO_DATA, Path(tmp))
+            names = sorted(p.name for p in outs)
+            self.assertIn("demo_2km.v1.json", names)
+            self.assertIn("bagration_field.v1.json", names)
+
     def test_build_byte_stable(self):
         with tempfile.TemporaryDirectory() as tmp:
             a = bm.build_map(REPO_DATA, Path(tmp) / "a")

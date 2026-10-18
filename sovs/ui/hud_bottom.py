@@ -13,6 +13,7 @@ import arcade
 
 from .order_filter import eligible_orders
 from .order_icons import badge_for, draw_badge, draw_order_tile, draw_tooltip
+from . import assets
 from .palette import (BOTTOM_H, BTN_FONT, GROUP_BAR_GAP, GROUP_DEAD,  # noqa: E402
                       GROUP_PITCH, GROUP_SLOT, GROUP_SLOT_H, HUD_TEXT,
                       MARGIN, MINIMAP_W, ORDER_ARMED, ORDER_EMPTY_ROWS,
@@ -422,14 +423,32 @@ def draw_air_rail(win) -> None:
     """左缘呼援轨绘制：页签行（仅可见类别）＋标题（空援点数）＋卡按钮。
     2026-10-15 两处修正·其一：HEL 占位文案随「无法放置类别不出现」移除
     （1944 无旋翼机，整签不渲染——_rail_visible_tabs）；railtab_/air:/buy:
-    一并绘制（实战页 buy: 卡旧缺口 2026-10-14 已收口）。"""
+    一并绘制（实战页 buy: 卡旧缺口 2026-10-14 已收口）。
+    〔FE-05 F5（2026-10-17）：air:/buy: 卡改走 draw_thumb_button——左侧
+    20×20 缩略图（air=机型贴图 / buy=地面卡贴图）＋文字右移，命中面零变。〕
+    〔FE-05 F8：呼援轨 rail_bg 皮肤打底（标题带到末卡下缘——缺图回退无底）。〕"""
     arcade.draw_text("呼援 %d（点卡呼入）" % my_air_points(win),
                      MARGIN + 4, win.height - TOP_H - 14, HUD_TEXT, 12)
+    rail_bottom = getattr(win, "_rail_bottom", None)
+    if rail_bottom is not None and assets.ui_tex("rail_bg") is not None:
+        assets.draw_nine_patch((MARGIN - 2, rail_bottom - 4,
+                                MARGIN + RAIL_W + 2, win.height - TOP_H - 18),
+                               assets.ui_tex("rail_bg"))
+    air_tid = {}
+    for entry in win.session.air_roster():
+        air_tid[entry["key"]] = getattr(entry.get("template", None),
+                                        "template_id", None)
     for btn in win._buttons:
-        if btn.key.startswith("railtab_") or btn.key.startswith("air:") \
-                or btn.key.startswith("buy:"):
+        if btn.key.startswith("railtab_"):
             draw_button(btn, armed=(btn.key == "railtab_" + rail_tab_of(win)
                                     and btn.tone == "focus"))
+        elif btn.key.startswith("air:"):
+            draw_thumb_button(btn, assets.air_tex(air_tid.get(btn.key[4:])),
+                              thumb=20)
+        elif btn.key.startswith("buy:"):
+            draw_thumb_button(
+                btn, assets.unit_tex_by_id(int(btn.key[4:].split("|", 1)[0])),
+                thumb=20)
 
 
 def draw_group_bar(win) -> None:
@@ -442,12 +461,12 @@ def draw_group_bar(win) -> None:
         n = int(btn.key[4:])
         entry = win.fsm.groups.get(n)
         if entry is None:
-            bg = GROUP_SLOT
+            skin, bg = "group_slot", GROUP_SLOT
         elif win.fsm.group_alive_count(n) == 0:
-            bg = GROUP_DEAD                      # 全灭灰显（不清号）
+            skin, bg = "group_slot_dead", GROUP_DEAD   # 全灭灰显（不清号）
         else:
-            bg = ORDER_ARMED
-        arcade.draw_lrbt_rectangle_filled(btn.x0, btn.x1, btn.yb, btn.yt, bg)
+            skin, bg = "group_slot_selected", ORDER_ARMED
+        assets.skin_fill((btn.x0, btn.yb, btn.x1, btn.yt), skin, bg)
         arcade.draw_lrbt_rectangle_outline(btn.x0, btn.x1, btn.yb, btn.yt,
                                            ORDER_TEXT, 1)
         arcade.draw_text(btn.label, (btn.x0 + btn.x1) / 2, btn.yb + 2,
@@ -459,6 +478,17 @@ def draw_group_bar(win) -> None:
 
 
 def draw_button(btn: Btn, *, armed: bool = False) -> None:
+    # F8 皮肤：tone/armed → btn_* 皮肤态（缺态资产回退纯色——几何零变）
+    skin = assets.button_skin(btn, armed=armed)
+    if skin is not None:
+        assets.draw_nine_patch((btn.x0, btn.yb, btn.x1, btn.yt),
+                               assets.ui_tex(skin))
+        if btn.label:
+            col = (150, 150, 150, 255) if btn.tone == "disabled" \
+                else ORDER_TEXT
+            arcade.draw_text(btn.label, (btn.x0 + btn.x1) / 2, btn.yb + 6,
+                             col, BTN_FONT, anchor_x="center")
+        return
     if armed:
         fill = ORDER_ARMED
     elif btn.tone == "disabled":
@@ -473,6 +503,55 @@ def draw_button(btn: Btn, *, armed: bool = False) -> None:
     if btn.label:
         arcade.draw_text(btn.label, (btn.x0 + btn.x1) / 2, btn.yb + 6,
                          ORDER_TEXT, BTN_FONT, anchor_x="center")
+
+
+def draw_thumb_button(btn: Btn, tex, *, armed: bool = False,
+                      thumb: int = 20) -> None:
+    """缩略图卡按钮（FE-05 F5）：底板同 draw_button 色调＋左侧 thumb×thumb
+    缩略图（缺图=留空不崩）＋文字左锚右移（fit_text 收宽到剩余宽）。命中
+    矩形与 draw_button 同一 Btn——几何零变（布局层不动）。
+    〔R2：钮高 < 2×corner(32) 时皮肤整图拉伸会把 btn_rail 右描边拉成白竖
+    线——高度门内回退纯色底+1px 描边；标签自缩略图右缘 +10px（原 +6 压图）。〕"""
+    skin = assets.button_skin(btn, armed=armed)
+    if skin is not None and (btn.yt - btn.yb) >= 32:   # R2：高度门（9 宫格可用）
+        assets.draw_nine_patch((btn.x0, btn.yb, btn.x1, btn.yt),
+                               assets.ui_tex(skin))
+        cy = (btn.yb + btn.yt) / 2
+        if tex is not None:
+            arcade.draw_texture_rect(tex, arcade.XYWH(btn.x0 + 2 + thumb / 2,
+                                                      cy, thumb, thumb))
+        from .hud_top import fit_text
+        if btn.label:
+            col = (150, 150, 150, 255) if btn.tone == "disabled" \
+                else ORDER_TEXT
+            arcade.draw_text(
+                fit_text(btn.label, btn.x1 - btn.x0 - thumb - 14, BTN_FONT),
+                btn.x0 + thumb + 10, btn.yb + 6, col, BTN_FONT)
+        return
+    if armed:                                          # 矮钮：走下方纯色路径
+        fill = ORDER_ARMED
+    elif btn.tone == "disabled":
+        fill = (44, 46, 44, 255)
+    elif btn.tone == "focus":
+        fill = (96, 84, 30, 255)
+    else:
+        fill = (58, 64, 58, 255)
+    # R3 1-3：纯色路径描边调暗（ORDER_TEXT 近白在矮钮右缘成白竖线刺眼）
+    arcade.draw_lrbt_rectangle_filled(btn.x0, btn.x1, btn.yb, btn.yt, fill)
+    arcade.draw_lrbt_rectangle_outline(btn.x0, btn.x1, btn.yb, btn.yt,
+                                       (90, 100, 90, 160), 1)
+    cy = (btn.yb + btn.yt) / 2
+    if tex is not None:
+        arcade.draw_texture_rect(tex, arcade.XYWH(btn.x0 + 2 + thumb / 2,
+                                                  cy, thumb, thumb))
+    from .hud_top import fit_text
+    if btn.label:
+        col = (150, 150, 150, 255) if btn.tone == "disabled" \
+            else ORDER_TEXT
+        # R2 2-1 间距在高度门矮钮（本路径）同样生效：标签自缩略图右缘 +10
+        arcade.draw_text(
+            fit_text(btn.label, btn.x1 - btn.x0 - thumb - 14, BTN_FONT),
+            btn.x0 + thumb + 10, btn.yb + 6, col, BTN_FONT)
 
 
 def handle_panel_button(win, key: str) -> None:
@@ -556,11 +635,12 @@ def handle_panel_button(win, key: str) -> None:
 # ── 面板点击语义（GP-01 §5.2 拆分自 shell_window——按钮面点击的语义体）──
 
 def draw_deploy_panel(win) -> None:
-    """部署页左栏三池面板绘制（卡槽/车道按钮/待放卡提示）。"""
+    """部署页左栏三池面板绘制（卡槽/车道按钮/待放卡提示）。
+    〔FE-05 F8：左栏底板 panel_deploy_left 皮肤（缺图回退纯色原填充）。〕"""
     from .palette import LEFT_W
     top = win.height - TOP_H
-    arcade.draw_lrbt_rectangle_filled(0, LEFT_W, BOTTOM_H, top,
-                                      ORDER_PANEL)
+    assets.skin_fill((0, BOTTOM_H, LEFT_W, top), "panel_deploy_left",
+                     ORDER_PANEL)
     arcade.draw_text("卡组呼援（点卡装弹→点地放卡）", MARGIN + 6, top - 26,
                      HUD_TEXT, 13)
     arcade.draw_text("空投限定卡灰显（经 O 键空投投送）", MARGIN + 6,
@@ -570,7 +650,9 @@ def draw_deploy_panel(win) -> None:
             armed = (win.fsm.armed_purchase is not None
                      and win.fsm.armed_purchase[0]
                      == int(btn.key[4:].split("|", 1)[0]))
-            draw_button(btn, armed=armed)
+            draw_thumb_button(                       # F5：24×24 缩略图卡槽
+                btn, assets.unit_tex_by_id(int(btn.key[4:].split("|", 1)[0])),
+                armed=armed, thumb=24)
         elif btn.key.startswith("railtab_") or btn.key.startswith("lane"):
             draw_button(btn)
     if win.fsm.armed_purchase is not None:

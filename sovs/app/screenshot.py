@@ -13,7 +13,7 @@ from sovs.app.session import SkirmishSession
 
 
 def screenshot(out_dir: str, seed: int = 42, deck: str = "su_min",
-               kev: str = "rule") -> int:
+               kev: str = "rule", size: tuple = (1280, 800)) -> int:
     try:
         import arcade                                    # 惰性 import（fe 门禁组）
     except ImportError as exc:
@@ -24,12 +24,28 @@ def screenshot(out_dir: str, seed: int = 42, deck: str = "su_min",
     os.makedirs(out_dir, exist_ok=True)
     session = SkirmishSession(seed=seed, human_deck=deck, kev_level=kev)
     pilot = ScriptedPilot(session)
-    win = ShellWindow(session, visible=False)            # pyglet 隐藏窗承载 GL 上下文
+    win = ShellWindow(session, visible=False, width=int(size[0]),
+                      height=int(size[1]))            # R3 1-4：双分辨率参数
     made = []
+
+    # ⓪ 主菜单页（FE-05 F7：断箭式 HOME/PLAY/ARSENAL/SETTINGS——进 config 前拍）
+    win.fsm.open_menu()
+    win._layout_buttons()
+    win.snapshot(os.path.join(out_dir, "menu.png"))
+    made.append("menu.png")
+    win.fsm.open_config()
+    win._layout_buttons()
 
     # ① 战前配置页（缺省选项：su_min+规则兜底）
     win.snapshot(os.path.join(out_dir, "config.png"))
     made.append("config.png")
+
+    # ①a 设置页（R4.1：config 之后进/出——改键两列＋键帽入图）
+    from sovs.ui.settings_page import close_settings, open_settings
+    open_settings(win)
+    win.snapshot(os.path.join(out_dir, "settings.png"))
+    made.append("settings.png")
+    close_settings(win)
 
     # ①b 卡组编辑器页（GP-01 §7 M4——deck_edit 页 screenshot 自检锚；目录装填+
     # 现势校验回填与 deck_editor_page.open_deck_editor 同口径——卡池页签/两池
@@ -144,6 +160,27 @@ def screenshot(out_dir: str, seed: int = 42, deck: str = "su_min",
         return 1
     win.snapshot(os.path.join(out_dir, "battle.png"))
     made.append("battle.png")
+
+    # ③b ALT 视线页（FE-05 F6）：按住态+选区+鼠标位→视野圈+视线/遮拦标注
+    win._los_hold = True
+    win._mouse_xy = win.cm_to_px(100000, 52000)
+    win.snapshot(os.path.join(out_dir, "los.png"))
+    made.append("los.png")
+    win._los_hold = False
+    win._mouse_xy = None
+
+    # ③b-2 R6 hero 镜头（10 图之外）：推进至战斗约 3~4 分钟（t≈2400），镜头
+    # 对准克伦基村 (108000,64000) cam_scale≈0.012——双方单位村南/村内可见。
+    while session.world.tick < 2400:
+        pilot.step()
+        session.advance(1)
+    win.refresh()
+    win.cam_cx, win.cam_cy = 108000, 64000
+    win.cam_scale = 0.012
+    win._clamp_camera()
+    win.snapshot(os.path.join(out_dir, "hero.png"))
+    win.fsm.clear_selection()
+    win._layout_buttons()
 
     # ④ 结算屏（读帧 result——D031 三级裁决证据）
     while session.world.phase != 2:                      # PHASE_SETTLE

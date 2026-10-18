@@ -76,7 +76,8 @@ def draw_fm_panel(win) -> None:
     if armed not in ("fire_mission", "strike", "drop"):
         return
     x0, y0, x1, y1 = fm_panel_geom(win)
-    arcade.draw_lrbt_rectangle_filled(x0, x1, y0, y1, FM_PANEL_BG)
+    from . import assets
+    assets.skin_fill((x0, y0, x1, y1), "panel_fm", FM_PANEL_BG)  # F8 皮肤
     arcade.draw_lrbt_rectangle_outline(x0, x1, y0, y1, ORDER_TEXT, 1)
     if armed == "fire_mission":
         p = win.fsm.fm_params

@@ -60,9 +60,11 @@ def draw_top_bar(win) -> None:
     """顶栏（§11 断箭式重排，实机参照 out/refs/ba_shot4.jpg；BA 复刻轮
     2026-10-15 左上角加增援点数块）：左上=空援点数（黄大字——BA 增援点数
     位）＋相位/速度徽标＋操作提示；中央=大计时＋双方点数＋占点指示行；
-    右=冷却流。量尺 TOP_H=56 双行。"""
-    arcade.draw_lrbt_rectangle_filled(0, win.width, win.height - TOP_H,
-                                      win.height, HUD_PANEL)
+    右=冷却流。量尺 TOP_H=56 双行。
+    〔FE-05 F8：底板 panel_topbar 九宫格＋中央计时 chip_timer（缺图回退纯色）。〕"""
+    from . import assets
+    assets.skin_fill((0, win.height - TOP_H, win.width, win.height),
+                     "panel_topbar", HUD_PANEL)
     frame = win.frame
     phase = str(frame.get("phase", "?"))
     col = PHASE_COLORS.get(phase, HUD_TEXT)
@@ -84,6 +86,8 @@ def draw_top_bar(win) -> None:
         clock = "%02d:%02d" % (left // 600, (left // 10) % 60)
     if win.fsm.page in ("deploy", "battle") and not win.ctrl.playing:
         clock = "|| " + clock              # 暂停徽标并入计时（暂停零反馈 P2）
+    assets.skin_fill((cx - 70, y1 - 7, cx + 70, y1 + 28), "chip_timer",
+                     (0, 0, 0, 0))         # F8 计时 chip（R2：内缩 2px——白框收敛）
     if own is not None:
         oc = TEAM_COLORS.get(view, HUD_TEXT)
         # 己方点数块＝敌方镜像（数字左锚定界+色块贴右；原色块宽随 text_width
@@ -229,7 +233,10 @@ def phase_label(phase: str) -> str:
 # ── 结算面（GP-01 §5.2 拆分自 shell_window——结算 HUD 家族）──
 
 def draw_settle_panel(win, result: dict | None) -> None:
-    """结算屏：读帧 result（D031 三级裁决证据）。"""
+    """结算屏：读帧 result（D031 三级裁决证据）。
+    〔FE-05 F8：banner_win_*/banner_draw 横幅＋badge_* 徽记＋row_* 行标
+    （缺图回退纯文字——几何零变）。〕"""
+    from . import assets
     w, h = 560, 240
     x0, y0 = (win.width - w) // 2, (win.height - h) // 2
     arcade.draw_lrbt_rectangle_filled(x0, x0 + w, y0, y0 + h, (10, 12, 10, 242))
@@ -242,21 +249,36 @@ def draw_settle_panel(win, result: dict | None) -> None:
     winner = result.get("winner")
     if winner is None:
         title, tcol = "平局", HUD_TEXT
+        banner = assets.settle_tex("banner_draw")
+        badge = assets.settle_tex("badge_draw")
     else:
         title = "%s 胜" % TEAM_NAMES.get(winner, "队%d" % winner)
         tcol = arcade.color.WHITE
+        banner = assets.settle_tex("banner_win_red" if winner == 0
+                                   else "banner_win_blue")
+        badge = assets.settle_tex("badge_victory")
+    if banner is not None:                          # F8：胜方横幅（题上带）
+        arcade.draw_texture_rect(banner, arcade.XYWH(win.width / 2,
+                                                     y0 + h - 16, 300, 24))
+    if badge is not None:                           # F8：徽记（题左侧）
+        arcade.draw_texture_rect(badge, arcade.XYWH(win.width / 2 - 160,
+                                                    y0 + h - 44, 24, 24))
     arcade.draw_text("== 结算：%s ==" % title, win.width / 2, y0 + h - 46,
                      tcol, 22, anchor_x="center")
 
-    def _row(label, vals, yy):
+    def _row(label, vals, yy, icon):
+        ic = assets.settle_tex(icon)                # F8：行标（缺图纯文字）
+        if ic is not None:
+            arcade.draw_texture_rect(ic, arcade.XYWH(x0 + 12, yy + 6, 14, 14))
         arcade.draw_text(label, x0 + 28, yy, HUD_TEXT, 13)
         arcade.draw_text("红方 %-10s 蓝方 %-10s" % tuple(
             "?" if not vals else v for v in vals[:2]),
             x0 + 268, yy, HUD_TEXT, 13)
 
-    _row("占点分（第一级）", result.get("obj_counts"), y0 + h - 86)
-    _row("剩余单位分值（第二级）", result.get("unit_scores"), y0 + h - 118)
-    _row("剩余总血量（第三级）", result.get("hp_totals"), y0 + h - 150)
+    _row("占点分（第一级）", result.get("obj_counts"), y0 + h - 86, "row_obj")
+    _row("剩余单位分值（第二级）", result.get("unit_scores"), y0 + h - 118,
+         "row_units")
+    _row("剩余总血量（第三级）", result.get("hp_totals"), y0 + h - 150, "row_hp")
 
 
 # 结算统计分组（trail kind → 复盘组——GP-01 §4/§6 扩容后全集）

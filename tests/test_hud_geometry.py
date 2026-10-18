@@ -105,9 +105,9 @@ class TestSelectionClusterRightBottom(_HeadlessRulerTestCase):
         x0, y0, x1, y1 = panel_geom(win)
         gx0, gy0, gx1, gy1 = order_panel_rect(win)
         self.assertAlmostEqual(y0, gy1 + 12, places=6)    # 摘要行=格顶+12
-        self.assertEqual(y1 - y0, 64)                     # 行高 64
+        self.assertEqual(y1 - y0, 44)                     # R3 1-2：行高 44（瘦身后）
         self.assertAlmostEqual(x1, _W - 10, places=6)     # 与格右对齐
-        self.assertEqual(x1 - x0, 600)                    # 行宽 600
+        self.assertEqual(x1 - x0, 520)                    # R3 1-2：行宽 520
         self.assertGreater(x0, _W / 2)                    # 全在右半屏=底中空
 
     def test_chips_single_row_inside_strip_capped(self):

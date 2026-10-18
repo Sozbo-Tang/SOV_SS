@@ -24,8 +24,9 @@
 - 其余仲裁 todo_p1 项（B 地面退款／K 全航道扫射／V 两态／O 逐一跳伞+自动
   空投／Z 加力燃油／X 自动触发事件口／C 诱饵／雷达／被动对策／TAB／战中
   呼援／登车／补给三档／补给堆四开关／飞机限制）同由 P1 块收口为 done。
-- deferred 现存 6 条（ALT LOS 视野工具〔2026-10-13 补册〕／弹道红显／APS／通讯
-  标记／收入维护费／损毁回卡组）与 manual_silent 6 条维持仲裁判——非实现面用
+- deferred 现存 5 条（弹道红显〔预览级已落 FE-05 F6，引擎级门维持后置〕／APS／
+  通讯标记／收入维护费／损毁回卡组——ALT LOS 视野工具 2026-10-17 FE-05 F6 翻面
+  done）与 manual_silent 6 条维持仲裁判——非实现面用
   「不存在锚」反向锁死（防半吊子悄悄长出，也防登记蒸发）。
 - **终审修复块（2026-10-13，GP-02 §三 6/8/10/13/14 判「与手册不符且非后置」
   的逐条收口）**：①MMB 相机旋转落地（2D 顶视=绕视口中心的视图旋转——
@@ -154,6 +155,13 @@ SPEC_DONE: tuple[tuple[str, str, str], ...] = (
      "manual.txt:91,544-545「以下为默认值，键位可在设置菜单中修改」——2026-10-14 "
      "设置改键块：主菜单「设置」→settings 页逐命令改键（COMBAT_KEYS 22 键；保留键"
      "黑名单+占用拒绝），持久化 data/gen/keybinds.json（门禁=tests/test_settings_page.py）"),
+    # ── FE-05 F6（2026-10-17）：ALT LOS 翻面 deferred→done ──
+    ("ALT", "basics/LOS 视野工具（选中队→光标视线可视）",
+     "basics:247「Hold Alt key to display the line of sight tool」——FE-05 F6 "
+     "落地：LALT/RALT 按住=视野圈（虚线）＋焦点单位→光标视线（可见白实线/遮拦红"
+     "虚线＋距离 m），判定经 session.los_probe（sensing 森林/烟衰减通道只读复用）；"
+     "火力任务/空袭画线预览端点被遮挡时弹道段红显＋「遮拦」标（los_overlay）；"
+     "门禁=tests/test_los_overlay.py"),
 )
 
 # 走样登记（终审修复块 2026-10-13 新增分区）：题材/范围硬冲突的显式在册登记
@@ -166,11 +174,10 @@ SPEC_DEVIATED: tuple[tuple[str, str, str], ...] = (
 )
 
 SPEC_DEFERRED: tuple[tuple[str, str, str], ...] = (
-    ("ALT", "basics/LOS 视野工具（选中队→光标视线可视）",
-     "basics:247——后置（终审三轮唯一残留覆盖缺口 2026-10-13 补册：引擎 LOS "
-     "判已有（sensing），缺 ALT 按住时的 UI 叠层可视化，宜与弹道遮拦红显同批"),
     ("随火任务（无独立键）", "ARTILLERY/弹道被遮拦红显告警",
-     "manual.txt:467-471——后置：引擎级 LOS/弹道遮拦可视化，宜与弹道检测同批"),
+     "manual.txt:467-471——后置：引擎级 LOS/弹道遮拦可视化，宜与弹道检测同批"
+     "（FE-05 F6 已落**预览级**红显（los_overlay.annotate_fm_block——K/T 画线端"
+     "点被遮挡提示）；引擎级弹道遮拦门仍后置维持本条"),
     ("图标（全自动）", "ABILITIES/Active protection system（APS）",
      "manual.txt:511-515,basics:337-346——后置：现代装备，1944 题材无对应"),
     ("F1..F4（现 F1=帮助面板）", "HOTKEYS/通讯标记 F1..F4",
@@ -510,9 +517,10 @@ class TestSpecRegistry(unittest.TestCase):
         self.assertEqual(len(MANUAL_SPEC), 66)              # 65＋补给源维修载具 manual_silent＝66
         names = [n for _k, n, _r in MANUAL_SPEC]
         self.assertEqual(len(names), len(set(names)))       # 零重名（防增删互抵）
+        # FE-05 F6（2026-10-17）：ALT LOS deferred→done 翻面——66〔40/5/20/1〕
         self.assertEqual((len(SPEC_DONE), len(SPEC_DEFERRED),
                           len(SPEC_MANUAL_SILENT), len(SPEC_DEVIATED)),
-                         (39, 6, 20, 1))
+                         (40, 5, 20, 1))
 
     def test_deviated_registered_verbatim(self):
         # 防静默蒸发：走样分区逐名在册（题材/范围硬冲突显式登记——增删任一即红；
@@ -522,11 +530,11 @@ class TestSpecRegistry(unittest.TestCase):
             {"deviated/SEAD 反辐射博弈"})
 
     def test_deferred_registered_verbatim(self):
-        # 防静默蒸发：六条后置项逐名在册（增删任一即红；2026-10-13 ALT LOS 补册）
+        # 防静默蒸发：五条后置项逐名在册（增删任一即红；2026-10-13 ALT LOS 补册
+        # →2026-10-17 FE-05 F6 翻面 done 出册）
         self.assertEqual(
             {n for _k, n, _r in SPEC_DEFERRED},
-            {"basics/LOS 视野工具（选中队→光标视线可视）",
-             "ARTILLERY/弹道被遮拦红显告警",
+            {"ARTILLERY/弹道被遮拦红显告警",
              "ABILITIES/Active protection system（APS）",
              "HOTKEYS/通讯标记 F1..F4",
              "basics/Income & Upkeep（收入/维护费）",
@@ -1685,15 +1693,12 @@ class TestDeferredNotImplemented(unittest.TestCase):
             world_tick(w)
         self.assertEqual(w.players[0].points, pts0)
 
-    def test_alt_los_tool_absent(self):
-        # basics:247「Hold Alt key to display the line of sight tool」——
-        # ALT LOS 后置项的不存在锚（终审第四批补：登记面补册后本类原 5 锚对
-        # 6 条目，半吊子 ALT 叠层长出不爆红，与「双保险」自述不符）：ALT 键
-        # 读入在两窗体 0 匹配（arcade 侧 ALT 面=LALT/RALT/MOD_ALT 三型）。
-        for rel in ("sovs/ui/shell_window.py", "sovs/ui/shell_fsm.py"):
-            src = _src(rel)
-            for tok in ("key.ALT", "key.LALT", "key.RALT", "MOD_ALT"):
-                self.assertNotIn(tok, src, (rel, tok))
+    def test_alt_los_tool_present(self):
+        # basics:247 ALT LOS——FE-05 F6（2026-10-17）翻面 done：原「不存在锚」
+        # （ALT 键读入两窗体 0 匹配）随实现转为**正向锚**——LALT/RALT 事件链
+        # 在 shell_window 必须在场（半吊子回退即红）；行为锚=test_los_overlay。
+        self.assertIn("arcade.key.LALT", _src("sovs/ui/shell_window.py"))
+        self.assertIn("arcade.key.RALT", _src("sovs/ui/shell_window.py"))
 
     def test_destroyed_units_do_not_return_to_deck(self):
         # 一命制：购卡扣份后，单位损毁不回补卡组（basics:174-175 后置的行为面）

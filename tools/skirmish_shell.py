@@ -59,7 +59,16 @@ def main(argv=None) -> int:
                     help="KEV 档位：rule=规则兜底（缺省）；local=0.5B 进程内")
     ap.add_argument("--kev-beat", type=int, default=10,
                     help="KEV 决策节拍（tick；缺省 10=1Hz）")
+    ap.add_argument("--start", choices=["menu", "config"], default="menu",
+                    help="交互模式起始页（FE-05 F7：缺省自主菜单；config 跳过）")
+    ap.add_argument("--size", default="1280x800", metavar="WxH",
+                    help="窗口/截图分辨率（R3 1-4：如 1600x900；缺省 1280x800）")
     args = ap.parse_args(argv)
+    try:                                              # R3：WxH 解析（容错回缺省）
+        w, h = args.size.lower().split("x")
+        size = (max(640, int(w)), max(480, int(h)))
+    except ValueError:
+        size = (1280, 800)
     if args.smoke:
         return smoke(seed=args.seed, deck=args.deck, kev=args.kev,
                      beat=args.kev_beat)
@@ -67,9 +76,9 @@ def main(argv=None) -> int:
         return coldstart(seed=args.seed, deck=args.deck, kev=args.kev)
     if args.screenshot:
         return screenshot(args.screenshot, seed=args.seed, deck=args.deck,
-                          kev=args.kev)
+                          kev=args.kev, size=size)
     return interactive(seed=args.seed, deck=args.deck, kev=args.kev,
-                       beat=args.kev_beat)
+                       beat=args.kev_beat, start=args.start, size=size)
 
 
 if __name__ == "__main__":

@@ -205,12 +205,17 @@ class TestSettingsPageRouting(unittest.TestCase):
     def test_on_mouse_press_routes_settings_page(self):
         import re
         src = Path("sovs/ui/shell_window.py").read_text(encoding="utf-8")
-        m = re.search(r'if page in \(([^)]*)\):\s*\n\s*self\._config_click',
-                      src)
-        self.assertIsNotNone(m, "on_mouse_press 页面分流元组未找到")
-        pages = [p.strip().strip('"\'') for p in m.group(1).split(",")]
+        # R4：分流面改经 MENU_PAGES 常量（内含 settings）＋to_design 坐标转换
+        # 后落 self._config_click——锚同步为常量分流形态（锁路由不弱化）
+        m = re.search(r'if page in MENU_PAGES:\s*\n'
+                      r'(?:\s+#[^\n]*\n)*\s*(?:if[^\n]*\n(?:\s+[^\n]*\n)*?)?'
+                      r'\s*self\._config_click', src)
+        self.assertIsNotNone(m, "on_mouse_press 页面分流（MENU_PAGES）未找到")
+        m2 = re.search(r'MENU_PAGES = \(([^)]*)\)', src)
+        self.assertIsNotNone(m2, "MENU_PAGES 常量未找到")
+        pages = [p.strip().strip('"\'') for p in m2.group(1).split(",")]
         self.assertIn("settings", pages,
-                      "settings 不在 _config_click 分流元组（点击被吞）")
+                      "settings 不在 MENU_PAGES 分流（点击被吞）")
 
 
 if __name__ == "__main__":

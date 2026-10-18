@@ -39,7 +39,7 @@ from .types import Building, MovementClass
 
 __all__ = [
     "MapLoaderError", "BuildingSpec", "MapData", "load_map", "load_demo_map",
-    "apply_map", "SUPPORTED_MAP_SCHEMA",
+    "load_map_by_key", "apply_map", "SUPPORTED_MAP_SCHEMA",
 ]
 
 
@@ -209,11 +209,23 @@ def load_map(path: str | Path, cfg: BalanceConfig = CONFIG) -> MapData:
     return _build_map_data(doc, cfg)
 
 
-def load_demo_map(cfg: BalanceConfig = CONFIG) -> MapData:
-    """正式示范图便捷入口（data/gen/map_demo_2km.v1.json——块③整局接入挂点；
-    B 图幅 200000×100000=80×40 瓦片，2026-10-05 发起人默认裁决留痕见 DATA-02 §2）。"""
+def load_map_by_key(map_key: str, cfg: BalanceConfig = CONFIG) -> MapData:
+    """按 map_key 读 data/gen/<key>.v1.json（R5 场景骨架——多图消费入口；
+    map_key 经 _key_str 同款门（公式前缀/结构化分隔符拒）。"""
+    import re as _re
+    if (not isinstance(map_key, str) or map_key == ""
+            or map_key[0] in _FORMULA_PREFIXES
+            or not _re.fullmatch(r"[A-Za-z0-9_]+", map_key)):
+        raise MapLoaderError(f"map_key {map_key!r} 非法（空/公式前缀/非法字符）")
     return load_map(Path(__file__).resolve().parents[2] / "data" / "gen"
-                    / "map_demo_2km.v1.json", cfg)
+                    / f"{map_key}.v1.json", cfg)
+
+
+def load_demo_map(cfg: BalanceConfig = CONFIG) -> MapData:
+    """正式示范图便捷入口（R5 起委托 load_map_by_key——行为不变；
+    data/gen/map_demo_2km.v1.json，B 图幅 200000×100000=80×40 瓦片，
+    2026-10-05 发起人默认裁决留痕见 DATA-02 §2）。"""
+    return load_map_by_key("demo_2km", cfg)
 
 
 def garrison_slots_for(footprint_cm: int, cfg: BalanceConfig = CONFIG) -> int:
