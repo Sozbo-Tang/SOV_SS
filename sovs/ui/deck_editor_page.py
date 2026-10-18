@@ -421,17 +421,17 @@ def handle_deck_edit_button(win, key: str) -> None:
         deck_revalidate(win)
     elif key == "dk_new":
         new_key = ed.new_key()
-        fsm.open_deck_edit({"deck_key": new_key, "faction": state["faction"],
-                            "cards": [], "tab": state["tab"], "errors": []})
+        fsm.deck_edit_reload({"deck_key": new_key, "faction": state["faction"],
+                              "cards": [], "tab": state["tab"], "errors": []})
         deck_revalidate(win)
     elif key == "dk_clone":
         new_key = ed.new_key()
         try:
             ed.clone(old_key, new_key)
             deck = ed.load_deck(new_key)
-            fsm.open_deck_edit({"deck_key": new_key, "faction": deck["faction"],
-                                "cards": deck["cards"], "tab": state["tab"],
-                                "errors": []})
+            fsm.deck_edit_reload({"deck_key": new_key, "faction": deck["faction"],
+                                  "cards": deck["cards"], "tab": state["tab"],
+                                  "errors": []})
             fsm.notify("已克隆为 %s" % new_key)
         except (ValueError, FileNotFoundError) as exc:
             fsm.notify("克隆失败：%s" % exc, tone="error")

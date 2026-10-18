@@ -175,6 +175,52 @@ class TestDeckEditPageFsm(unittest.TestCase):
         self.assertFalse(f.deck_edit["renaming"])
 
 
+class TestDeckEditorNewCloneReload(unittest.TestCase):
+    """2026-10-19 修复回归：编辑器页内点 dk_new/dk_clone 必须有反应。
+
+    旧实现两钮走 fsm.open_deck_edit（config 入口断言），在 deck_edit 页点即
+    AssertionError——真窗事件循环里被 pyglet 吞＝玩家「点击没反应」，且克隆
+    在断言炸之前已落盘、每点一次留一个孤儿卡组。修后经 fsm.deck_edit_reload
+    页内热切换：状态切换可见、克隆落盘与界面同步。"""
+
+    def _win(self):
+        from types import SimpleNamespace
+        from sovs.ui.deck_editor_page import open_deck_editor
+        win = SimpleNamespace(fsm=ShellFsm(),
+                              session=SimpleNamespace(deck_editor=DeckEditor()),
+                              _buttons=[],
+                              _layout_buttons=lambda: None)
+        open_deck_editor(win)                      # 默认页 config→deck_edit
+        return win
+
+    def test_new_button_resets_to_blank_deck(self):
+        from sovs.ui.deck_editor_page import handle_deck_edit_button
+        win = self._win()
+        old_key = win.fsm.deck_edit["deck_key"]
+        handle_deck_edit_button(win, "dk_new")
+        state = win.fsm.deck_edit
+        self.assertEqual(win.fsm.page, "deck_edit")       # 不换页不炸断言
+        self.assertNotEqual(state["deck_key"], old_key)
+        self.assertEqual(state["cards"], [])             # 新建=空卡组
+        self.assertEqual(state["faction"], "SOVIET")     # 阵营/页签携带
+        self.assertFalse(state["renaming"])
+
+    def test_clone_button_reloads_copy_and_files_synced(self):
+        from sovs.ui.deck_editor_page import handle_deck_edit_button
+        win = self._win()
+        old_key = win.fsm.deck_edit["deck_key"]
+        handle_deck_edit_button(win, "dk_clone")
+        state = win.fsm.deck_edit
+        self.assertEqual(win.fsm.page, "deck_edit")
+        self.assertNotEqual(state["deck_key"], old_key)
+        ed = win.session.deck_editor
+        self.assertTrue(ed.json_path(state["deck_key"]).is_file())
+        self.assertEqual(state["cards"], ed.load_deck(old_key)["cards"])
+        self.assertTrue(any("已克隆" in n["text"]
+                            for n in win.fsm.notifications))
+        self.addCleanup(ed.delete, state["deck_key"])    # 界面态与磁盘同步
+
+
 @unittest.skipUnless(HAS_GL_WINDOW, "需 fe 渲染栈且显示会话（pip install -e \".[fe]\"）")
 class TestDeckEditorEventLayer(unittest.TestCase):
     """真实事件层编辑器流（M4 验收锚「编辑器编辑→保存→config 页即时可选」）：

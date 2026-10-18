@@ -532,6 +532,13 @@ class ShellFsm:
         自后端装填；fsm 只持纯数据态）。"""
         assert self.page == "config", "编辑器只允许自 config 页进入（当前 %s）" % self.page
         self.page = "deck_edit"
+        self.deck_edit_reload(state)
+
+    def deck_edit_reload(self, state: dict) -> None:
+        """编辑器页内态热切换（新建/克隆按钮——2026-10-19 修复块：两钮旧走
+        open_deck_edit，在 deck_edit 页点即撞 config 入口断言，真窗事件循环里
+        被 pyglet 吞＝「点击没反应」，且克隆在断言前已落盘留孤儿卡组）。"""
+        assert self.page == "deck_edit", "编辑器页未开（当前 %s）" % self.page
         entry = dict(state)
         entry.setdefault("cards", [])
         entry.setdefault("tab", "")
