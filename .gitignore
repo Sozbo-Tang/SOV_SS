@@ -39,3 +39,4 @@ docs/FE-04*
 tools/img_gen/
 tools/icon_gen/
 out/img_gen/
+tests/test_img_gen*
