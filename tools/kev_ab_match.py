@@ -6,7 +6,6 @@
   squad   AgentSquad（四块角色班组；不带模型=规则班组）
   v2      KevAgentV2（kev 提案+引擎推演校验）
   v3      KevAgentV3（v2+全目标攻击/炮兵打集群/推演位置项/自适应视野）
-  v4      KevAgentV4（第②轮进化）
 
 用法：
   # 规则自检（零模型）：
@@ -124,11 +123,7 @@ def _mk_kind(kind: str, index: int, client, *, anchors, log, gate: float,
         return KevAgentV3(index, client, anchors=anchors, log=log,
                           min_top_prob=gate, eps=eps, horizon=horizon,
                           pos_weight=pos_weight)
-    if kind == "v4":
-        from sovs.ai.agent_v4 import KevAgentV4
-        return KevAgentV4(index, client, anchors=anchors, log=log,
-                          min_top_prob=gate, eps=eps, horizon=horizon)
-    raise SystemExit(f"未知代际: {kind!r}（可选 player/squad/v2/v3/v4）")
+    raise SystemExit(f"未知代际: {kind!r}（可选 player/squad/v2/v3）")
 
 
 def main(argv=None) -> int:
@@ -138,15 +133,15 @@ def main(argv=None) -> int:
     ap.add_argument("--seeds", type=int, nargs="+", default=[11, 12, 13, 14])
     ap.add_argument("--kev-path", default=None)
     ap.add_argument("--a-kind", default="v2",
-                    choices=["player", "squad", "v2", "v3", "v4"])
+                    choices=["player", "squad", "v2", "v3"])
     ap.add_argument("--b-kind", default="player",
-                    choices=["player", "squad", "v2", "v3", "v4"])
+                    choices=["player", "squad", "v2", "v3"])
     ap.add_argument("--a-model", choices=["on", "off"], default="on")
     ap.add_argument("--b-model", choices=["on", "off"], default="off")
     ap.add_argument("--gate", type=float, default=0.0,
                     help="双方置信度门控阈值（0=关）")
     ap.add_argument("--eps", type=float, default=0.0,
-                    help="v2+/v3/v4 推演校验容差（模型提案分 ≥ 最优-eps 则执行模型提案）")
+                    help="v2+/v3 推演校验容差（模型提案分 ≥ 最优-eps 则执行模型提案）")
     ap.add_argument("--horizon", type=int, default=80, help="A 侧推演拍数（战斗类候选）")
     ap.add_argument("--b-horizon", type=int, default=None,
                     help="B 侧推演拍数（缺省=与 A 侧同）")
@@ -156,7 +151,7 @@ def main(argv=None) -> int:
                     help="模型 run id 或本地 runs/ 路径（缺省 jaredpalmer/kev-0.5b）")
     args = ap.parse_args(argv)
 
-    model_kinds = {"player", "squad", "v2", "v3", "v4"}
+    model_kinds = {"player", "squad", "v2", "v3"}
     a_model = args.a_model == "on" and not args.smoke
     b_model = args.b_model == "on" and not args.smoke
     client = None

@@ -530,19 +530,23 @@ class ShellWindow(arcade.Window):
         self.clear(color=BACKGROUND)
         self.render_page()
 
-    def _with_page_camera(self, draw_content) -> None:
+    def _with_page_camera(self, *draw_fns) -> None:
         """R4：菜单族页面内容在设计画布坐标系绘制——1280×800 恒等跳过相机
         （与 R3 前逐像素一致）；异尺寸经 page_fit.camera 缩放居中，退出恢复
-        默认相机（Camera2D 无上下文管理器——arcade 3.3 实证，手动 use）。"""
+        默认相机（Camera2D 无上下文管理器——arcade 3.3 实证，手动 use）。
+        多个绘制件按序同相机内画（页面内容→toast：菜单族 toast 锚设计画布
+        顶带，须与内容同量纲——hud_top.toast_slots）。"""
         from . import page_fit
         if (self.width == page_fit.DESIGN_W
                 and self.height == page_fit.DESIGN_H):
-            draw_content(self)
+            for draw_content in draw_fns:
+                draw_content(self)
             return
         cam = page_fit.camera(self)
         cam.use()
         try:
-            draw_content(self)
+            for draw_content in draw_fns:
+                draw_content(self)
         finally:
             self.default_camera.use()
 
@@ -552,8 +556,7 @@ class ShellWindow(arcade.Window):
             from .menu_page import (draw_menu_background,  # noqa: E402
                                     draw_menu_page)
             draw_menu_background(self)
-            self._with_page_camera(draw_menu_page)
-            draw_toasts(self)
+            self._with_page_camera(draw_menu_page, draw_toasts)
             draw_help_overlay(self)
             draw_exit_confirm(self)
             return
@@ -569,15 +572,13 @@ class ShellWindow(arcade.Window):
             from .deck_editor_page import (draw_deck_background,  # noqa: E402
                                            draw_deck_edit_page)
             draw_deck_background(self)
-            self._with_page_camera(draw_deck_edit_page)
-            draw_toasts(self)
+            self._with_page_camera(draw_deck_edit_page, draw_toasts)
             return
         if page == "settings":
             from .settings_page import (draw_settings_background,  # noqa: E402
                                         draw_settings_page)
             draw_settings_background(self)
-            self._with_page_camera(draw_settings_page)
-            draw_toasts(self)
+            self._with_page_camera(draw_settings_page, draw_toasts)
             return
         draw_scene(self)
         draw_margin_mat(self)

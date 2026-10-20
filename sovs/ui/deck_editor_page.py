@@ -53,6 +53,16 @@ def pool_title_rect(win):
     return (MARGIN + 124, top - 58, MARGIN + 450, top - 42)
 
 
+def deck_title_rect():
+    """编辑器主标题占位带 (x0,y0,x1,y1)（设计画布 y 量纲）：fit_text 限宽 420 居中
+    DESIGN_W/2、基线 top-56 的 18px 文字——含基线上下容差的**满宽**保守矩形
+    （实际 deck_key 更短也不收此带）。与 pool_title_rect 同为几何断言对照面：
+    toast 顶带互斥（2026-10-20 复测报告「其他观察 1」——hud_top.toast_slots）。"""
+    top = page_fit.DESIGN_H - TOP_H
+    return (page_fit.DESIGN_W / 2 - 210, top - 60,
+            page_fit.DESIGN_W / 2 + 210, top - 34)
+
+
 def _draw_pool_thumbnails(win, state) -> None:
     """卡池行缩略图（F5/R1）：行内左端 24×24 贴图＋类别卡框（在卡组内的卡
     用 _selected 框）；缺图/缺框回退（无框=现描边矢量）。标签由
@@ -177,7 +187,8 @@ def draw_deck_edit_page(win) -> None:
     # 主标题下移出类别页签带（原 top-30 与页签 y 带 710..736 重合——长 deck_key
     # 居中后左端被页签挡住，Windows 实测报告③），并 fit_text 限宽 420：居中区
     # 不侵入左栏页签/右栏汇总标题带；改名提示随下移至其下 22px（与中栏首卡
-    # 行同带但 x 区分离——fit 370 同理不溢）
+    # 行同带但 x 区分离——fit 370 同理不溢）。占位带=deck_title_rect（toast 顶带
+    # 互斥断言对照——toast 已改锚页签上方空档，不再压此行）
     arcade.draw_text(fit_text("卡组编辑器：%s（%s）" % (key_disp,
                                                      state.get("faction", "?")),
                               420, 18),

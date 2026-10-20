@@ -4,6 +4,8 @@
 子命令（stdin/stdout 管道面——本工具不做任何文件读写，落盘由调用方
 shell 重定向完成）：
   gen    规则 vs 规则（或变体策略）自对局 → kev.train 训练记录 JSONL（stdout）
+         每局按 side=0/1 各跑一遍、各采一侧决策（对手照常行动不入库；
+         _battle.side=真实行动方，胜者标注据此成立）
          --mode clone  双侧 argmax（行为克隆，label=效用榜首）
          --mode winner 双侧变体策略（效用 softmax 采样），只留胜者侧决策
   stats  从 stdin 读训练记录 → 统计（记录数/角色分布/state 长度抽检）
@@ -90,6 +92,8 @@ class _VariantEngine:
 def _play_one(seed: int, side: int, *, variant: bool):
     """一局规则（或变体）自对局；返回 (胜者 team|None, [该 side 决策记录])。
 
+    只采目标 side 的决策：双方照常对局，非目标侧决策不入库（clone 对
+    side=0/1 各跑一遍、各收一侧）；_battle.side 恒为真实行动方。
     记录形状（kev.data.load_records 兼容 + 战役元数据 _battle）。
     """
     from sovs.ai.actions import build_commands
@@ -117,6 +121,8 @@ def _play_one(seed: int, side: int, *, variant: bool):
             chosen = next(c for c in cands if c.key == chosen_key)
             for cmd in build_commands(world, p, chosen):
                 queue_command(world, cmd)
+            if self.player_index != side:        # 对手照常决策行动，只不入库
+                return chosen
             q: dict = {"type": "choice",
                        "instructions": AgentSquad._INSTRUCTIONS[role],
                        "criteria": options, "label": chosen_key}
@@ -130,7 +136,7 @@ def _play_one(seed: int, side: int, *, variant: bool):
                 q["target"] = {k: round(v / z, 4) for k, v in exps.items()}
             recs.append({"state": self._state(world),
                          "questions": {AgentSquad._QID[role]: q},
-                         "_battle": {"seed": seed, "side": side,
+                         "_battle": {"seed": seed, "side": self.player_index,
                                      "role": role, "tick": world.tick}})
             return chosen
 
@@ -151,10 +157,11 @@ def cmd_gen(args) -> int:
         for side in (0, 1):
             winner, recs = _play_one(seed, side,
                                      variant=args.mode == "winner")
-            if args.mode == "winner" and winner != side:
-                continue                         # 只留胜者侧决策
             for r in recs:
-                r["_battle"]["winner"] = (winner == side)
+                won = winner == r["_battle"]["side"]   # 按记录的真实行动方判
+                if args.mode == "winner" and not won:
+                    continue                           # 只留胜者侧决策
+                r["_battle"]["winner"] = won
                 sys.stdout.write(json.dumps(r, ensure_ascii=False) + "\n")
                 n_rec += 1
         if seed % 10 == 0:

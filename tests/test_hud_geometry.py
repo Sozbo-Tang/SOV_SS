@@ -545,5 +545,125 @@ class TestAirCardThreeStates(_HeadlessRulerTestCase):
         self.assertFalse([b for b in win._buttons if b.key.startswith("airsel:")])
 
 
+class TestMenuToastBandClearOfPageChrome(_HeadlessRulerTestCase):
+    """〔2026-10-20 复测报告「其他观察 1」〕菜单族 toast 锚设计画布顶带（hud_top
+    .toast_slots）——与编辑器主标题/卡池标题/页签/全部按钮/页脚互斥的几何门禁，
+    1280×800 与 1600×900 两档纯计算（设计系＋屏幕投影两系都断）。修前视口顶缘
+    屏幕锚 t-24-i*20 随窗放大相对设计画布下探：1600×900 第二条底衬 786..805 压
+    标题带屏幕投影 770..799（报告 deck_new.png：两条 toast 盖新卡组标题）；
+    1280×800 首条 706..725 已擦标题上缘并入页签带 710..736。绘制与断言共用
+    同一份摆位算法；战斗族仍走视口顶缘旧式（逐值锚定）。"""
+
+    _SIZES = ((1280, 800), (1600, 900))
+    _TEXTS = ("已克隆为 custom_2",
+              "已保存并编译 custom_2（config 页即时可选）",
+              "存在违规条目，保存禁用")
+
+    @staticmethod
+    def _viewport(w, h):
+        """scene.viewport_px 菜单族口径（left=MARGIN）——修前 toast 的屏幕锚源。"""
+        from sovs.ui.palette import TOP_H
+        return (MARGIN, MARGIN, w - MARGIN, h - TOP_H - MARGIN)
+
+    @staticmethod
+    def _to_screen(rect, w, h):
+        """设计画布矩形 → 屏幕（page_fit 等比居中：scale＋letterbox 偏移，纯算术）。"""
+        from sovs.ui import page_fit
+        s = page_fit.scale(SimpleNamespace(width=w, height=h))
+        ox = (w - page_fit.DESIGN_W * s) / 2
+        oy = (h - page_fit.DESIGN_H * s) / 2
+        return (rect[0] * s + ox, rect[1] * s + oy,
+                rect[2] * s + ox, rect[3] * s + oy)
+
+    @staticmethod
+    def _deck_edit_win():
+        from sovs.ui.deck_editor_page import layout_deck_edit_page
+        fsm = ShellFsm()
+        fsm.open_deck_edit({"deck_key": "custom_2", "faction": "SOVIET",
+                            "cards": [("SU_RIFLE", 1)], "tab": "INFANTRY",
+                            "errors": []})
+        win = SimpleNamespace(width=_W, height=_H, fsm=fsm, _buttons=[],
+                              _deck_catalog=[{"card_key": "SU_RIFLE",
+                                              "faction": "SOVIET",
+                                              "category": "INFANTRY",
+                                              "name": "步枪班", "cost": 5,
+                                              "per_card_limit": 9,
+                                              "quota_group": "NONE"}])
+        layout_deck_edit_page(win)
+        return win
+
+    def test_design_page_set_matches_shell_window_menu_pages(self):
+        # 两处并列常量等值（hud_top 被 shell_window 顶层 import，无法反向引用）
+        from sovs.ui.hud_top import TOAST_DESIGN_PAGES
+        from sovs.ui.shell_window import MENU_PAGES
+        self.assertEqual(set(TOAST_DESIGN_PAGES), set(MENU_PAGES))
+        self.assertIn("deck_edit", TOAST_DESIGN_PAGES)
+
+    def test_editor_chrome_clear_of_toasts_both_resolutions(self):
+        from sovs.ui.deck_editor_page import deck_title_rect, pool_title_rect
+        from sovs.ui.hud_top import toast_slots
+        win = self._deck_edit_win()
+        title = deck_title_rect()
+        chrome = {"主标题": title, "卡池标题": pool_title_rect(win),
+                  "页脚两行": (MARGIN, MARGIN + 26, _W - MARGIN, MARGIN + 66)}
+        chrome.update({b.key: _rect(b) for b in win._buttons})
+        self.assertIn("dk_tab_INFANTRY", chrome)      # 页签/动作行在册（前提锚）
+        self.assertIn("dk_save", chrome)
+        tab_top = max(b.yt for b in win._buttons if b.key.startswith("dk_tab_"))
+        per_size = []
+        for w, h in self._SIZES:
+            with self.subTest(size=(w, h)):
+                slots = toast_slots("deck_edit", self._viewport(w, h), self._TEXTS)
+                self.assertEqual(len(slots), 3)
+                strips = [s[:4] for s in slots]
+                per_size.append(strips)
+                for i, r in enumerate(strips):
+                    # 顶带：页签带之上、设计画布上缘之内（三行全在空档）
+                    self.assertGreaterEqual(r[1], tab_top, "toast%d %r 侵入页签带" % (i, r))
+                    self.assertLessEqual(r[3], _H, "toast%d %r 越画布上缘" % (i, r))
+                    self.assertGreaterEqual(r[0], 0)
+                    self.assertLessEqual(r[2], _W)
+                    for name, c in chrome.items():
+                        self.assertFalse(_overlap(r, c),
+                                         "toast%d %r ∩ %s %r（设计系）" % (i, r, name, c))
+                        self.assertFalse(_overlap(self._to_screen(r, w, h),
+                                                  self._to_screen(c, w, h)),
+                                         "toast%d ∩ %s（%dx%d 屏幕投影）" % (i, name, w, h))
+                for a, b in zip(strips, strips[1:]):       # 行间不叠
+                    self.assertLessEqual(b[3], a[1])
+        self.assertEqual(per_size[0], per_size[1])      # 菜单族摆位与窗口尺寸解耦
+
+    def test_legacy_screen_anchor_would_overlap_title_at_1600(self):
+        """门禁非空：修前式（=战斗族视口顶缘锚）套在编辑器页，1600×900 两条
+        toast 第二条底衬必压标题带屏幕投影——本门禁对该回退可辨。"""
+        from sovs.ui.deck_editor_page import deck_title_rect
+        from sovs.ui.hud_top import toast_slots
+        w, h = 1600, 900
+        legacy = [s[:4] for s in toast_slots("battle", self._viewport(w, h),
+                                              self._TEXTS[:2])]
+        title_px = self._to_screen(deck_title_rect(), w, h)
+        self.assertTrue(_overlap(legacy[1], title_px), (legacy[1], title_px))
+
+    def test_battle_pages_keep_viewport_top_anchor(self):
+        # 战斗族 HUD 口径逐值不动：y=t-24-i*20、底衬 y-4..y+15、中置 (l+r)/2、
+        # 宽=量尺+18；超 3 行截断
+        from sovs.ui.hud_top import toast_slots
+        for page in ("deploy", "battle", "settle"):
+            for w, h in self._SIZES:
+                vp = self._viewport(w, h)
+                l, _b, r, t = vp
+                slots = toast_slots(page, vp, self._TEXTS)
+                self.assertEqual(len(slots), 3, page)
+                for i, (x0, y0, x1, y1, cx, y) in enumerate(slots):
+                    self.assertAlmostEqual(y, t - 24 - i * 20, msg=(page, w, h, i))
+                    self.assertAlmostEqual(cx, (l + r) / 2)
+                    self.assertAlmostEqual(y0, y - 4)
+                    self.assertAlmostEqual(y1, y + 15)
+                    self.assertAlmostEqual(x1 - x0, self.width(self._TEXTS[i], 13) + 18)
+                    self.assertAlmostEqual((x0 + x1) / 2, cx)
+        self.assertEqual(len(toast_slots("battle", self._viewport(_W, _H),
+                                         self._TEXTS * 2)), 3)
+
+
 if __name__ == "__main__":
     unittest.main()

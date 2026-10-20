@@ -278,6 +278,93 @@ class TestDeckEditorEventLayer(unittest.TestCase):
             except (FileNotFoundError, ValueError):
                 pass
 
+    def test_clone_save_new_toasts_clear_of_title_at_1600x900(self):
+        """2026-10-20 复测报告「其他观察 1」回归（1600×900 真事件层，点击经
+        page_fit 屏幕→设计转换）：复制→保存→立即新建后『已克隆』『已保存并编译』
+        两条 toast 同屏、页面仍 deck_edit，toast 底衬与新卡组标题带互斥；渲染
+        接线锁定——toast 底衬在页面相机激活期内绘制（相机外=回退屏幕锚即红）
+        且实参与 hud_top.toast_slots 逐值相等。"""
+        import unittest.mock as mock
+        import arcade
+        from sovs.app.session import SkirmishSession
+        from sovs.ui import page_fit
+        from sovs.ui.deck_editor_page import deck_title_rect
+        from sovs.ui.hud_top import toast_slots
+        from sovs.ui.shell_window import ShellWindow
+
+        session = SkirmishSession(seed=42)
+        ed = session.deck_editor
+        before = set(ed.list_decks())
+        win = ShellWindow(session, visible=False, width=1600, height=900)
+        L = arcade.MOUSE_BUTTON_LEFT
+
+        def click(key):
+            btn = next(b for b in win._buttons if b.key == key)
+            sx, sy = page_fit.camera(win).project(      # 设计系钮心→屏幕坐标
+                ((btn.x0 + btn.x1) / 2, (btn.yb + btn.yt) / 2))
+            win.on_mouse_press(sx, sy, L, 0)
+
+        def overlap(a, b):
+            return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+        try:
+            self.assertEqual((win.width, win.height), (1600, 900))
+            click("deck_edit")
+            self.assertEqual(win.fsm.page, "deck_edit")
+            old_key = win.fsm.deck_edit["deck_key"]
+            click("dk_clone")
+            click("dk_save")
+            click("dk_new")
+            self.assertEqual(win.fsm.page, "deck_edit")
+            self.assertNotEqual(win.fsm.deck_edit["deck_key"], old_key)
+            self.assertEqual(win.fsm.deck_edit["cards"], [])
+            texts = [n["text"] for n in win.fsm.notifications]
+            self.assertTrue(any("已克隆" in t for t in texts), texts)
+            self.assertTrue(any("已保存并编译" in t for t in texts), texts)
+            title = deck_title_rect()
+            slots = toast_slots("deck_edit", win._viewport_px(), texts)
+            self.assertEqual(len(slots), 2)
+            for i, s in enumerate(slots):
+                self.assertFalse(overlap(s[:4], title),
+                                 "toast%d %r ∩ 标题 %r" % (i, s[:4], title))
+            # 绘制面接线：toast 底衬须在**页面相机**激活期内绘制（与页面内容同
+            # 设计画布量纲——toast_slots 按页名给设计系坐标，实参数字本身辨不出
+            # 相机，故记 use() 与绘制调用的先后序）；实参（arcade 序 l,r,b,t）
+            # 与 toast_slots 逐值相等
+            page_cam = page_fit.camera(win)
+            log = []
+            orig_use = {cls: cls.use for cls in
+                        {arcade.Camera2D, type(win.default_camera)}}
+
+            def spy_use(cam):
+                log.append(("cam", cam))
+                return orig_use[type(cam)](cam)
+
+            def spy_rect(*args, **kwargs):
+                log.append(("rect", args))
+
+            with mock.patch.object(arcade, "draw_lrbt_rectangle_filled", spy_rect), \
+                    mock.patch.object(arcade.Camera2D, "use", spy_use), \
+                    mock.patch.object(type(win.default_camera), "use", spy_use):
+                win.render_page()
+            active, drawn = None, []
+            for kind, v in log:
+                if kind == "cam":
+                    active = v
+                elif len(v) >= 5 and v[4] == (10, 12, 10, 205):
+                    self.assertIs(active, page_cam, "toast 底衬在页面相机外绘制")
+                    drawn.append((round(v[0], 3), round(v[2], 3),
+                                  round(v[1], 3), round(v[3], 3)))
+            drawn.sort()
+            self.assertEqual(drawn, sorted(tuple(round(v, 3) for v in s[:4])
+                                           for s in slots))
+            for r in drawn:
+                self.assertFalse(overlap(r, title), (r, title))
+        finally:
+            win.close()
+            for key in set(ed.list_decks()) - before:       # 克隆落盘清理
+                ed.delete(key)
+
 
 if __name__ == "__main__":
     unittest.main()

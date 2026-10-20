@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import arcade
 
+from .page_fit import DESIGN_H, DESIGN_W      # noqa: E402（toast 设计画布锚）
 from .palette import (HUD_PANEL, HUD_TEXT, MARGIN, ORDER_ARMED, ORDER_TEXT,  # noqa: E402
                       PHASE_COLORS, TEAM_COLORS, TEAM_NAMES, TOAST_ERROR,
                       TOAST_INFO, TOP_H, TOP_SEG_GAP, WARN_RED)
@@ -145,17 +146,51 @@ def draw_top_bar(win) -> None:
         xr -= text_width(seg, 13 if i == 0 else 11) + TOP_SEG_GAP
 
 
-def draw_toasts(win) -> None:
-    """toast 通道：视口顶缘中置红/白字＋深底衬条（battle.png 复检②——文字压
-    地图图元时可读；行距 20px 只承载互异的行，同文重复已在 fsm.notify 聚合）。"""
-    l, b, r, t = win._viewport_px()
+# toast 锚点分流（2026-10-20 复测报告「其他观察 1」治本）：菜单族四页 toast 随
+# 页面内容锚**设计画布顶带**——页签/标题上方 740..799 的空档（原视口顶缘屏幕
+# 锚 t-24 随窗放大相对设计画布下探：1600×900 第二条底衬屏幕 786..805 压编辑器
+# 标题带屏幕投影 770..799；1280×800 首条 706..725 已擦标题带上缘并入页签带
+# 710..736、第二条 686..705 整压标题 684..710）；战斗族（deploy/battle/settle）
+# 沿视口顶缘 HUD 口径不动。页集=shell_window.MENU_PAGES（彼处为本模块 import
+# 方，顶层反向引用成环故并列——tests/test_hud_geometry 锚两处等值防漂）。
+TOAST_DESIGN_PAGES = ("menu", "config", "deck_edit", "settings")
+_TOAST_MAX_ROWS = 3                   # 同屏行上限
+_TOAST_PITCH = 20                     # 行距（px）
+_TOAST_PAD_X = 18                     # 底衬超出文字两侧的余量（px）
+_MENU_TOAST_TOP = 784                 # 菜单族首行文字 y（设计系）：底衬 780..799
+                                      # 顶贴画布上缘；末行底衬下缘 740 在页签带
+                                      # 710..736 上方 4px（三行 57px 全在空档内）
+
+
+def toast_slots(page: str, viewport, texts) -> list[tuple]:
+    """toast 摆位纯算术（绘制与几何断言共用一份——无 GL 测试复算同式）：返回至多
+    3 行 (x0, y0, x1, y1, cx, y)——前四元=底衬矩形 (l,b,r,t)，cx/y=文字锚。
+    page∈TOAST_DESIGN_PAGES 锚设计画布顶带（l..r=0..DESIGN_W；viewport 仅战斗族
+    消费）；其余沿 viewport 顶缘 y=t-24-i*20、底衬 y-4..y+15（旧式不变）。"""
+    if page in TOAST_DESIGN_PAGES:
+        l, r, t = 0.0, float(DESIGN_W), _MENU_TOAST_TOP + 24.0
+    else:
+        l, _b, r, t = (float(v) for v in viewport)
     cx = (l + r) / 2
-    for i, note in enumerate(win.fsm.notifications[:3]):
+    slots = []
+    for i, text in enumerate(list(texts)[:_TOAST_MAX_ROWS]):
+        w = text_width(text, 13) + _TOAST_PAD_X
+        y = t - 24 - i * _TOAST_PITCH
+        slots.append((cx - w / 2, y - 4, cx + w / 2, y + 15, cx, y))
+    return slots
+
+
+def draw_toasts(win) -> None:
+    """toast 通道：红/白字＋深底衬条（battle.png 复检②——文字压地图图元时可读；
+    行距 20px 只承载互异的行，同文重复已在 fsm.notify 聚合）。摆位经 toast_slots
+    按页分流：菜单族由 render_page 在页面相机内调用（与页面内容同设计画布量纲，
+    两档分辨率同式）；战斗族视口顶缘屏幕锚。"""
+    notes = win.fsm.notifications[:_TOAST_MAX_ROWS]
+    slots = toast_slots(win.fsm.page, win._viewport_px(),
+                        [n["text"] for n in notes])
+    for (x0, y0, x1, y1, cx, y), note in zip(slots, notes):
         col = TOAST_ERROR if note["tone"] == "error" else TOAST_INFO
-        w = text_width(note["text"], 13) + 18
-        y = t - 24 - i * 20
-        arcade.draw_lrbt_rectangle_filled(cx - w / 2, cx + w / 2, y - 4, y + 15,
-                                          (10, 12, 10, 205))
+        arcade.draw_lrbt_rectangle_filled(x0, x1, y0, y1, (10, 12, 10, 205))
         arcade.draw_text(note["text"], cx, y, col, 13, anchor_x="center")
 
 
