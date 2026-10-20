@@ -29,3 +29,13 @@ docs/空中仿真闭环工作流提示词*
 assets/fe/_demo_backup_*/
 # AI 微调训练数据（运行产物，本地保留）
 data/kev_ft/
+# 策划文案与生图管线（白名单收敛：仅代码+所需图片；本地保留）
+docs/GDD-*
+docs/GP-*
+docs/SCN-*
+docs/SOV_SS游戏设计文档*
+docs/FE-02*
+docs/FE-04*
+tools/img_gen/
+tools/icon_gen/
+out/img_gen/
