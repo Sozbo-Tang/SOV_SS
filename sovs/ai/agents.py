@@ -192,8 +192,14 @@ class AgentSquad:
             return
         options = {key: desc for _tpl, key, desc in cands}
         state = self._state(world)
-        chosen_key, source, extra = self._decide(
-                state, "purchase", options, fallback_key=cands[0][1])
+        if getattr(self, "purchase_argmax", False):
+            # 购卡角色委托规则层（FIFO 稳定节奏）：模型购卡序实测为纯噪声
+            # 方差源（76% 偏离且与胜负无关），委托是 agent 角色分工设计。
+            chosen_key, source, extra = cands[0][1], "fallback", {
+                "reason": "purchase-argmax"}
+        else:
+            chosen_key, source, extra = self._decide(
+                    state, "purchase", options, fallback_key=cands[0][1])
         self._tally("deploy", source)     # 购卡节拍归属角色1（排兵布阵）
         if chosen_key is None:
             return
@@ -278,7 +284,7 @@ class AgentSquad:
         self._log.record({
             "label": self.label, "state": state, "kind": self._LOG_KIND[role],
             "tick": world.tick, "phase": phase, "role": role,
-            "source": source, **extra,
+            "source": source, "chosen": chosen_key, **extra,
             "candidates": [{"key": c.key, "desc": c.desc, "utility": c.utility}
                            for c in cands],
             "commands": [describe_command(c) for c in cmds],

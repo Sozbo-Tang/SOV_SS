@@ -27,3 +27,5 @@ docs/空中仿真闭环工作流提示词*
 
 # IMG-GEN demo 替换备份（本地保留，不进仓）
 assets/fe/_demo_backup_*/
+# AI 微调训练数据（运行产物，本地保留）
+data/kev_ft/

@@ -272,12 +272,16 @@ def build_commands(world, player, cand: Candidate):
 def purchase_candidates(world, player_index: int):
     """盲部署相位的购卡候选：[(template, key, desc)]——可负担且有余额的卡组序。
 
+    DELIVERY_AIRDROP_ONLY 空降卡不进候选（cmd_purchase 空裁8 门恒拒——
+    提供引擎必拒的选项=浪费决策拍，2026-10-08 实测模型 7/13 拍被它吞掉）。
     不设 skip 选项：点数花不完的被动等待没有信息量，模型无需该选择
     （HeadlessAI 同款策略：每节拍必购一卡直到买不起）。
     """
     p = world.players[player_index]
     out = []
     for i, slot in enumerate(p.deck_slots):
+        if slot.template.flags & UnitFlag.DELIVERY_AIRDROP_ONLY:
+            continue                       # 购买门恒拒——引擎为假的选项不上桌
         if slot.copies_left > 0 and p.points >= slot.template.cost:
             out.append((slot.template, f"buy_{i}",
                         f"购入 {slot.template.name}（花费 {slot.template.cost} 点，"
@@ -906,3 +910,120 @@ def _dist_cm(a, b) -> int:
     dy = a[1] - b[1]
     # 整数欧氏距离（isqrt 下取整——确定性，无浮点）
     return math.isqrt(dx * dx + dy * dy)
+
+
+def enumerate_candidates_v3(world, player_index: int, *, artillery_issued: set,
+                            enemy_anchor, limit: int = 16) -> list:
+    """v3 候选集（进化代①——Churchill AIIDE 2012 集中火力启发式的候选空间版）：
+    在 v2 全集之上追加 ① 每单位对**第二个**射程内敌目标的攻击候选（集中火力
+    选择空间交推演裁决）；② 炮兵对**可见敌集群质心**的射击候选（v2 只打敌
+    纵深锚点——敌情可见时空炸锚点是浪费）。确定性同 v2（纯排序零掷骰）。"""
+    cands = enumerate_candidates(world, player_index,
+                                 artillery_issued=artillery_issued,
+                                 enemy_anchor=enemy_anchor, limit=10 ** 9)
+    out = list(cands)
+    seen = {c.key for c in out}
+    my_team = world.players[player_index].team
+    mine = [u for u in world.units if u.alive and u.team == my_team]
+    foes = [u for u in world.units
+            if u.alive and u.team != my_team and (u.spotted_mask >> my_team) & 1]
+
+    # ① 第二攻击目标（每单位至多一个补充候选——与首选目标不同的敌单位）
+    for u in mine:
+        max_range = max((ws.template.max_range_cm
+                         for e in u.elements for ws in e.weapon_states),
+                        default=0)
+        if max_range <= 0:
+            continue
+        in_range = sorted((f for f in foes
+                           if f.elements and _dist_cm(u.pos, f.pos) <= max_range),
+                          key=lambda f: (_dist_cm(u.pos, f.pos), f.id))
+        added = 0
+        for foe in in_range:
+            tgt = min(foe.elements, key=lambda e: (e.hp_current, e.id))
+            key = f"atk_u{u.id}_e{tgt.id}"
+            if key in seen:
+                continue
+            shooter = _first_armed_element(u)
+            if shooter is None:
+                break
+            seen.add(key)
+            out.append(Candidate(
+                key=key, kind="attack",
+                desc=f"{u.template.name}(#{u.id}) 转火 {foe.template.name}"
+                     f"(#{foe.id})，距离 {_dist_cm(u.pos, foe.pos)//100}m",
+                utility=39 - _dist_cm(u.pos, foe.pos) // 100_000,
+                params={"unit_id": u.id, "element_id": shooter.id,
+                        "target_unit_id": foe.id, "target_element_id": tgt.id}))
+            added += 1
+            if added >= 1:
+                break
+
+    # ② 炮兵打敌集群质心（有可见敌情时优于炸纵深锚点）
+    if foes:
+        for c in cands:
+            if c.kind == "artillery":
+                cx = sum(f.pos[0] for f in foes) // len(foes)
+                cy = sum(f.pos[1] for f in foes) // len(foes)
+                key = f"arty2_u{c.params['unit_id']}"
+                if key not in seen:
+                    out.append(Candidate(
+                        key=key, kind="artillery",
+                        desc=f"火支(#{c.params['unit_id']}) 向可见敌集群质心 "
+                             f"({cx//100}m,{cy//100}m) 下炮击任务",
+                        utility=54, params={"unit_id": c.params["unit_id"],
+                                            "point": [cx, cy]}))
+                break
+
+    # ③ 攻击最弱单位（Churchill Attack-Weakest）：目标=存活元素血量和最小的
+    #    射程内敌单位（与表序最近者不同的才是新候选）
+    for u in mine:
+        max_range = max((ws.template.max_range_cm
+                         for e in u.elements for ws in e.weapon_states),
+                        default=0)
+        if max_range <= 0:
+            continue
+        in_range = [f for f in foes
+                    if f.elements and _dist_cm(u.pos, f.pos) <= max_range]
+        if not in_range:
+            continue
+        weakest = min(in_range,
+                      key=lambda f: (sum(e.hp_current for e in f.elements),
+                                     f.id))
+        tgt = min(weakest.elements, key=lambda e: (e.hp_current, e.id))
+        key = f"atkw_u{u.id}_e{tgt.id}"
+        if key not in seen:
+            shooter = _first_armed_element(u)
+            if shooter is not None:
+                out.append(Candidate(
+                    key=key, kind="attack",
+                    desc=f"{u.template.name}(#{u.id}) 集火最弱 "
+                         f"{weakest.template.name}(#{weakest.id})，"
+                         f"距离 {_dist_cm(u.pos, weakest.pos)//100}m",
+                    utility=38 - _dist_cm(u.pos, weakest.pos) // 100_000,
+                    params={"unit_id": u.id, "element_id": shooter.id,
+                            "target_unit_id": weakest.id,
+                            "target_element_id": tgt.id}))
+
+    # ④ 残血撤退（kiting 防御面）：血量 <40% 且在敌武器射程内的单位，
+    #    向己方底边撤退候选（效用低于推进——兜底不选，交推演裁决）
+    for u in mine:
+        hp = sum(e.hp_current for e in u.elements)
+        hp_max = sum(e.template.hp_max for e in u.elements)
+        if hp_max <= 0 or hp * 5 >= hp_max * 2:
+            continue
+        near_foe = any(_dist_cm(u.pos, f.pos) <= 120000 for f in foes)
+        if not near_foe or u.moving():
+            continue
+        key = f"retreat_u{u.id}"
+        if key not in seen:
+            ex, ey = world.map_extent
+            home_y = 0 if my_team == 0 else ey
+            out.append(Candidate(
+                key=key, kind="advance",
+                desc=f"{u.template.name}(#{u.id}) 残血撤离火线（退往己方底边）",
+                utility=15, params={"unit_id": u.id,
+                                    "dest": [u.pos[0], home_y]}))
+
+    out.sort(key=lambda c: (-c.utility, c.key))
+    return out[:limit]
