@@ -112,9 +112,11 @@ def draw_air_card(win, ids=None, title=None) -> None:
                 for i in ids if i in sel)
     first = next((sel[i] for i in ids if i in sel), None)
     price = win.session.air_bomb_price(first["template_id"]) if first else 0
-    arcade.draw_text("弹舱 %d 枚×%d 分＝%d 分（投放时扣）"
-                     % (bombs, price, bombs * price), x0 + 8, y0 + 34,
-                     ORDER_ARMED, 12)
+    # fit_text（demo 复检 2026-10-22：弹舱行 216px 卡装不下，右缘出窗截断）
+    arcade.draw_text(fit_text("弹舱 %d 枚×%d 分＝%d 分（投放时扣）"
+                              % (bombs, price, bombs * price),
+                              SEL_PANEL_W - 16, 12),
+                     x0 + 8, y0 + 34, ORDER_ARMED, 12)
     from .hud_bottom import my_air_points
     arcade.draw_text("空援点数 %d" % my_air_points(win), x0 + 8, y0 + 18,
                      HUD_TEXT, 12)

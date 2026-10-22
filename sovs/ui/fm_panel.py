@@ -81,9 +81,11 @@ def draw_fm_panel(win) -> None:
     arcade.draw_lrbt_rectangle_outline(x0, x1, y0, y1, ORDER_TEXT, 1)
     if armed == "fire_mission":
         p = win.fsm.fm_params
-        arcade.draw_text("炮击参数", x0 + 8, y0 + 8, ORDER_ARMED, 13)
+        # 标签/提示行分层（demo 复检 2026-10-22：原 8/2 双行 13px+10px 字面
+        # 相交——标签提到按钮行左空位，提示行留 y0+6）
+        arcade.draw_text("炮击参数", x0 + 8, y0 + 28, ORDER_ARMED, 13)
         hint = "POINT=点地确认｜LINE/CREEP=拖拽画线（超程自动前移提示先行）"
-        arcade.draw_text(hint, x0 + 8, y0 + 2, HUD_TEXT, 10)
+        arcade.draw_text(hint, x0 + 8, y0 + 6, HUD_TEXT, 10)
         note = ("烟幕弹=落 SmokeZone 遮断（60s——断箭 1.1.1 标准）"
                 if p["ammo"] == "SMOKE" else
                 "精确弹=吸附最近本队激光位（N 照射——P1 manual.txt:456-458）"

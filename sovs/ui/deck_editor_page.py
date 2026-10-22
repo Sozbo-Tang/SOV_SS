@@ -248,12 +248,13 @@ def draw_deck_edit_page(win) -> None:
         arcade.draw_text("✗ %s" % err[:86], MARGIN + 130, 66 - i * 18,
                          DECK_BAD, 11)
     # 页脚两行上移出动作按钮带（原 y=44/30——「Deck Code」行 30 落进按钮带
-    # 12..38 被覆盖，Windows 实测报告③；现 54/40 与按钮顶 38 保持 2px 分离）
+    # 12..38 被覆盖，Windows 实测报告③；demo 复检 2026-10-22 实际渲染仍是
+    # 44/30 压按钮顶——按注释口径收至 58/44，与按钮顶 38 净距 6px）
     arcade.draw_text("航空卡不入卡组（独立 %d 空点数池，D038 方案A）；保存=写 "
                      "data/yaml/decks → 就地编译 data/gen/decks → config 页即时可选"
-                     % 750, MARGIN + 4, MARGIN + 44, HUD_TEXT, 10)
+                     % 750, MARGIN + 4, MARGIN + 58, HUD_TEXT, 10)
     arcade.draw_text("Deck Code 分享码后置（本地文件互换=分享面）", MARGIN + 4,
-                     MARGIN + 30, (150, 150, 150, 255), 10)
+                     MARGIN + 44, (150, 150, 150, 255), 10)
     for btn in win._buttons:
         if btn.key.startswith("dk_add_"):
             # R1：卡池行走缩略图按钮（底板＋行内左端缩略图＋标签左对齐自
@@ -293,7 +294,12 @@ def handle_config_click(win, x, y) -> None:
 
 def layout_config_page(win) -> None:
     """config 页命中域：卡组清单（session.deck_list 泛化）/编辑卡组入口/KEV 档/开始。
-    （R4：设计画布坐标。）"""
+    （R4：设计画布坐标。）
+    〔demo 复检 2026-10-22：①卡组>4 折行时行区向下扩张，下方功能钮整列随
+    行数下移 44px/行——修折行（第二行 y390..424）与「编辑卡组」「设置」
+    （y374..408）矩形重叠（按钮按注册序命中，卡组行先注册抢走点击）；
+    ≤4 卡组 dy=0 与旧布局逐位一致。②KEV 档位钮补 focus 选中态——此前两钮
+    恒 normal，当前档位不可辨（demo 视频复检发现）。〕"""
     cx = page_fit.DESIGN_W / 2
     decks = win.session.deck_list()[:6]
     x, y = cx - 330, 430
@@ -305,13 +311,21 @@ def layout_config_page(win) -> None:
         x += 210
         if x > cx + 300:
             x, y = cx - 330, y - 40
-    win._buttons.append(Btn(cx - 330, 374, 200, 34, "deck_edit",
+    dy = -44 * max(0, (len(decks) + 3) // 4 - 1)
+    win._buttons.append(Btn(cx - 330, 374 + dy, 200, 34, "deck_edit",
                             "编辑卡组（新建/改卡）"))
-    win._buttons.append(Btn(cx - 120, 374, 160, 34, "settings",
+    win._buttons.append(Btn(cx - 120, 374 + dy, 160, 34, "settings",
                             "设置（改键）"))
-    win._buttons.append(Btn(cx - 330, 330, 152, 34, "kev_rule", "KEV：规则兜底"))
-    win._buttons.append(Btn(cx - 162, 330, 152, 34, "kev_local", "KEV：0.5B 本地"))
-    win._buttons.append(Btn(cx - 110, 190, 220, 52, "start", "开始部署（Enter）"))
+    win._buttons.append(Btn(cx - 330, 330 + dy, 152, 34, "kev_rule",
+                            "KEV：规则兜底",
+                            tone="focus" if win.fsm.kev_level == "rule"
+                            else "normal"))
+    win._buttons.append(Btn(cx - 162, 330 + dy, 152, 34, "kev_local",
+                            "KEV：0.5B 本地",
+                            tone="focus" if win.fsm.kev_level != "rule"
+                            else "normal"))
+    win._buttons.append(Btn(cx - 110, 190 + dy, 220, 52, "start",
+                            "开始部署（Enter）"))
 
 
 def draw_config_background(win) -> None:

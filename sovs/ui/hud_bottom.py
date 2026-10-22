@@ -413,9 +413,10 @@ def draw_order_panel(win) -> None:
              "precision": "精密打击→点地（靠近激光位；Shift 排队）"}.get(armed)
     if label:
         # BA 复刻轮：待令提示行收进命令格顶与摘要行之间的 12px 缝
-        # （旧 gy1+8 会压摘要行 y0=格顶+12 的上缘）
+        # （旧 gy1+8 会压摘要行 y0=格顶+12 的上缘）。11px 字面（demo 复检
+        # 2026-10-22：BTN_FONT 12px 在 12px 缝里上缘顶进摘要行底边）
         arcade.draw_text("待令：%s（右键/ESC 取消｜Shift+确认=入队续令）" % label,
-                         gx1, gy1 + 1, ORDER_ARMED, BTN_FONT, anchor_x="right")
+                         gx1, gy1 + 2, ORDER_ARMED, 11, anchor_x="right")
     draw_air_rail(win)
 
 

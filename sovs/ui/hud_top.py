@@ -224,10 +224,14 @@ _HELP_KEYS_RIGHT = (
 
 
 def draw_help_overlay(win) -> None:
-    """F1 帮助/键位面板（覆盖层；再按 F1 或 ESC 首层关闭，不阻断其他操作）。"""
+    """F1 帮助/键位面板（覆盖层；再按 F1 或 ESC 首层关闭，不阻断其他操作）。
+    〔demo 复检 2026-10-22：高度随键位行数自适应——键位纠偏块扩到 16 行后
+    固定 h=440 装不下，末两行溢出面板底、注记行与键位行相交。〕"""
     if not win.fsm.help_open:
         return
-    w, h = 860, 440
+    w = 860
+    h = 78 + max(len(_HELP_KEYS_LEFT), len(_HELP_KEYS_RIGHT)) * 30 + 50
+    h = min(h, win.height - 60)
     x0, y0 = (win.width - w) / 2, (win.height - h) / 2
     arcade.draw_lrbt_rectangle_filled(x0, x0 + w, y0, y0 + h, (8, 10, 8, 242))
     arcade.draw_lrbt_rectangle_outline(x0, x0 + w, y0, y0 + h,
