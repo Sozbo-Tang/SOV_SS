@@ -40,3 +40,9 @@ tools/img_gen/
 tools/icon_gen/
 out/img_gen/
 tests/test_img_gen*
+
+# 白名单再收敛（2026-10-22：仅游戏代码+前端美工图片；以下仅本地保留）
+docs/
+TESTER.md
+tools/demo_reel.py
+paper/
